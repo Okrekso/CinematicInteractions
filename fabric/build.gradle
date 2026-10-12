@@ -1,0 +1,214 @@
+plugins {
+    id 'fabric-loom' version '1.16.3'
+}
+
+// One row per supported game version: Fabric API, the Loader the dev run uses, the optional settings mods it compiles
+// against, and the Iris / Sodium builds (Modrinth version ids) a -PwithShaders run puts next to the game.
+def targets = [
+    '1.21':    [api: '0.102.0+1.21',    loader: '0.16.14', cloth: '15.0.140',  menu: '11.0.3'],
+    '1.21.1':  [api: '0.116.17+1.21.1', loader: '0.16.14', cloth: '15.0.140',  menu: '11.0.3'],
+    '1.21.2':  [api: '0.106.1+1.21.2',  loader: '0.16.14', cloth: '16.0.143',  menu: '12.0.0'],
+    '1.21.3':  [api: '0.114.1+1.21.3',  loader: '0.16.14', cloth: '16.0.143',  menu: '12.0.0'],
+    '1.21.4':  [api: '0.119.4+1.21.4',  loader: '0.16.14', cloth: '17.0.144',  menu: '13.0.3'],
+    '1.21.5':  [api: '0.128.2+1.21.5',  loader: '0.16.14', cloth: '18.0.145',  menu: '14.0.0-rc.2'],
+    '1.21.6':  [api: '0.128.2+1.21.6',  loader: '0.16.14', cloth: '19.0.147',  menu: '15.0.2',  iris: 'Rhzf61g1', sodium: '7pwil2dy'],
+    '1.21.7':  [api: '0.129.0+1.21.7',  loader: '0.16.14', cloth: '19.0.147',  menu: '15.0.2',  iris: 'Rhzf61g1', sodium: '7pwil2dy'],
+    '1.21.8':  [api: '0.136.1+1.21.8',  loader: '0.16.14', cloth: '19.0.147',  menu: '15.0.2',  iris: 'Rhzf61g1', sodium: '7pwil2dy'],
+    '1.21.9':  [api: '0.134.1+1.21.9',  loader: '0.17.3',  cloth: '20.0.149',  menu: '16.0.1',  iris: 'a98UkgML', sodium: 'sFfidWgd'],
+    '1.21.10': [api: '0.138.4+1.21.10', loader: '0.17.3',  cloth: '20.0.149',  menu: '16.0.1',  iris: 'a98UkgML', sodium: 'sFfidWgd'],
+    '1.21.11': [api: '0.141.6+1.21.11', loader: '0.17.3',  cloth: '21.11.153', menu: '17.0.1',  iris: 'ka9PDlsN', sodium: 'rkdTcxoT']
+]
+def target = targets[mc_version]
+if (target == null) throw new GradleException("Unsupported Minecraft version: ${mc_version}")
+def order = targets.keySet().toList()
+def atLeast = { String version -> order.indexOf(mc_version) >= order.indexOf(version) }
+
+version = mod_version
+group = 'dev.dyslexic.cinematic'
+base.archivesName = "Cinematic Interaction-Fabric-${mc_version}"
+layout.buildDirectory = file("build/${mc_version}")
+
+repositories {
+    maven { url = 'https://maven.shedaniel.me/' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+}
+dependencies {
+    minecraft "com.mojang:minecraft:${mc_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${target.loader}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${target.api}"
+    modCompileOnly "me.shedaniel.cloth:cloth-config-fabric:${target.cloth}"
+    modCompileOnly "com.terraformersmc:modmenu:${target.menu}"
+    if (project.hasProperty('withSettings')) {
+        modRuntimeOnly "me.shedaniel.cloth:cloth-config-fabric:${target.cloth}"
+        modRuntimeOnly "com.terraformersmc:modmenu:${target.menu}"
+    }
+    if (project.hasProperty('withShaders')) {
+        if (target.iris) {
+            modRuntimeOnly "maven.modrinth:iris:${target.iris}"
+            modRuntimeOnly "maven.modrinth:sodium:${target.sodium}"
+        }
+        modRuntimeOnly files(fileTree("test-mods/${mc_version}") {
+            include '*.jar'
+            // The configured versions already come from Maven; local copies only supply Iris's nested libraries.
+            if (target.iris) exclude 'iris*.jar', 'sodium*.jar'
+        })
+        runtimeOnly files(fileTree("test-mods/${mc_version}/libraries") { include '*.jar' })
+    }
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+}
+
+// Later game versions replace only the files whose Minecraft API changed: a layer applies from its version on, and the
+// latest layer holding a file wins (Java sources, the access widener, the mixin list and other resources alike).
+def layerNames = ['main', '1.21.2', '1.21.4', '1.21.5', '1.21.6', '1.21.9', '1.21.10', '1.21.11'].findAll { it == 'main' || atLeast(it) }
+def latestLayerFile = { String path -> layerNames.reverse().collect { file("src/$it/resources/$path") }.find { it.exists() } }
+def selectedAccessWidener = latestLayerFile('cinematic.accesswidener')
+
+loom {
+    accessWidenerPath = selectedAccessWidener
+    runs {
+        client { client(); runDir "run/${mc_version}/client" }
+        server { server(); runDir "run/${mc_version}/server"; programArg '--nogui' }
+        showcase {
+            client()
+            runDir "run/${mc_version}/${project.hasProperty('withShaders') ? 'showcase-iris' : 'showcase'}"
+            vmArg '-Dcinematic.showcase=true'
+            vmArg "-Dcinematic.showcase.world=cinematic-showcase-${project.findProperty('from') ?: '0'}-${System.currentTimeMillis()}"
+            vmArg "-Dcinematic.showcase.from=${project.findProperty('from') ?: '0'}"
+            vmArg "-Dcinematic.showcase.only=${project.findProperty('only') ?: 'false'}"
+            programArgs '--width', "${project.findProperty('showcaseWidth') ?: '1600'}", '--height', "${project.findProperty('showcaseHeight') ?: '900'}"
+        }
+    }
+}
+
+sourceSets.main.resources {
+    setSrcDirs(layerNames.reverse().collect { "src/$it/resources" } + ['../src/main/resources'])
+    exclude 'META-INF/accesstransformer.cfg', 'META-INF/neoforge.mods.toml', 'cinematic.mixins.json', 'cinematic.accesswidener'
+}
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from selectedAccessWidener
+    inputs.property 'version', project.version
+    inputs.property 'minecraft', mc_version
+    inputs.property 'fabric_api', target.api
+    inputs.property 'loader', target.loader
+    filesMatching('fabric.mod.json') {
+        expand version: project.version, minecraft: mc_version, api: target.api, loader: atLeast('1.21.9') ? target.loader : '0.16.14'
+    }
+}
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+
+// Names newer game versions changed all over the code: the shared sources keep the old ones and are rewritten as they
+// are gathered, so a layer does not need a copy of every file a rename touches. Applied in order, from each version on.
+def sourcePatches = [
+    '1.21.6': [
+        /\.serverLevel\(\)/                                                 : '.level()',
+        /(Screenshot\.grab\([^;]*getMainRenderTarget\(\)), (message -> \{\}\))/: '$1, 1, $2'
+    ],
+    '1.21.9': [
+        // an item model is no longer drawn into a buffer by the item renderer (ItemModels)
+        /mc\.getItemRenderer\(\)\.renderStatic\((\w+), ItemDisplayContext\.FIXED, ([^,]+), ([^,]+), pose, buffers, mc\.level, 0\)/:
+                'ItemModels.drawStatic($1, $2, $3, pose, buffers)',
+        // a map is handed to the features as well, drawn when the scene has finished (SceneRenderer.drawSubmitted)
+        /getMapRenderer\(\)\.render\((\w+), pose, buffers,/                 :
+                'getMapRenderer().render($1, pose, net.minecraft.client.Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher().getSubmitNodeStorage(),',
+        /\.isClientSide\b(?!\()/                                          : '.isClientSide()',
+        /\bp\.getServer\(\)/                                               : 'p.level().getServer()',
+        /(?<![\w.])(?:Screen\.)?has(Shift|Control|Alt)Down\(\)/            : 'net.minecraft.client.Minecraft.getInstance().has$1Down()',
+        /getWindow\(\)\.getWindow\(\)/                                     : 'getWindow()',
+        // skins moved to the game's common code, atlases are looked up by id
+        /import net\.minecraft\.client\.resources\.PlayerSkin;/            : 'import net.minecraft.world.entity.player.PlayerSkin;',
+        /\b(skin|getSkin\(\))\.texture\(\)/                                : '$1.body().texturePath()',
+        /PlayerSkin\.Model\.SLIM/                                          : 'net.minecraft.world.entity.player.PlayerModelType.SLIM',
+        /\bentity\.state\.PlayerRenderState\b/                             : 'entity.state.AvatarRenderState',
+        /getTextureAtlas\(TextureAtlas\.LOCATION_BLOCKS\)\.apply\(/        : 'getAtlasManager().getAtlasOrThrow(net.minecraft.data.AtlasIds.BLOCKS).getSprite(',
+        /getGuiSprites\(\)\.getSprite\(/                                   : 'getAtlasManager().getAtlasOrThrow(net.minecraft.data.AtlasIds.GUI).getSprite(',
+        // keys and the mouse come as events
+        /\.matches\(key, scanCode\)/                                       : '.matches(new net.minecraft.client.input.KeyEvent(key, scanCode, 0))',
+        /(?<!recipeBook)\.(keyPressed|keyReleased)\(([^;]*?), (0|scanCode), (0|modifiers)\)/: '.$1(new net.minecraft.client.input.KeyEvent($2, $3, $4))',
+        /(?<!recipeBook)\.charTyped\((\w+), (\w+)\)/                       : '.charTyped(new net.minecraft.client.input.CharacterEvent($1, $2))',
+        /(?<!recipeBook)\.mouseClicked\(([^,;()]+), ([^,;()]+), ([^,;()]+)\)/:
+                '.mouseClicked(new net.minecraft.client.input.MouseButtonEvent($1, $2, new net.minecraft.client.input.MouseButtonInfo($3, 0)), false)',
+        /\.mouseReleased\(([^,;()]+), ([^,;()]+), ([^,;()]+)\)/             :
+                '.mouseReleased(new net.minecraft.client.input.MouseButtonEvent($1, $2, new net.minecraft.client.input.MouseButtonInfo($3, 0)))',
+        /"key\.categories\.cinematic"\)/                                   : 'CinematicKeys.CATEGORY)'
+    ],
+    '1.21.11': [
+        /\bnet\.minecraft\.resources\.ResourceLocation\b/: 'net.minecraft.resources.Identifier',
+        /\bResourceLocation\b/                            : 'Identifier',
+        /\bnet\.minecraft\.Util\b/                        : 'net.minecraft.util.Util',
+        /\bnet\.minecraft\.client\.model\.PlayerModel\b/: 'net.minecraft.client.model.player.PlayerModel',
+        /\bnet\.minecraft\.world\.level\.GameRules\b/   : 'net.minecraft.world.level.gamerules.GameRules',
+        /GameRules\.RULE_LIMITED_CRAFTING\b/              : 'GameRules.LIMITED_CRAFTING',
+        /getGameRules\(\)\.getBoolean\(/                 : 'getGameRules().get(',
+        /\.id\(\)\.location\(\)/                         : '.id().identifier()',
+        // Camera exposes read-only direction vectors and shorter accessors; entity rotations keep their old names.
+        /(\b(?:camera|levelCamera)|getMainCamera\(\))\.getPosition\(\)/: '$1.position()',
+        /(\b(?:camera|levelCamera)|getMainCamera\(\))\.getYRot\(\)/    : '$1.yRot()',
+        /(\b(?:camera|levelCamera)|getMainCamera\(\))\.getXRot\(\)/    : '$1.xRot()',
+        /\.getLeftVector\(\)/                           : '.leftVector()',
+        /\.getUpVector\(\)/                             : '.upVector()',
+        /\.getLookVector\(\)/                           : '.forwardVector()',
+        /\bVector3f (\w+)(\s*=\s*[^;]*\.(?:left|up|forward)Vector\(\))/:
+                'org.joml.Vector3fc $1$2',
+        // Sampling is separate from GPU texture storage: book pages retain nearest-neighbour filtering.
+        /texture\.setTextureFilter\(FilterMode\.NEAREST, false\)/:
+                'sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST)',
+        /\.withPermission\(4\)/:
+                '.withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.OWNER)',
+        // The development world's lighting and weather must stay fixed just like the NeoForge reference.
+        /gamerule doDaylightCycle /                       : 'gamerule advance_time ',
+        /gamerule doWeatherCycle /                        : 'gamerule advance_weather ',
+        /gamerule doMobSpawning /                         : 'gamerule spawn_mobs ',
+        /gamerule announceAdvancements /                  : 'gamerule show_advancement_messages ',
+        // SavedDataType no longer supplies a level context; its codec still uses the owning world's registries.
+        /context -> new TableStore\(\), context -> CompoundTag\.CODEC\.xmap\(/:
+                'TableStore::new, CompoundTag.CODEC.xmap(',
+        /tag -> load\(tag, context\.levelOrThrow\(\)\.registryAccess\(\)\)/:
+                'tag -> load(tag, level.registryAccess())',
+        /store -> store\.save\(new CompoundTag\(\), context\.levelOrThrow\(\)\.registryAccess\(\)\)/:
+                'store -> store.save(new CompoundTag(), level.registryAccess())',
+        // Line width is now a vertex attribute, supplied by the shape renderer.
+        /ShapeRenderer\.renderLineBox\(pose\.last\(\), buffers\.getBuffer\(([^;]+\.lines\(\))\), box, 1\.0f, 0\.88f, 0\.6f, 0\.75f\)/:
+                'ShapeRenderer.renderShape(pose, buffers.getBuffer($1), net.minecraft.world.phys.shapes.Shapes.create(box), 0, 0, 0, 0xBFFFE099, 2.5f)',
+        // render types got a package of their own, the vanilla ones are made by RenderTypes
+        /\bnet\.minecraft\.client\.renderer\.RenderType\b/: 'net.minecraft.client.renderer.rendertype.RenderType',
+        /\b(?:net\.minecraft\.client\.renderer\.rendertype\.)?RenderType\.(?!create\b)([a-z]\w*)\(/:
+                'net.minecraft.client.renderer.rendertype.RenderTypes.$1(',
+        /\b(?:net\.minecraft\.client\.renderer\.rendertype\.)?RenderType::([a-z]\w*)/:
+                'net.minecraft.client.renderer.rendertype.RenderTypes::$1'
+    ]
+]
+def renames = sourcePatches.findAll { atLeast(it.key) }.values().inject([:]) { all, patch -> all + patch }
+def layers = layerNames.collect { file("src/$it/java") }
+def generatedJava = layout.buildDirectory.dir('generated/java')
+def prepareVersionSources = tasks.register('prepareVersionSources', Sync) {
+    inputs.property 'renames', renames.collectEntries { k, v -> [(k.toString()): v] }
+    def winners = [:]
+    layers.each { layer ->
+        if (layer.exists()) fileTree(layer).matching { include '**/*.java' }.files.each { source ->
+            winners[layer.toPath().relativize(source.toPath()).toString().replace('\\', '/')] = source
+        }
+    }
+    // Pages have used explicit GPU attachments since 1.21.6; the unused synchronous output hook's target is gone.
+    if (atLeast('1.21.11')) winners.remove('dev/dyslexic/cinematic/mixin/RenderOutputMixin.java')
+    winners.each { relative, source ->
+        from(source) { into new File(relative).parent ?: '' }
+    }
+    if (!renames.isEmpty()) {
+        filter { String line -> renames.inject(line) { text, entry -> text.replaceAll(entry.key, entry.value) } }
+    }
+    into generatedJava
+}
+sourceSets.main.java.setSrcDirs([generatedJava])
+tasks.named('compileJava') { dependsOn prepareVersionSources; mustRunAfter 'genSourcesWithVineflower' }
+tasks.named('sourcesJar') { dependsOn prepareVersionSources; duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs += ['-Xmaxerrs', '300']
+}

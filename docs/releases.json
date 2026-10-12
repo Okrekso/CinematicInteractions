@@ -1,0 +1,132 @@
+[
+  {
+    "loader": "NeoForge",
+    "minecraft": "1.21.1",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.11.2",
+    "tag": "v0.1-neoforge-1.21.1",
+    "filename": "CinematicInteraction-0.1-NeoForge-1.21.1.jar",
+    "sha256": "544e816344bc44d97264988461592f0da4c91f9deb04442f5a1b0f09a00ff16b",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-neoforge-1.21.1/CinematicInteraction-0.1-NeoForge-1.21.1.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.jar",
+    "sha256": "92b813daa191be81b15b571ed4064d0028287ad47dff6b133fa7a935e25f1505",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21/CinematicInteraction-0.1-Fabric-1.21.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.1",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.1",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.1.jar",
+    "sha256": "0d08e45b8432740f4fb9235b7c96ad1c49c64501ae1bf1277783779fb28a9f87",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.1/CinematicInteraction-0.1-Fabric-1.21.1.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.2",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.2",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.2.jar",
+    "sha256": "e476c19e49211063cfb3a3f8136adeb559389314defc05d723452e3df697ad4d",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.2/CinematicInteraction-0.1-Fabric-1.21.2.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.3",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.3",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.3.jar",
+    "sha256": "cb62e5a8404912819b6f1a73b8654ca2c38a8c832b26a242251c7b51b800d37b",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.3/CinematicInteraction-0.1-Fabric-1.21.3.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.4",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.4",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.4.jar",
+    "sha256": "7ebfbcba44e5087c1315fb4c72fb173bf5ce8cc4ae66a675f637c70d8135c100",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.4/CinematicInteraction-0.1-Fabric-1.21.4.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.5",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.5",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.5.jar",
+    "sha256": "f1a87596e937d8858966f78f42c2bedfb02dff39783e3c8e5f64692374f4929d",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.5/CinematicInteraction-0.1-Fabric-1.21.5.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.6",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.6",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.6.jar",
+    "sha256": "135da062eafd1dbff7e8e0b29d5cff0d4283d03f87b1e1080345d2d0326c70aa",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.6/CinematicInteraction-0.1-Fabric-1.21.6.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.7",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.7",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.7.jar",
+    "sha256": "99546bb3e6e265f6b676fedd26d60e3a4e25d938301f5a59dfa215d5bd06bfca",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.7/CinematicInteraction-0.1-Fabric-1.21.7.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.8",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.8",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.8.jar",
+    "sha256": "699b13bb590ef1fd215b3d8208c838ee05512bb0702787b4bc89e2d4a5771bc9",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.8/CinematicInteraction-0.1-Fabric-1.21.8.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.9",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.2",
+    "tag": "v0.1-fabric-1.21.9",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.9.jar",
+    "sha256": "f6eb018f27f5ca7832a14529f72361b9461a0a6b257f8909f3d91b484928b6ff",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.9/CinematicInteraction-0.1-Fabric-1.21.9.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.10",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.3",
+    "tag": "v0.1-fabric-1.21.10",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.10.jar",
+    "sha256": "100a9b248c336104709ac2f078db901da2698556a9260db22f47dd07909f6f0e",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.10/CinematicInteraction-0.1-Fabric-1.21.10.jar"
+  },
+  {
+    "loader": "Fabric",
+    "minecraft": "1.21.11",
+    "publicVersion": "0.1",
+    "embeddedVersion": "0.12.3",
+    "tag": "v0.1-fabric-1.21.11",
+    "filename": "CinematicInteraction-0.1-Fabric-1.21.11.jar",
+    "sha256": "67a4161cf936df8d36fc7c318812face329136ee723fd910e6c8feafbfa322f4",
+    "download": "https://github.com/dcvke/CinematicInteractions/releases/download/v0.1-fabric-1.21.11/CinematicInteraction-0.1-Fabric-1.21.11.jar"
+  }
+]

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "📚 Installation and player guide"
+    url: https://github.com/dcvke/CinematicInteractions/blob/main/docs/wiki/Home.md
+    about: Read the installation, controls, settings, and troubleshooting guides.
+  - name: "📦 Download a build"
+    url: https://github.com/dcvke/CinematicInteractions/releases
+    about: Choose the exact Minecraft version and loader you use.

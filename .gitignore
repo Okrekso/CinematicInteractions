@@ -1,0 +1,43 @@
+# Build output, caches, and local IDE state
+**/.gradle/
+**/build/
+**/out/
+**/bin/
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.DS_Store
+Thumbs.db
+
+# Game instances, local downloads, reference sources, and release binaries
+**/run/
+run-showcase*/
+refs/
+release/
+fabric/test-mods/
+.codex-remote-attachments/
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+!fabric/gradle/wrapper/gradle-wrapper.jar
+*.log
+*.hprof
+*.jfr
+hs_err_pid*
+**/src/generated/**/.cache/
+
+# Credentials and machine-specific settings
+.env
+.env.*
+!.env.example
+local.properties
+*.pem
+*.key
+
+# Python helper caches
+__pycache__/
+*.py[cod]

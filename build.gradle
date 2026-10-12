@@ -1,0 +1,108 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+    id 'idea'
+}
+
+tasks.named('wrapper', Wrapper).configure {
+    distributionType = Wrapper.DistributionType.BIN
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    // the jar's name as the owner wants to see it in the mods folder (the mod's id stays "cinematic")
+    archivesName = 'Cinematic Interaction'
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+neoForge {
+    version = project.neo_version
+
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+
+    runs {
+        client {
+            client()
+        }
+
+        server {
+            server()
+            programArgument '--nogui'
+        }
+
+        // Development-only scripted walkthrough of every station (tools/showcase.sh); screenshots go to run-showcase/screenshots.
+        showcase {
+            client()
+            gameDirectory = project.file('run-showcase')
+            systemProperty 'cinematic.showcase', 'true'
+            systemProperty 'cinematic.showcase.from', (project.findProperty('from') ?: '0').toString()
+            systemProperty 'cinematic.showcase.only', (project.findProperty('only') ?: 'false').toString()
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
+        // Same walkthrough with Sodium + Iris and a shader pack (jars dropped into run-showcase-iris/mods).
+        showcaseIris {
+            client()
+            gameDirectory = project.file('run-showcase-iris')
+            systemProperty 'cinematic.showcase', 'true'
+            systemProperty 'cinematic.showcase.from', (project.findProperty('from') ?: '0').toString()
+            systemProperty 'cinematic.showcase.only', (project.findProperty('only') ?: 'false').toString()
+            programArguments.addAll '--width', '1600', '--height', '900'
+        }
+
+        configureEach {
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+repositories {
+    // Cloth Config: the settings screen when it is installed (optional; without it NeoForge's own screen is used)
+    maven { url = 'https://maven.shedaniel.me/' }
+}
+
+dependencies {
+    compileOnly "me.shedaniel.cloth:cloth-config-neoforge:${cloth_config_version}"
+}
+
+var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    var replaceProperties = [
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            neo_version            : neo_version,
+            loader_version_range   : loader_version_range,
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_license            : mod_license,
+            mod_version            : mod_version,
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from "src/main/templates"
+    into "build/generated/sources/modMetadata"
+}
+sourceSets.main.resources.srcDir generateModMetadata
+neoForge.ideSyncTask generateModMetadata
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+idea {
+    module {
+        downloadSources = true
+        downloadJavadoc = true
+    }
+}

@@ -1,0 +1,69 @@
+name: "🐛 Bug report"
+description: Report a gameplay, animation, camera, rendering, or compatibility problem.
+title: "[Bug] "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for helping improve Cinematic Interactions. English and Russian reports are welcome."
+  - type: dropdown
+    id: loader
+    attributes:
+      label: Mod loader
+      options: [Fabric, NeoForge]
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Minecraft, loader, and mod versions
+      description: Use the mod version shown in the mod list, not only the downloaded filename.
+      placeholder: "Minecraft 1.21.11 / Fabric Loader 0.17.3 / Cinematic 0.12.3 / Fabric API 0.141.6"
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where does it happen?
+      options: [Singleplayer, Multiplayer, Both]
+    validations:
+      required: true
+  - type: input
+    id: station
+    attributes:
+      label: Affected station or feature
+      placeholder: "Anvil, recipe guide, station transition…"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. Place…
+2. Interact…
+3. Observe…"
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: rendering
+    attributes:
+      label: Rendering mods, shaders, resource packs, and settings
+      description: Include versions and whether the problem also happens without shaders. Mention changed camera/scene settings.
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots, video, or logs
+      description: Drag files here or link them. Remove personal details from logs before sharing.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked for an existing report of the same problem.
+          required: true
+        - label: The installed JAR matches my Minecraft version and loader.
+          required: true

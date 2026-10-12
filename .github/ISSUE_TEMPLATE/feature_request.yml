@@ -1,0 +1,24 @@
+name: "💡 Feature request"
+description: Suggest a station, interaction, visual improvement, or setting.
+title: "[Idea] "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would this improve?
+      description: Explain the player's need or the situation you want to improve.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Describe the interaction
+      description: What does the player do, and what should happen on screen?
+    validations:
+      required: true
+  - type: textarea
+    id: reference
+    attributes:
+      label: References or alternatives
+      description: Optional sketches, screenshots, videos, or other ways to solve it.

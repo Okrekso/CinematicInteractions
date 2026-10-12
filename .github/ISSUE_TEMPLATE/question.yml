@@ -1,0 +1,18 @@
+name: "❓ Help or question"
+description: Ask about installation, controls, configuration, or development.
+title: "[Question] "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: "Check the guide first: https://github.com/dcvke/CinematicInteractions/blob/main/docs/wiki/Home.md"
+  - type: input
+    id: versions
+    attributes:
+      label: Minecraft version and loader
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
