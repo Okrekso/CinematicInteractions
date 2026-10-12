@@ -1,5 +1,8 @@
 blank_issues_enabled: false
 contact_links:
+  - name: "🗺️ Roadmap and progress"
+    url: https://github.com/dcvke/CinematicInteractions/issues/1
+    about: See released features, open testing work, and ideas under consideration.
   - name: "📚 Installation and player guide"
     url: https://github.com/dcvke/CinematicInteractions/blob/main/docs/wiki/Home.md
     about: Read the installation, controls, settings, and troubleshooting guides.

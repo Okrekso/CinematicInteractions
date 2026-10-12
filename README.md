@@ -97,6 +97,12 @@ The root project targets **NeoForge 1.21.1**. The [`fabric/`](fabric/) project c
 
 On Windows, use `gradlew.bat`. Read the [developer guide](docs/wiki/Development.md), [Fabric build guide](fabric/README.md), and [test coverage](fabric/TESTING.md) before changing version-specific code.
 
+## 🗺️ Roadmap
+
+See what is already available and what may come next in the **[interactive roadmap checklist](https://github.com/dcvke/CinematicInteractions/issues/1)**. It covers released features, further testing, and ideas under consideration. Future ideas have no fixed release dates.
+
+[How to follow and update the roadmap →](docs/wiki/Roadmap.md)
+
 ## 🤝 Help improve the mod
 
 Found a problem? [Open a bug report](https://github.com/dcvke/CinematicInteractions/issues/new?template=bug_report.yml) with the Minecraft version, loader, mod version, and steps to reproduce it. Screenshots or short recordings are especially useful for camera and animation issues. English and Russian reports are welcome.
