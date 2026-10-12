@@ -7,7 +7,7 @@ modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
 logoFile="cinematic_logo.png"
-authors="DyslexicCreate"
+authors="Southware"
 description='''
 First-person cinematic scenes instead of block windows: craft right on the table top, load the furnace by hand, forge at the anvil, read the book on a lectern, sit down by the fire.
 '''

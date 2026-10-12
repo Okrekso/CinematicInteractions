@@ -111,6 +111,6 @@ Have an idea? [Suggest a feature](https://github.com/dcvke/CinematicInteractions
 
 ## 📜 Credits & license
 
-Created by **DyslexicCreate / dcvke**. Original project code is available under the [MIT License](LICENSE). The imported **Just a Hammer** model by **RDiamonds** is licensed under **CC BY 4.0**; attribution, adaptation details, and development disclosures are in [CREDITS.md](CREDITS.md).
+Created and maintained by **[Southware](https://github.com/dcvke)** as a solo project. Original project code is available under the [MIT License](LICENSE). The imported **Just a Hammer** model by **RDiamonds** is licensed under **CC BY 4.0**; attribution, adaptation details, and development disclosures are in [CREDITS.md](CREDITS.md).
 
 Minecraft is a trademark of Mojang Studios. This project is not an official Minecraft product and is not approved by or associated with Mojang or Microsoft.

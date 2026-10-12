@@ -2,6 +2,8 @@
 
 Read README.md, CONTRIBUTING.md, docs/wiki/Development.md, and CREDITS.md before changing the project.
 
+- The sole project author is Southware. Use this name in credits, licenses, documentation, and mod author metadata; keep the existing technical package names.
+
 - This repository contains NeoForge 1.21.1 at the root and Fabric 1.21–1.21.11 in fabric/.
 - NeoForge behavior is the visual and gameplay reference. Keep all affected Fabric overlays consistent when changing shared behavior.
 - Fabric uses the latest matching file from src/main, src/1.21.2, src/1.21.4, src/1.21.5, src/1.21.6, src/1.21.9, src/1.21.10, and src/1.21.11; small API substitutions are in fabric/build.gradle.

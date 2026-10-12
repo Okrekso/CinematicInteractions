@@ -2,6 +2,8 @@
 
 Craft, forge, enchant, brew, and read through first-person scenes directly at Minecraft's workstations.
 
+Created and maintained by **[Southware](https://github.com/dcvke)** as a solo project.
+
 | Guide | What you will find |
 | --- | --- |
 | [Installation](Installation.md) | Supported versions, dependencies, and multiplayer setup |

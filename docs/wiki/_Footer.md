@@ -1,0 +1,1 @@
+Created by [Southware](https://github.com/dcvke) · [Source code](https://github.com/dcvke/CinematicInteractions) · [Releases](https://github.com/dcvke/CinematicInteractions/releases) · [Report an issue](https://github.com/dcvke/CinematicInteractions/issues/new/choose)

@@ -4,7 +4,7 @@
   "version": "${version}",
   "name": "Cinematic Interactions",
   "description": "First-person cinematic interactions with crafting tables, furnaces and other workstations.",
-  "authors": ["DyslexicCreate"],
+  "authors": ["Southware"],
   "license": "MIT",
   "icon": "cinematic_logo.png",
   "environment": "*",

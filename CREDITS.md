@@ -2,7 +2,7 @@
 
 ## Project
 
-**Cinematic Interactions** is maintained by **DyslexicCreate / [dcvke](https://github.com/dcvke)**.
+**Cinematic Interactions** is created and maintained by **[Southware](https://github.com/dcvke)**, an independent developer. This is a solo project.
 The original project code is distributed under the [MIT License](LICENSE). Third-party material retains its own license; the MIT license does not replace the terms below.
 
 ## 🔨 Just a Hammer
