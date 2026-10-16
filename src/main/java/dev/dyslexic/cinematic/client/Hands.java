@@ -203,7 +203,13 @@ public final class Hands {
         if (!held.isEmpty() && itemInHand()) {
             Vec3 hand = leftWorks ? leftHand : rightHand;
             Vec3 at = station.heldItemPoint(hand, shoulder(!leftWorks, camera, cameraYaw));
-            ItemPlacer.renderOne(pose, buffers, camera, held, at, station.sideDirection(), 77L, 1f, station.heldItemTilt(), light);
+            if (station instanceof TableStation) {
+                TableLayouts.current().renderItem(pose, buffers, camera, held, at, station.sideDirection(), 77L, 1f,
+                        station.heldItemTilt(), light, 1, true);
+            } else {
+                ItemPlacer.renderOne(pose, buffers, camera, held, at, station.sideDirection(), 77L,
+                        station instanceof FurnaceStation furnace ? furnace.heldItemScale() : station instanceof SurfaceStation<?> surface ? surface.heldItemScale() : station instanceof SpatialTarget spatial ? spatial.layoutHeldScale() : 1f, station.heldItemTilt(), light);
+            }
         }
     }
 

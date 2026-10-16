@@ -33,7 +33,7 @@ import org.joml.Quaternionf;
  * sink into the gear until the three are one: the new piece, white-hot. It is quenched in a hiss of steam, and the
  * hand takes it. Underneath is the vanilla smithing menu.
  */
-public final class SmithingStation extends MenuStation<SmithingMenu> {
+public final class SmithingStation extends SurfaceStation<SmithingMenu> {
     static final double HAND_Y = 0.062;
     static final double ITEM_REACH = 0.075;
     static final double LEAN_BACK = 0.7;
@@ -92,15 +92,10 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
     }
 
     static Vec3 slotPoint(Vec3 top, Direction side, int slot) {
-        Vec3 out = Vec3.atLowerCornerOf(side.getNormal());
-        Vec3 right = Vec3.atLowerCornerOf(side.getOpposite().getClockWise().getNormal());
-        return top.add(right.scale(LAYOUT[slot][0])).add(out.scale(LAYOUT[slot][1]));
+        return SurfaceLayouts.current(StationKind.SMITHING).point(StationKind.SMITHING, top, side, slot);
     }
 
-    @Override
-    protected Vec3 restPoint(int slot) {
-        return slotPoint(top, side, slot).add(right().scale(denyShake()));
-    }
+    @Override float heldItemScale() { return heldItemScale(placeSlot >= 0 ? placeSlot : hoverSlot); }
 
     // ---- staging -------------------------------------------------------------------------------------
 
@@ -133,7 +128,16 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
     @Override
     public void updateCursor(boolean overPanel) {
         clearCursor();
-        if (overPanel || menu() == null || moving()) {
+        if (overPanel || gridEditor.editing() || menu() == null || moving()) {
+            return;
+        }
+        if (!geometry().equals(SurfaceAppearance.VANILLA)) {
+            int selected = surfaceSlot(Hands.carried().isEmpty());
+            if (selected >= 0) {
+                if (Hands.carried().isEmpty()) { target = Target.ITEM; hoverSlot = selected; }
+                else { target = Target.PLACE; placeSlot = slotFor(Hands.carried(), selected); }
+                aim = restPoint(placeSlot < 0 ? selected : placeSlot);
+            }
             return;
         }
         ItemStack carried = Hands.carried();
@@ -255,31 +259,50 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
         return Anim.smoother(Anim.window(t, PRESS + 0.05, PEAK - 0.03));
     }
 
+    // Keep the original contact heights at 100%, accounting for each scaled item's half-thickness.
+    private double templateHeight() {
+        return ON_GEAR + (SIZES[1] * (surfaceScale(1) - 1) + SIZES[0] * (surfaceScale(0) - 1)) / 32;
+    }
+
+    private double materialHeight() {
+        return ON_TEMPLATE + SIZES[1] * (surfaceScale(1) - 1) / 32
+                + SIZES[0] * (surfaceScale(0) - 1) / 16 + SIZES[2] * (surfaceScale(2) - 1) / 32;
+    }
+
+    private Vec3 movingAxis(double t, int slot, double from, double to, boolean across) {
+        double k = Anim.inOutCubic(Anim.window(t, from, to));
+        double angle = surfaceRotation(slot) + (surfaceRotation(1) - surfaceRotation(slot)) * k;
+        return (across ? right() : side()).yRot((float) Math.toRadians(angle));
+    }
+
     /** The template: lifted off the plate by both hands, carried over the gear and laid on it. */
     private Vec3 templatePos(double t) {
         Vec3 from = restPoint(0).add(0, 0.004, 0);
         Vec3 over = restPoint(1).add(0, 0.14, 0);
-        Vec3 on = restPoint(1).add(0, ON_GEAR, 0);
+        double height = templateHeight();
+        Vec3 on = restPoint(1).add(0, height, 0);
         Vec3 at = Anim.lerp(from, from.add(0, 0.1, 0), Anim.inOutCubic(Anim.window(t, 0.06, 0.24)));
         at = Anim.lerp(at, over, Anim.inOutCubic(Anim.window(t, 0.14, 0.3)));
         at = Anim.lerp(at, on, Anim.inCubic(Anim.window(t, 0.28, TEMPLATE_DOWN)));
-        return at.add(0, -(ON_GEAR - 0.006) * fuse(t) - 0.004 * Anim.hump(Anim.window(t, PRESS, PRESS + 0.12)), 0);
+        return at.add(0, -(height - 0.006) * fuse(t) - 0.004 * Anim.hump(Anim.window(t, PRESS, PRESS + 0.12)), 0);
     }
 
     /** The material: fetched by the right hand and laid on top of the template. */
     private Vec3 materialPos(double t) {
         Vec3 from = restPoint(2).add(0, 0.004, 0);
-        Vec3 over = restPoint(1).add(0, 0.17, 0).add(right().scale(0.012));
-        Vec3 on = restPoint(1).add(0, ON_TEMPLATE, 0).add(right().scale(0.012));
+        double height = materialHeight();
+        Vec3 over = restPoint(1).add(0, 0.17, 0).add(surfaceRight(1).scale(0.012));
+        Vec3 on = restPoint(1).add(0, height, 0).add(surfaceRight(1).scale(0.012));
         Vec3 at = Anim.lerp(from, from.add(0, 0.1, 0), Anim.inOutCubic(Anim.window(t, MATERIAL_UP - 0.04, MATERIAL_UP + 0.08)));
         at = Anim.lerp(at, over, Anim.inOutCubic(Anim.window(t, MATERIAL_UP + 0.02, MATERIAL_DOWN - 0.06)));
         at = Anim.lerp(at, on, Anim.inCubic(Anim.window(t, MATERIAL_DOWN - 0.09, MATERIAL_DOWN)));
-        return at.add(0, -(ON_TEMPLATE - 0.008) * fuse(t) - 0.006 * Anim.hump(Anim.window(t, PRESS, PRESS + 0.12)), 0);
+        return at.add(0, -(height - 0.008) * fuse(t) - 0.006 * Anim.hump(Anim.window(t, PRESS, PRESS + 0.12)), 0);
     }
 
     /** Lying flat, turned from how it lay on the plate to lie square on the gear. */
-    private Quaternionf turn(double t, float laidYaw, float stackYaw, double from, double to) {
+    private Quaternionf turn(double t, float laidYaw, float stackYaw, double from, double to, int slot) {
         double k = Anim.inOutCubic(Anim.window(t, from, to));
+        laidYaw += surfaceRotation(slot); stackYaw += surfaceRotation(1);
         return ItemPlacer.lying(ItemPlacer.awayYaw(side) + (float) (laidYaw + (stackYaw - laidYaw) * k), 0);
     }
 
@@ -308,25 +331,27 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
         // both hands carry the template over and lay it on the gear
         double carry = Anim.inOutCubic(Anim.window(t, 0, 0.12)) * (1 - Anim.inOutCubic(Anim.window(t, TEMPLATE_DOWN, TEMPLATE_DOWN + 0.1)));
         Vec3 template = templatePos(Math.max(t, 0.06));
-        r = Anim.lerp(r, template.add(right().scale(0.09)).add(side().scale(0.04)).add(0, HAND_Y, 0), carry);
-        l = Anim.lerp(l, template.add(right().scale(-0.09)).add(side().scale(0.04)).add(0, HAND_Y, 0), carry);
+        Vec3 across = movingAxis(t, 0, 0.14, TEMPLATE_DOWN, true);
+        Vec3 out = movingAxis(t, 0, 0.14, TEMPLATE_DOWN, false);
+        r = Anim.lerp(r, template.add(across.scale(0.09 * surfaceScale(0))).add(out.scale(0.04)).add(0, HAND_Y, 0), carry);
+        l = Anim.lerp(l, template.add(across.scale(-0.09 * surfaceScale(0))).add(out.scale(0.04)).add(0, HAND_Y, 0), carry);
         // the right hand fetches the material and lays it on top, while the left keeps the template in place
         double fetch = Anim.inOutCubic(Anim.window(t, TEMPLATE_DOWN + 0.02, MATERIAL_UP - 0.03))
                 * (1 - Anim.inOutCubic(Anim.window(t, MATERIAL_DOWN, MATERIAL_DOWN + 0.08)));
-        r = Anim.lerp(r, materialPos(t).add(side().scale(ITEM_REACH)).add(0, HAND_Y, 0), fetch);
+        r = Anim.lerp(r, materialPos(t).add(movingAxis(t, 2, MATERIAL_UP, MATERIAL_DOWN, false).scale(ITEM_REACH)).add(0, HAND_Y, 0), fetch);
         double steady = Anim.inOutCubic(Anim.window(t, TEMPLATE_DOWN, TEMPLATE_DOWN + 0.12)) * (1 - Anim.inOutCubic(Anim.window(t, MATERIAL_DOWN, PRESS - 0.05)));
-        l = Anim.lerp(l, restPoint(1).add(right().scale(-0.14)).add(side().scale(0.05)).add(0, HAND_Y + 0.012, 0), steady);
+        l = Anim.lerp(l, restPoint(1).add(surfaceRight(1).scale(-0.14 * surfaceScale(1))).add(surfaceOut(1).scale(0.05)).add(0, HAND_Y + 0.012, 0), steady);
         // both hands press the stack together, then back away from the heat
         double press = Anim.inOutCubic(Anim.window(t, MATERIAL_DOWN + 0.02, PRESS - 0.03)) * (1 - Anim.inOutCubic(Anim.window(t, PRESS + 0.16, PRESS + 0.34)));
-        Vec3 stack = restPoint(1).add(side().scale(0.03)).add(0, HAND_Y + 0.05 - 0.03 * Anim.hump(Anim.window(t, PRESS - 0.07, PRESS + 0.15)), 0);
-        r = Anim.lerp(r, stack.add(right().scale(0.07)), press);
-        l = Anim.lerp(l, stack.add(right().scale(-0.07)), press);
+        Vec3 stack = restPoint(1).add(surfaceOut(1).scale(0.03)).add(0, HAND_Y + 0.05 - 0.03 * Anim.hump(Anim.window(t, PRESS - 0.07, PRESS + 0.15)), 0);
+        r = Anim.lerp(r, stack.add(surfaceRight(1).scale(0.07 * surfaceScale(1))), press);
+        l = Anim.lerp(l, stack.add(surfaceRight(1).scale(-0.07 * surfaceScale(1))), press);
         double away = Anim.hump(Anim.window(t, PRESS + 0.25, COOLED - 0.1));
         r = r.add(side().scale(0.06 * away)).add(0, 0.04 * away, 0);
         l = l.add(side().scale(0.06 * away)).add(0, 0.04 * away, 0);
         if (t > COOLED - 0.1) {
             // the right hand takes the new piece
-            Vec3 grab = restPoint(1).add(0, HAND_Y + 0.02, 0).add(side().scale(ITEM_REACH));
+            Vec3 grab = restPoint(1).add(0, HAND_Y + 0.02, 0).add(surfaceOut(1).scale(ITEM_REACH));
             double take = Anim.inOutCubic(Anim.window(t, COOLED - 0.1, COOLED + 0.12));
             Vec3 end = rest(true).add(0, toInventory ? 0 : 0.05, 0);
             r = Anim.lerp(Anim.lerp(r, grab, take), end, Anim.inOutCubic(Anim.window(t, COOLED + 0.12, SMITH_LENGTH)));
@@ -421,7 +446,7 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
         double t = moveTime();
         if (t < 0) {
             for (int i = 0; i < 3; i++) {
-                drawLaid(pose, buffers, cam, slot(i), restPoint(i), side, i, i == hoverSlot ? 1.06f : 1f, light);
+                drawLaid(pose, buffers, cam, slot(i), restPoint(i), side, i, (i == hoverSlot ? 1.06f : 1f) * surfaceScale(i), light, surfaceRotation(i));
             }
             return;
         }
@@ -430,26 +455,26 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
             ItemStack rest = slot(i);
             int left = t < PEAK ? rest.getCount() - 1 : rest.getCount();
             if (i != 1 && left > 0) {
-                drawLaid(pose, buffers, cam, rest.copyWithCount(left), restPoint(i), side, i, 1f, light);
+                drawLaid(pose, buffers, cam, rest.copyWithCount(left), restPoint(i), side, i, surfaceScale(i), light, surfaceRotation(i));
             }
         }
         double heat = heat(t);
         // the gear: then the new piece, white-hot at first
         ItemStack gear = t < PEAK ? before[1] : after;
         Vec3 at = t < PEAK ? restPoint(1).add(0, 0.004, 0) : resultPos(t, camera).add(0, 0.004, 0);
-        float size = t < COOLED || toInventory ? SIZES[1] : (float) (SIZES[1] + (0.205 - SIZES[1]) * Anim.window(t, COOLED + 0.1, SMITH_LENGTH));
+        float size = t < COOLED || toInventory ? SIZES[1] * surfaceScale(1) : (float) (SIZES[1] * surfaceScale(1) + (0.205 - SIZES[1] * surfaceScale(1)) * Anim.window(t, COOLED + 0.1, SMITH_LENGTH));
         if (toInventory) {
             size *= (float) (1 - 0.85 * Anim.inCubic(Anim.window(t, COOLED + 0.05, SMITH_LENGTH)));
         }
         float tilt = (float) (25 * Anim.window(t, COOLED, SMITH_LENGTH));
-        ItemPlacer.drawOriented(pose, buffers, cam, gear, at, ItemPlacer.lying(ItemPlacer.awayYaw(side), tilt), size, light);
+        ItemPlacer.drawOriented(pose, buffers, cam, gear, at, ItemPlacer.lying(ItemPlacer.awayYaw(side) + surfaceRotation(1), tilt), size, light);
         // the template on it and the material on top, sinking into it as they are pressed together
         double left = 1 - fuse(t);
         if (left > 0.02 && t < PEAK) {
-            ItemPlacer.drawOriented(pose, buffers, cam, before[0], templatePos(t), turn(t, -12f, 0f, 0.14, TEMPLATE_DOWN),
-                    (float) (SIZES[0] * (0.55 + 0.45 * left)), light);
-            ItemPlacer.drawOriented(pose, buffers, cam, before[2], materialPos(t), turn(t, 18f, 8f, MATERIAL_UP, MATERIAL_DOWN),
-                    (float) (SIZES[2] * (0.5 + 0.5 * left)), light);
+            ItemPlacer.drawOriented(pose, buffers, cam, before[0], templatePos(t), turn(t, -12f, 0f, 0.14, TEMPLATE_DOWN, 0),
+                    (float) (SIZES[0] * surfaceScale(0) * (0.55 + 0.45 * left)), light);
+            ItemPlacer.drawOriented(pose, buffers, cam, before[2], materialPos(t), turn(t, 18f, 8f, MATERIAL_UP, MATERIAL_DOWN, 2),
+                    (float) (SIZES[2] * surfaceScale(2) * (0.5 + 0.5 * left)), light);
             float glow = (float) (Anim.smoother(Anim.window(t, MATERIAL_DOWN - 0.1, PRESS)) * left);
             if (glow > 0.01) {
                 // the material on top glows in its molten colour as it is pressed in
@@ -477,12 +502,17 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
     /** One of the three laid on the plate. */
     static void drawLaid(PoseStack pose, MultiBufferSource buffers, Vec3 cam, ItemStack stack, Vec3 at, Direction side, int slot, float scale,
             int light) {
+        drawLaid(pose, buffers, cam, stack, at, side, slot, scale, light, 0);
+    }
+
+    static void drawLaid(PoseStack pose, MultiBufferSource buffers, Vec3 cam, ItemStack stack, Vec3 at, Direction side, int slot,
+            float scale, int light, float rotation) {
         if (stack.isEmpty()) {
             return;
         }
         boolean block = ItemPlacer.isBlock(stack);
         float size = (block ? 0.13f : SIZES[slot]) * scale;
-        float yaw = ItemPlacer.awayYaw(side) + (slot == 0 ? -12f : slot == 2 ? 18f : 0f);
+        float yaw = ItemPlacer.awayYaw(side) + rotation + (slot == 0 ? -12f : slot == 2 ? 18f : 0f);
         ItemPlacer.drawOriented(pose, buffers, cam, stack, at.add(0, block ? size / 2 : 0.004, 0), ItemPlacer.lying(yaw, 0), size, light);
         if (stack.getCount() > 1 && !block) {
             ItemPlacer.drawOriented(pose, buffers, cam, stack, at.add(0.02, 0.011, -0.015), ItemPlacer.lying(yaw + 25, 0), size, light);
@@ -491,6 +521,8 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
+        if (gridEditor.visible()) return;
         if (target != Target.PLACE) {
             return;
         }
@@ -502,7 +534,7 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
                 continue;
             }
             float p = dest ? (float) (0.2 + 0.07 * Math.sin(clock * 5)) : 0.05f;
-            EnchantFx.disc(pose, buffers, camera, restPoint(i).add(0, 0.003, 0), SIZES[i] * 0.55, 0, EnchantFx.GLOW, p, p * 0.8f, p * 0.6f);
+            EnchantFx.disc(pose, buffers, camera, restPoint(i).add(0, 0.003, 0), SIZES[i] * 0.55 * surfaceScale(i), 0, EnchantFx.GLOW, p, p * 0.8f, p * 0.6f);
         }
         if (placeSlot < 0 && aim != null) {
             float p = (float) (0.2 + 0.06 * Math.sin(clock * 5));
@@ -515,7 +547,7 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
     static void drawContents(PoseStack pose, MultiBufferSource buffers, Vec3 cam, BlockPos pos, Direction side, List<ItemStack> items, int light) {
         Vec3 top = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
         for (int i = 0; i < Math.min(3, items.size()); i++) {
-            drawLaid(pose, buffers, cam, items.get(i), slotPoint(top, side, i), side, i, 1f, light);
+            drawLaid(pose, buffers, cam, items.get(i), slotPoint(top, side, i), side, i, (float) SurfaceLayouts.current(StationKind.SMITHING).region(i).itemScale(), light, (float) SurfaceLayouts.current(StationKind.SMITHING).region(i).rotation());
         }
     }
 
@@ -537,6 +569,9 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] mouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(mouse[0], mouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         if (target == Target.PLACE) {
             return placeSlot < 0 ? List.of(Component.translatable("cinematic.smithing.refuse").withStyle(ChatFormatting.RED))
@@ -564,6 +599,7 @@ public final class SmithingStation extends MenuStation<SmithingMenu> {
 
     @Override
     public Component hint() {
+        if (gridEditor.editing()) return SurfaceEditor.text("hint");
         return Component.translatable("cinematic.hint.smithing");
     }
 }

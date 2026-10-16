@@ -68,6 +68,14 @@ public final class SceneScreen extends Screen {
         return Scene.phase == Scene.Phase.ACTIVE && Scene.station != null;
     }
 
+    private static LayoutEditor editor() {
+        if (Scene.station instanceof TableStation table) return table.gridEditor;
+        if (Scene.station instanceof FurnaceStation furnace) return furnace.gridEditor;
+        if (Scene.station instanceof SurfaceStation<?> surface) return surface.gridEditor;
+        if (Scene.station instanceof SpatialTarget spatial) return spatial.layoutEditor();
+        return null;
+    }
+
     // ---- a line of text -----------------------------------------------------------------------------
 
     /** Opens a line to type into over the scene; Enter (or a click elsewhere) keeps it, Esc drops it. */
@@ -196,7 +204,8 @@ public final class SceneScreen extends Screen {
         // looking round from behind, the panels give way to the view
         float look = (float) FreeLook.amount();
         boolean over = working() && drawer && !FreeLook.looking() && overPanel(mouseX, mouseY);
-        Scene.overPanel = over || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY));
+        Scene.overPanel = over || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY))
+                || (editor() != null && editor().over(mouseX, mouseY));
         expand = Anim.approach(expand, over ? 1 : 0, 13, Scene.frameDt);
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
@@ -228,7 +237,8 @@ public final class SceneScreen extends Screen {
 
         ItemStack carried = player.containerMenu.getCarried();
         // during a special move the station draws what is in hand itself
-        if (working() && !carried.isEmpty() && !Hands.itemInHand() && station.handsOverride() == null) {
+        if (working() && !carried.isEmpty() && !Hands.itemInHand() && station.handsOverride() == null
+                && !(editor() != null && editor().visible())) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 300);
             graphics.renderItem(carried, mouseX - 8, mouseY - 8);
@@ -358,7 +368,8 @@ public final class SceneScreen extends Screen {
         }
         List<FormattedCharSequence> seq = new ArrayList<>(lines.size());
         for (Component line : lines) {
-            seq.add(line.getVisualOrderText());
+            if (editor() != null && editor().editing()) seq.addAll(font.split(line, Math.min(210, width / 2)));
+            else seq.add(line.getVisualOrderText());
         }
         g.renderTooltip(font, seq, mx, my);
     }
@@ -377,6 +388,7 @@ public final class SceneScreen extends Screen {
         if (player == null || mc.gameMode == null || (button != 0 && button != 1) || !working() || FreeLook.looking()) {
             return true;
         }
+        if (editor() != null && editor().click(mx, my, button)) return true;
         if (field != null) {
             if (!field.mouseClicked(mx, my, button)) {
                 closeField(true);
@@ -410,6 +422,7 @@ public final class SceneScreen extends Screen {
             FreeLook.scroll(scrollY);
             return true;
         }
+        if (working() && editor() != null && editor().scroll(mx, my, scrollY)) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.scroll(mx, my, scrollY)) return true;
         if (working() && !(Scene.station.showsInventory() && overPanel(mx, my))) {
             Scene.station.scroll(scrollY);
@@ -419,6 +432,7 @@ public final class SceneScreen extends Screen {
 
     @Override
     public boolean charTyped(char c, int modifiers) {
+        if (working() && editor() != null && editor().editing()) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.charTyped(c, modifiers)) return true;
         return field != null ? field.charTyped(c, modifiers) : super.charTyped(c, modifiers);
     }
@@ -428,6 +442,7 @@ public final class SceneScreen extends Screen {
         if (FreeLook.looking()) {
             return true;
         }
+        if (working() && editor() != null && editor().drag(mx, my, button)) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.over(mx, my)) {
             table.release(button);
             return true;
@@ -440,6 +455,7 @@ public final class SceneScreen extends Screen {
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
+        if (editor() != null) editor().release();
         if (Scene.station != null) {
             Scene.station.release(button);
         }
@@ -452,6 +468,10 @@ public final class SceneScreen extends Screen {
         LocalPlayer player = mc.player;
         var options = mc.options;
         if (!working()) {
+            return true;
+        }
+        if (editor() != null && editor().editing()) {
+            editor().keyPressed(key);
             return true;
         }
         if (field == null && FreeLook.keyPressed(key, scanCode)) {
@@ -477,6 +497,7 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (Scene.station instanceof TableStation table && table.recipeBook.keyPressed(key, scanCode, modifiers)) return true;
+        if (editor() != null && editor().keyPressed(key)) return true;
         if (Scene.station.keyPressed(key)) {
             return true;
         }

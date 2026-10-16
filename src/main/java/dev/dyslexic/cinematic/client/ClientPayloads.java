@@ -1,6 +1,7 @@
 package dev.dyslexic.cinematic.client;
 
 import dev.dyslexic.cinematic.net.AtStationPayload;
+import dev.dyslexic.cinematic.net.CampfireProgressPayload;
 import dev.dyslexic.cinematic.net.EnchantDisplayPayload;
 import dev.dyslexic.cinematic.net.EnchantFxPayload;
 import dev.dyslexic.cinematic.net.FurnaceContentsPayload;
@@ -37,6 +38,13 @@ public final class ClientPayloads {
         FurnaceStation station = Scene.station(FurnaceStation.class);
         if (station != null && station.pos.equals(payload.pos())) {
             station.applyState(payload);
+        }
+    }
+
+    public static void campfireProgress(CampfireProgressPayload payload) {
+        CampfireStation station = Scene.station(CampfireStation.class);
+        if (station != null && station.pos.equals(payload.pos())) {
+            station.applyProgress(payload);
         }
     }
 

@@ -37,7 +37,6 @@ import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.RenderPlayerEvent;
 import net.neoforged.neoforge.client.event.ScreenEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
@@ -59,11 +58,13 @@ public final class CinematicClient {
         modBus.addListener(PropLayer::addTo);
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.BREWING_STAND,
                 BrewingBottles::new));
+        modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.CHISELED_BOOKSHELF,
+                ShelfLayoutBooks::new));
         container.registerConfig(ModConfig.Type.CLIENT, Settings.SPEC);
         // the settings screen: Cloth Config's when it is installed, NeoForge's own otherwise
         container.registerExtensionPoint(IConfigScreenFactory.class, ModList.get().isLoaded("cloth_config")
                 ? (IConfigScreenFactory) (mod, parent) -> ClothScreen.create(parent)
-                : ConfigurationScreen::new);
+                : DeveloperConfiguration::create);
         NeoForge.EVENT_BUS.register(Events.class);
     }
 

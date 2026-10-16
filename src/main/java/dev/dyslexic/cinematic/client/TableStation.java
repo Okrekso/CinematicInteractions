@@ -54,6 +54,7 @@ public final class TableStation extends ClientStation {
 
     public final Vec3 top;
     final TableRecipeBook recipeBook;
+    final TableGridEditor gridEditor;
     public int hoverCell = -1;
     public boolean hoverResult;
 
@@ -77,6 +78,7 @@ public final class TableStation extends ClientStation {
         top = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
         Arrays.fill(itemOpacity, 1f);
         recipeBook = new TableRecipeBook(this);
+        gridEditor = new TableGridEditor(this);
     }
 
     @Override
@@ -98,8 +100,29 @@ public final class TableStation extends ClientStation {
 
     @Override
     public boolean busy() {
-        return craftProgress() >= 0 || laying != null;
+        return craftProgress() >= 0 || laying != null || gridEditor.editing();
     }
+
+    @Override
+    public boolean showsInventory() { return !gridEditor.visible(); }
+
+    @Override
+    public Vec3 workPoint() { return TableLayouts.current().center(pos); }
+
+    @Override
+    public List<Vec3> workSamples() {
+        TableLayout layout = TableLayouts.current();
+        if (layout.equals(TableLayout.VANILLA)) return super.workSamples();
+        double low = TableGrid.GRID_MIN, high = TableGrid.GRID_MAX;
+        return List.of(layout.center(pos).add(0, 0.04, 0), layout.point(pos, low, low).add(0, 0.04, 0),
+                layout.point(pos, high, low).add(0, 0.04, 0), layout.point(pos, low, high).add(0, 0.04, 0),
+                layout.point(pos, high, high).add(0, 0.04, 0));
+    }
+
+    @Override
+    public void onEnd() { gridEditor.cancel(); }
+
+    double surfaceY() { return TableLayouts.current().surfaceY(pos); }
 
     // ---- laying out a recipe -------------------------------------------------------------------------
 
@@ -145,6 +168,7 @@ public final class TableStation extends ClientStation {
 
     @Override
     public void beforeFrame() {
+        gridEditor.frame();
         if (laying == null || Scene.phase != Scene.Phase.ACTIVE) {
             if (Scene.phase != Scene.Phase.ACTIVE) {
                 layQueue.clear();
@@ -164,8 +188,8 @@ public final class TableStation extends ClientStation {
     }
 
     /** The middle of a cell on the top. */
-    private Vec3 cellPoint(int cell) {
-        return new Vec3(pos.getX() + TableGrid.cellX(cell), top.y, pos.getZ() + TableGrid.cellZ(cell));
+    Vec3 cellPoint(int cell) {
+        return TableLayouts.current().cell(pos, cell);
     }
 
     /**
@@ -216,7 +240,7 @@ public final class TableStation extends ClientStation {
         toward = toward.lengthSqr() < 1e-6 ? forward() : toward.normalize();
         Vec3 at = hand.add(toward.scale(ITEM_REACH)).add(0, -HAND_Y + 0.012, 0);
         float grow = (float) Anim.smoother((t - 0.24) / 0.08);
-        ItemPlacer.renderOne(pose, buffers, camera, layItem, at, side, 91L, grow, 14f, light);
+        TableLayouts.current().renderItem(pose, buffers, camera, layItem, at, side, 91L, grow, 14f, light, 1, true);
     }
 
     @Override
@@ -233,7 +257,8 @@ public final class TableStation extends ClientStation {
 
     @Override
     public Vec3 rest(boolean right) {
-        return top.add(side().scale(REST_BACK)).add(right().scale(right ? REST_SIDE : -REST_SIDE)).add(0, HAND_Y, 0);
+        return top.add(side().scale(REST_BACK)).add(right().scale(right ? REST_SIDE : -REST_SIDE))
+                .add(0, HAND_Y + TableLayouts.current().height() / 16, 0);
     }
 
     // ---- cursor ----------------------------------------------------------------------------------------
@@ -242,6 +267,7 @@ public final class TableStation extends ClientStation {
     public void updateCursor(boolean overPanel) {
         double[] mouse = Picking.mouseGui();
         overPanel |= recipeBook.over(mouse[0], mouse[1]);
+        overPanel |= gridEditor.over(mouse[0], mouse[1]);
         hoverResult = false;
         if (!result.isEmpty() && !overPanel) {
             double[] at = Picking.toGui(resultPosition());
@@ -250,7 +276,7 @@ public final class TableStation extends ClientStation {
                 hoverResult = (mouse[0] - at[0]) * (mouse[0] - at[0]) + (mouse[1] - at[1]) * (mouse[1] - at[1]) < radius * radius;
             }
         }
-        Vec3 hit = overPanel || hoverResult ? null : Picking.cursorOnPlane(top.y);
+        Vec3 hit = overPanel || hoverResult ? null : Picking.cursorOnPlane(surfaceY());
         hoverCell = -1;
         aim = null;
         if (hit == null) {
@@ -259,8 +285,8 @@ public final class TableStation extends ClientStation {
         double lx = hit.x - pos.getX();
         double lz = hit.z - pos.getZ();
         if (lx > -0.02 && lx < 1.02 && lz > -0.02 && lz < 1.02) {
-            hoverCell = TableGrid.cellAt(lx, lz);
-            aim = new Vec3(Math.max(pos.getX() + 0.07, Math.min(pos.getX() + 0.93, hit.x)), top.y,
+            hoverCell = TableLayouts.current().cellAt(pos, hit);
+            aim = new Vec3(Math.max(pos.getX() + 0.07, Math.min(pos.getX() + 0.93, hit.x)), surfaceY(),
                     Math.max(pos.getZ() + 0.07, Math.min(pos.getZ() + 0.93, hit.z)));
         }
     }
@@ -276,15 +302,17 @@ public final class TableStation extends ClientStation {
     void updateOcclusion(Vec3 camera) {
         ClientTables.Entry entry = ClientTables.get(pos);
         Vec3 hit = Scene.phase == Scene.Phase.ACTIVE && hoverCell >= 0 && craftProgress() < 0
-                ? Picking.cursorOnPlane(top.y) : null;
+                ? Picking.cursorOnPlane(surfaceY()) : null;
         for (int i = 0; i < TableGrid.CELLS; i++) {
             ItemStack stack = entry == null ? ItemStack.EMPTY : entry.items[i];
             boolean blocking = false;
             if (hit != null && i != hoverCell && !stack.isEmpty()) {
-                Vec3 base = new Vec3(pos.getX() + TableGrid.cellX(i), top.y, pos.getZ() + TableGrid.cellZ(i));
+                Vec3 base = cellPoint(i);
                 // A little hysteresis keeps the edge of a turning cube from flickering as the camera breathes.
                 double margin = itemOpacity[i] < 0.99f ? 0.009 : 0.003;
-                blocking = ItemPlacer.restingBounds(stack, base).inflate(margin).clip(camera, hit).isPresent();
+                TableLayout layout = TableLayouts.current();
+                blocking = (layout.equals(TableLayout.VANILLA) ? ItemPlacer.restingBounds(stack, base) : layout.bounds(stack, base))
+                        .inflate(margin).clip(camera, hit).isPresent();
             }
             float target = blocking ? OCCLUDED_OPACITY : 1f;
             itemOpacity[i] = stack.isEmpty() ? 1f : (float) Anim.approach(itemOpacity[i], target, FADE_RATE, Scene.frameDt);
@@ -311,7 +339,7 @@ public final class TableStation extends ClientStation {
     public Vec3 handTarget(Vec3 aim, Vec3 shoulder, boolean carrying, double tap) {
         Vec3 reach = new Vec3(aim.x - shoulder.x, 0, aim.z - shoulder.z).normalize();
         double hover = carrying ? 0.075 : 0.045;
-        return new Vec3(aim.x, top.y + HAND_Y + hover - 0.06 * tap, aim.z).subtract(reach.scale(ITEM_REACH));
+        return new Vec3(aim.x, surfaceY() + HAND_Y + hover - 0.06 * tap, aim.z).subtract(reach.scale(ITEM_REACH));
     }
 
     @Override
@@ -331,7 +359,7 @@ public final class TableStation extends ClientStation {
         if (craft < 0) {
             return null;
         }
-        Vec3 middle = top.add(side().scale(0.04));
+        Vec3 middle = TableLayouts.current().center(pos).add(side().scale(0.04));
         double y = HAND_Y + 0.05 - 0.07 * Anim.hump(Anim.window(craft, 0.08, 0.62));
         return new Vec3[]{middle.add(right().scale(0.085)).add(0, y, 0), middle.add(right().scale(-0.085)).add(0, y, 0)};
     }
@@ -427,6 +455,8 @@ public final class TableStation extends ClientStation {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera);
+        if (gridEditor.visible()) return;
         drawResult(pose, buffers, camera, light);
         drawLayItem(pose, buffers, camera, light);
         recipeBook.renderWorld(pose, buffers, camera, light);
@@ -434,7 +464,8 @@ public final class TableStation extends ClientStation {
 
     @Override
     public void renderScreen(GuiGraphics graphics, Font font, float alpha) {
-        recipeBook.render(graphics, font, alpha);
+        if (!gridEditor.visible()) recipeBook.render(graphics, font, alpha);
+        gridEditor.render(graphics, font, alpha);
     }
 
     void drawHighlight(PoseStack pose, MultiBufferSource buffers, Vec3 cam) {
@@ -442,9 +473,9 @@ public final class TableStation extends ClientStation {
             return;
         }
         double half = TableGrid.CELL / 2 - 0.006;
-        double cx = pos.getX() + TableGrid.cellX(hoverCell) - cam.x;
-        double cz = pos.getZ() + TableGrid.cellZ(hoverCell) - cam.z;
-        double y = pos.getY() + 1.0015 - cam.y;
+        pose.pushPose();
+        TableLayouts.current().cellPose(pose, pos, hoverCell, cam);
+        double cx = 0, cz = 0, y = 0;
         // one even, steady glow: the rim blends over the fill instead of fighting it for depth
         int alpha = 47;
         Matrix4f m = pose.last().pose();
@@ -459,6 +490,7 @@ public final class TableStation extends ClientStation {
         highlightStrip(quads, m, cx - half, cz + half - width, cx + half, cz + half, y, 150);
         highlightStrip(quads, m, cx - half, cz - half, cx - half + width, cz + half, y, 150);
         highlightStrip(quads, m, cx + half - width, cz - half, cx + half, cz + half, y, 150);
+        pose.popPose();
     }
 
     private static void highlightStrip(VertexConsumer quads, Matrix4f m, double x0, double z0, double x1, double z1, double y, int alpha) {
@@ -515,6 +547,8 @@ public final class TableStation extends ClientStation {
     @Override
     public List<Component> tooltip(ItemStack carried) {
         double[] mouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(mouse[0], mouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         List<Component> guide = recipeBook.tooltip(mouse[0], mouse[1]);
         if (guide != null || recipeBook.over(mouse[0], mouse[1])) return guide;
         if (!carried.isEmpty()) {
@@ -534,6 +568,7 @@ public final class TableStation extends ClientStation {
 
     @Override
     public Component hint() {
+        if (gridEditor.editing()) return TableGridEditor.text("hint");
         return Component.translatable("cinematic.hint.table");
     }
 }

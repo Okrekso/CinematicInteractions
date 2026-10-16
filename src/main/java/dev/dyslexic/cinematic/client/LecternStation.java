@@ -1,6 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -30,7 +32,9 @@ import org.lwjgl.glfw.GLFW;
  * Underneath is the vanilla lectern menu: turning sets its page, so comparators read the lectern as before, and taking
  * the book is the menu's own button.
  */
-public final class LecternStation extends MenuStation<LecternMenu> {
+public final class LecternStation extends MenuStation<LecternMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     public enum Target { NONE, LEFT, RIGHT }
 
     /** The desk: towards the reader, across, up the slope, out of it. */
@@ -127,7 +131,7 @@ public final class LecternStation extends MenuStation<LecternMenu> {
     }
 
     private void turn(int dir) {
-        if (taking() || book.spread < 0 || Scene.phase != Scene.Phase.ACTIVE) {
+        if (gridEditor.visible() || taking() || book.spread < 0 || Scene.phase != Scene.Phase.ACTIVE) {
             return;
         }
         switch (book.turn(dir)) {
@@ -162,6 +166,7 @@ public final class LecternStation extends MenuStation<LecternMenu> {
 
     @Override
     public void beforeFrame() {
+        gridEditor.frame();
         book.read(book());
         LecternMenu menu = menu();
         if (book.spread < 0 && menu != null && !book().isEmpty()) {
@@ -173,9 +178,11 @@ public final class LecternStation extends MenuStation<LecternMenu> {
         book.closing = taking();
         book.fold = fold();
         double k = lift();
-        Vec3 to = origin.add(n.scale(0.1)).add(s.scale(-0.75));
-        double scale = 1 - 0.75 * k;
-        book.place(Anim.lerp(origin, to, k), a.scale(scale), s.scale(scale), n.scale(scale));
+        Vec3 editedOrigin = layoutPoint(0);
+        Vec3 editedAcross = layoutAxis(0, true), editedSlope = layoutAxis(0, false);
+        Vec3 to = editedOrigin.add(n.scale(0.1)).add(editedSlope.scale(-0.75));
+        double scale = (1 - 0.75 * k) * geometry().scale(0);
+        book.place(Anim.lerp(editedOrigin, to, k), editedAcross.scale(scale), editedSlope.scale(scale), n.scale(scale));
         if (book.spread < 0) {
             return;
         }
@@ -268,7 +275,8 @@ public final class LecternStation extends MenuStation<LecternMenu> {
     @Override
     public Vec3 rest(boolean right) {
         double x = OpenBook.GUTTER + OpenBook.PAGE_W * 0.9;
-        return origin.add(a.scale(right ? x : -x)).add(s.scale(-OpenBook.PAGE_H / 2 - 0.018)).add(n.scale(0.035));
+        return layoutPoint(0).add(layoutAxis(0, true).scale((right ? x : -x) * geometry().scale(0)))
+                .add(layoutAxis(0, false).scale((-OpenBook.PAGE_H / 2 - 0.018) * geometry().scale(0))).add(n.scale(0.035));
     }
 
     // ---- cursor ------------------------------------------------------------------------------------------
@@ -276,10 +284,14 @@ public final class LecternStation extends MenuStation<LecternMenu> {
     @Override
     public void updateCursor(boolean overPanel) {
         clearCursor();
-        if (book.spread < 0 || taking()) {
+        if (overPanel || gridEditor.visible() || book.spread < 0 || taking()) {
             return;
         }
         OpenBook.Side side = book.under();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            Vec3 hit = Picking.cursorOnPlane(layoutPoint(0), n);
+            side = hit != null && layoutPick() == 0 ? hit.subtract(layoutPoint(0)).dot(layoutAxis(0, true)) < 0 ? OpenBook.Side.LEFT : OpenBook.Side.RIGHT : OpenBook.Side.NONE;
+        }
         if (side == OpenBook.Side.NONE) {
             return;
         }
@@ -315,8 +327,9 @@ public final class LecternStation extends MenuStation<LecternMenu> {
             double t = Scene.clock() - takeAt;
             Vec3 closed = book.at(OpenBook.GUTTER + OpenBook.PAGE_W * 0.5, -OpenBook.PAGE_H / 2 - 0.02, 0.05);
             double gather = Anim.smoother(Anim.window(t, 0.35, 0.6));
-            Vec3 l = Anim.lerp(book.foldCorner(), closed.add(a.scale(-0.2)), gather);
-            Vec3 r = Anim.lerp(rest(true), closed.add(a.scale(0.2)), gather);
+            Vec3 grip = layoutAxis(0, true).scale(0.2 * geometry().scale(0));
+            Vec3 l = Anim.lerp(book.foldCorner(), closed.subtract(grip), gather);
+            Vec3 r = Anim.lerp(rest(true), closed.add(grip), gather);
             return new Vec3[]{r, l};
         }
         return book.turningHands();
@@ -375,10 +388,16 @@ public final class LecternStation extends MenuStation<LecternMenu> {
     }
 
     @Override
-    public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {}
+    public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);}
 
     @Override
     public Component hint() {
         return Component.translatable("cinematic.hint.lectern");
     }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing() || taking() || book.turning(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public List<Component> tooltip(ItemStack carried) { double[] mouse = Picking.mouseGui(); return gridEditor.tooltip(mouse[0], mouse[1]); }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
 }

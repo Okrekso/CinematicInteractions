@@ -47,17 +47,18 @@ public final class EnchantRenderer {
             double flash = clock - entry.flashAt;
             double boost = flash >= 0 && flash < 1.2 ? 1.2 * (1 - flash / 1.2) : 0;
             drawCircle(pose, buffers, cam, pos, 0.28 + boost, clock);
-            Vec3 at = EnchantFx.itemCenter(pos, entry.side, clock);
+            Vec3 at = EnchantStation.itemPosition(pos, entry.side, clock);
             if (!entry.item.isEmpty()) {
-                EnchantStation.drawFloating(pose, buffers, cam, entry.item, at, (float) (clock * 40), 0.34f);
+                EnchantStation.drawFloating(pose, buffers, cam, entry.item, at, (float) (clock * 40 + SpatialLayouts.current(StationKind.ENCHANTING).rotation(0)), 0.34f * SpatialLayouts.current(StationKind.ENCHANTING).scale(0));
             }
             if (entry.lapis > 0) {
-                EnchantStation.drawLapis(pose, buffers, cam, EnchantFx.lapisCorner(pos, entry.side), entry.lapis,
-                        LevelRenderer.getLightColor(level, pos.above()), 1f);
+                EnchantStation.drawLapis(pose, buffers, cam, EnchantStation.lapisPosition(pos, entry.side), entry.lapis,
+                        LevelRenderer.getLightColor(level, pos.above()), SpatialLayouts.current(StationKind.ENCHANTING).scale(1),
+                        (float) -SpatialLayouts.current(StationKind.ENCHANTING).rotation(1));
             }
             if (boost > 0) {
                 float b = (float) boost;
-                EnchantFx.beam(pose, buffers, cam, EnchantFx.top(pos), 1.9, 0.6, clock * 0.9, 0.7f * b, 0.5f * b, 1.0f * b);
+                EnchantFx.beam(pose, buffers, cam, new Vec3(at.x, EnchantFx.top(pos).y, at.z), 1.9, 0.6, clock * 0.9, 0.7f * b, 0.5f * b, 1.0f * b);
             }
         }
         // someone stands at a table but has not put anything down yet

@@ -1,6 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.math.Axis;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
@@ -9,7 +11,6 @@ import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LightTexture;
@@ -37,7 +38,9 @@ import net.minecraft.world.phys.Vec3;
  * Shift cuts the whole stack. Underneath is the vanilla stonecutter menu: the shape is its recipe button, the
  * piece its result slot.
  */
-public final class StonecutterStation extends MenuStation<StonecutterMenu> {
+public final class StonecutterStation extends MenuStation<StonecutterMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     static final double HAND_Y = 0.062;
     static final double ITEM_REACH = 0.07;
     /** Height of the table top: the block is 9 px tall, the blade stands up out of it. */
@@ -107,7 +110,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
     }
 
     static Vec3 stackPoint(Vec3 top, Direction side) {
-        return top.add(rightOf(side).scale(-0.25)).add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.24));
+        return RemainingLayouts.point(StationKind.STONECUTTER, top, side, 0);
     }
 
     @Override
@@ -179,7 +182,8 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
     public Vec3 shapePoint(int k) {
         double a = Math.toRadians(angle(k));
         double bob = 0.008 * Math.sin(Scene.clock() * 1.7 + k * 1.3);
-        return top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.04 + Math.sin(a) * DIAL_HIGH + bob, 0);
+        Vec3 original = top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.04 + Math.sin(a) * DIAL_HIGH + bob, 0);
+        return RemainingLayouts.transform(kind(), top, side, 2, original);
     }
 
     @Override
@@ -203,7 +207,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
         double[] mouse = Picking.mouseGui();
         List<RecipeHolder<StonecutterRecipe>> shapes = shapes();
         for (int k = 0; k < shapes.size(); k++) {
-            if (onDial(k) > 0.5 && GrindstoneStation.under(mouse, shapePoint(k), 0.075)) {
+            if (onDial(k) > 0.5 && GrindstoneStation.under(mouse, shapePoint(k), 0.075 * geometry().scale(2))) {
                 target = Target.SHAPE;
                 hoverShape = k;
                 aim = shapePoint(k).add(0, -0.1, 0).add(side().scale(0.12));
@@ -211,6 +215,13 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
             }
         }
         ItemStack carried = Hands.carried();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            if (layoutPick() == 0) {
+                target = carried.isEmpty() ? slot(0).isEmpty() ? Target.NONE : Target.STACK : Target.PLACE;
+                aim = restPoint(0);
+            }
+            return;
+        }
         if (carried.isEmpty() && !slot(0).isEmpty() && GrindstoneStation.under(mouse, restPoint(0).add(0, 0.08, 0), 0.12)) {
             target = Target.STACK;
             aim = restPoint(0).add(0, 0.12, 0);
@@ -329,11 +340,11 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
     static Vec3 piecePath(Vec3 top, Direction side, double t, boolean all) {
         if (t < BITE) {
             Vec3 onStack = stackPoint(top, side).add(0, PIECE_SIZE / 2 + 0.01, 0);
-            Vec3 start = top.add(rightOf(side).scale(-0.46)).add(0, PIECE_SIZE / 2, 0);
+            Vec3 start = RemainingLayouts.transform(StationKind.STONECUTTER, top, side, 1, top.add(rightOf(side).scale(-0.46)).add(0, PIECE_SIZE / 2, 0));
             double k = Anim.inOutCubic(Anim.window(t, 0.06, BITE - 0.02));
             return Anim.lerp(onStack, start, k).add(0, 0.07 * Anim.hump(k), 0);
         }
-        return top.add(rightOf(side).scale(along(t, all))).add(0, PIECE_SIZE / 2, 0);
+        return RemainingLayouts.transform(StationKind.STONECUTTER, top, side, 1, top.add(rightOf(side).scale(along(t, all))).add(0, PIECE_SIZE / 2, 0));
     }
 
     /** The piece in the hand: taken off the stack, set at the end of the blade, pushed through, picked up. */
@@ -354,7 +365,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
 
     /** Where the right hand waits for the piece, past the far end of the blade. */
     private Vec3 catchPoint() {
-        return top.add(right().scale(0.34)).add(side().scale(0.08)).add(0, PIECE_SIZE * 0.6 + HAND_Y, 0);
+        return RemainingLayouts.transform(kind(), top, side, 1, top.add(right().scale(0.34)).add(side().scale(0.08)).add(0, PIECE_SIZE * 0.6 + HAND_Y, 0));
     }
 
     @Nullable
@@ -371,9 +382,9 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
         if (t < 0.08) {
             left = Anim.lerp(rest(false), onStack, Anim.inOutCubic(t / 0.08));
         } else {
-            Vec3 start = top.add(right().scale(-0.63)).add(0, PIECE_SIZE * 0.55 + HAND_Y, 0).add(side().scale(0.05));
+            Vec3 start = RemainingLayouts.transform(kind(), top, side, 1, top.add(right().scale(-0.63)).add(0, PIECE_SIZE * 0.55 + HAND_Y, 0).add(side().scale(0.05)));
             Vec3 path = t < BITE ? Anim.lerp(onStack, start, Anim.inOutCubic(Anim.window(t, 0.06, BITE - 0.02)))
-                    : top.add(right().scale(along(t) - 0.17)).add(0, PIECE_SIZE * 0.55 + HAND_Y, 0).add(side().scale(0.05));
+                    : RemainingLayouts.transform(kind(), top, side, 1, top.add(right().scale(along(t) - 0.17)).add(0, PIECE_SIZE * 0.55 + HAND_Y, 0).add(side().scale(0.05)));
             left = Anim.lerp(path, rest(false), Anim.inOutCubic(Anim.window(t, out - 0.05, length)));
         }
         // the right hand waits past the blade for the new piece, then keeps it
@@ -416,7 +427,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
             return;
         }
         Vec3 out = Vec3.atLowerCornerOf(side.getNormal());
-        Vec3 bite = top.add(rightOf(side).scale(along(t, all) + PIECE_SIZE * 0.3)).add(0, PIECE_SIZE * 0.85, 0);
+        Vec3 bite = RemainingLayouts.transform(StationKind.STONECUTTER, top, side, 1, top.add(rightOf(side).scale(along(t, all) + PIECE_SIZE * 0.3)).add(0, PIECE_SIZE * 0.85, 0));
         if (Fx.RANDOM.nextDouble() < dt * 45) {
             Fx.fountain(bite, out.scale(-0.3), out, 1, 1.6);
         }
@@ -463,7 +474,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
     }
 
     private void drawPiece(PoseStack pose, MultiBufferSource buffers, Camera camera, double t, int light) {
-        float size = PIECE_SIZE;
+        float size = PIECE_SIZE * RemainingLayouts.scale(StationKind.STONECUTTER, 1);
         double out = outAt(cutAll);
         if (t > out) {
             size *= cutAll ? (float) (1 - 0.85 * Anim.inCubic(Anim.window(t, out, length))) : (float) (1 - 0.3 * Anim.window(t, out, length));
@@ -481,7 +492,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
         Vec3 right = rightOf(side);
         boolean cut = t >= BITE && along(t, all) > 0;
         ItemStack shown = cut ? piece : input.copyWithCount(1);
-        float yaw = ItemPlacer.awayYaw(side);
+        float yaw = ItemPlacer.awayYaw(side) + RemainingLayouts.rotation(StationKind.STONECUTTER, 1);
         boolean block = ItemPlacer.isBlock(shown);
         int copies = cut ? Math.min(3, Math.max(1, shown.getCount())) : all ? Math.min(3, Math.max(1, input.getCount() / 8)) : 1;
         for (int i = 0; i < copies; i++) {
@@ -493,7 +504,9 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
         if (cutting(t, all)) {
             // the bright bite of the blade in the stone
             float b = (float) (0.45 + 0.2 * Math.sin(Scene.clock() * 50));
-            EnchantFx.billboard(pose, buffers, camera, top.add(right.scale(along(t, all) + size * 0.3)).add(0, size * 0.8, 0), 0.04, 0, EnchantFx.GLOW,
+            Vec3 contact = RemainingLayouts.transform(StationKind.STONECUTTER, top, side, 1,
+                    top.add(right.scale(along(t, all) + PIECE_SIZE * 0.3)).add(0, PIECE_SIZE * 0.8, 0));
+            EnchantFx.billboard(pose, buffers, camera, contact, 0.04, 0, EnchantFx.GLOW,
                     b, b * 0.8f, b * 0.55f);
         }
     }
@@ -503,24 +516,27 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
         if (stack.isEmpty()) {
             return;
         }
-        float yaw = ItemPlacer.awayYaw(side);
+        float yaw = ItemPlacer.awayYaw(side) + RemainingLayouts.rotation(StationKind.STONECUTTER, 0);
+        float itemScale = RemainingLayouts.scale(StationKind.STONECUTTER, 0);
         if (!ItemPlacer.isBlock(stack)) {
-            ItemPlacer.render(pose, buffers, cam, stack, at, side, 31L, 1.1f, 0f, light);
+            ItemPlacer.render(pose, buffers, cam, stack, at, side, 31L, 1.1f * itemScale, RemainingLayouts.rotation(StationKind.STONECUTTER, 0), light);
             return;
         }
+        float cubeSize = PIECE_SIZE * itemScale;
         int cubes = stack.getCount() >= 40 ? 3 : stack.getCount() >= 12 ? 2 : 1;
-        Vec3 right = Vec3.atLowerCornerOf(side.getOpposite().getClockWise().getNormal());
-        Vec3 out = Vec3.atLowerCornerOf(side.getNormal());
-        Vec3[] spots = {at, at.add(0, PIECE_SIZE, 0).add(right.scale(0.015)), at.add(right.scale(-PIECE_SIZE * 1.05)).add(out.scale(0.03))};
+        Vec3 right = SpatialLayouts.current(StationKind.STONECUTTER).axis(RemainingLayouts.frameAt(StationKind.STONECUTTER, Vec3.ZERO, side), 0, true);
+        Vec3 out = SpatialLayouts.current(StationKind.STONECUTTER).axis(RemainingLayouts.frameAt(StationKind.STONECUTTER, Vec3.ZERO, side), 0, false);
+        Vec3[] spots = {at, at.add(0, cubeSize, 0).add(right.scale(0.015)), at.add(right.scale(-cubeSize * 1.05)).add(out.scale(0.03))};
         float[] turns = {6f, -9f, 14f};
         for (int i = 0; i < cubes; i++) {
-            ItemPlacer.drawOriented(pose, buffers, cam, stack, spots[i].add(0, PIECE_SIZE / 2, 0), Axis.YP.rotationDegrees(yaw + 180 + turns[i]),
-                    PIECE_SIZE, light);
+            ItemPlacer.drawOriented(pose, buffers, cam, stack, spots[i].add(0, cubeSize / 2, 0), Axis.YP.rotationDegrees(yaw + 180 + turns[i]),
+                    cubeSize, light);
         }
     }
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         Minecraft mc = Minecraft.getInstance();
         Camera cam = mc.gameRenderer.getMainCamera();
         StonecutterMenu menu = menu();
@@ -550,8 +566,8 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
                 float s = (float) (0.4 * on * dim);
                 EnchantFx.billboard(pose, buffers, cam, at, 0.085 * on, clock * 0.8, EnchantFx.CIRCLE, s, s * 0.85f, s * 0.4f);
             }
-            float size = (float) (SHAPE_SIZE * on * (hovered ? 1.35 : 1.0));
-            float spin = (float) (clock * (hovered ? 90 : 25) + k * 40);
+            float size = (float) (SHAPE_SIZE * geometry().scale(2) * on * (hovered ? 1.35 : 1.0));
+            float spin = (float) (clock * (hovered ? 90 : 25) + k * 40 + RemainingLayouts.rotation(kind(), 2));
             boolean block = ItemPlacer.isBlock(result);
             ItemPlacer.drawOriented(pose, buffers, camera, result, at, Axis.YP.rotationDegrees(spin), block ? size * 0.85f : size * 1.2f,
                     LightTexture.FULL_BRIGHT);
@@ -572,7 +588,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
 
     private Vec3 shapeEnd(boolean left) {
         double a = Math.toRadians(left ? 176 : 4);
-        return top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.07 + Math.sin(a) * DIAL_HIGH, 0);
+        return RemainingLayouts.transform(kind(), top, side, 2, top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.07 + Math.sin(a) * DIAL_HIGH, 0));
     }
 
     private static void drawCount(PoseStack pose, MultiBufferSource buffers, Camera camera, String text, Vec3 at, float alpha) {
@@ -609,7 +625,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
                 stackPoint(top, entry.side), entry.side, light);
         double out = outAt(all);
         Vec3 at = piecePath(top, entry.side, Math.min(t, out), all);
-        float size = PIECE_SIZE;
+        float size = PIECE_SIZE * RemainingLayouts.scale(StationKind.STONECUTTER, 1);
         if (t > out) {
             double away = Anim.inCubic(Anim.window(t, out, all ? CUT_ALL_LENGTH : CUT_LENGTH));
             at = Anim.lerp(at, entry.taker(at.add(Vec3.atLowerCornerOf(entry.side.getNormal()).scale(0.6))), away);
@@ -637,6 +653,9 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] pointer = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(pointer[0], pointer[1]);
+        if (editorTip != null) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         switch (target) {
             case SHAPE -> {
@@ -670,4 +689,12 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> {
     public Component hint() {
         return Component.translatable("cinematic.hint.stonecutter");
     }
+
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
+    @Override public float layoutHeldScale() { return geometry().scale(target == Target.SHAPE ? 1 : 0); }
 }

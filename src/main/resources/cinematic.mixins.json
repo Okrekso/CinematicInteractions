@@ -8,11 +8,14 @@
     "BrewingStandBlockEntityMixin"
   ],
   "client": [
+    "CampfireRendererMixin",
     "CameraMixin",
     "ExperienceOrbRendererMixin",
+    "FirstPersonHandsMixin",
     "HumanoidModelMixin",
     "ItemInHandLayerMixin",
-    "LecternRendererMixin"
+    "LecternRendererMixin",
+    "compat.PunchyCameraStateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

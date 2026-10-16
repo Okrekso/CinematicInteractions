@@ -14,6 +14,8 @@ import java.util.Locale;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
@@ -51,6 +53,7 @@ public final class FurnaceStation extends ClientStation {
 
     private final StationKind kind;
     public final FurnaceLayout layout;
+    final FurnaceGridEditor gridEditor;
     private final Staging staging;
 
     public int hoverZone = -1;
@@ -64,11 +67,28 @@ public final class FurnaceStation extends ClientStation {
         this.kind = kind;
         this.layout = FurnaceLayout.of(kind);
         this.staging = kind == StationKind.BLAST_FURNACE ? TALL : LOW;
+        this.gridEditor = new FurnaceGridEditor(this);
     }
 
     @Override
     public StationKind kind() {
         return kind;
+    }
+
+    FurnaceAppearance geometry() { return FurnaceLayouts.current(kind); }
+    @Override public boolean busy() { return gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); }
+
+    @Override public List<Vec3> workSamples() {
+        if (geometry().equals(FurnaceAppearance.VANILLA)) return super.workSamples();
+        List<Vec3> points = new ArrayList<>(super.workSamples());
+        for (int i = 0; i < 3; i++) {
+            Vec3 normal = geometry().face(layout, i) == Face.TOP ? new Vec3(0, 0.04, 0) : side().scale(0.04);
+            points.add(geometry().center(layout, pos, side, i).add(normal));
+        }
+        return points;
     }
 
     private String key() {
@@ -180,7 +200,18 @@ public final class FurnaceStation extends ClientStation {
     public void updateCursor(boolean overPanel) {
         hoverZone = -1;
         aim = null;
-        if (overPanel) {
+        double[] mouse = Picking.mouseGui();
+        if (overPanel || gridEditor.over(mouse[0], mouse[1])) {
+            return;
+        }
+        if (!geometry().equals(FurnaceAppearance.VANILLA)) {
+            ZoneHit hit = zoneHit(false);
+            if (hit != null) {
+                hoverZone = hit.index(); aimFace = geometry().face(layout, hoverZone);
+                FurnaceAppearance.Region region = geometry().region(hoverZone);
+                Vec3 vertical = aimFace == Face.FRONT ? new Vec3(0, 1, 0) : side().scale(-1);
+                aim = hit.world().add(right().scale(region.itemU() / 16)).add(vertical.scale(region.itemV() / 16));
+            }
             return;
         }
         Vec3 camera = Picking.camera();
@@ -213,6 +244,31 @@ public final class FurnaceStation extends ClientStation {
         aimFace = face;
         hoverZone = layout.zoneAt(face, u, v);
         aim = FurnaceZones.point(pos, side, face, Mth.clamp(u, 0.08, 0.92), Mth.clamp(v, 0.05, 0.95), 0);
+    }
+
+    record ZoneHit(int index, Vec3 world) {}
+
+    /** Each edited zone has its own parallel contact plane; nearest visible face wins. */
+    ZoneHit zoneHit(boolean editor) {
+        FurnaceAppearance appearance = geometry();
+        ZoneHit best = null;
+        double distance = Double.MAX_VALUE;
+        for (int i = 0; i < (editor ? 5 : 3); i++) {
+            Face face = appearance.face(layout, i);
+            Vec3 normal = face == Face.FRONT ? side() : new Vec3(0, 1, 0);
+            double out = appearance.region(i).out() / 16;
+            Vec3 middle = FurnaceZones.point(pos, side, face, 0.5, 0.5, out);
+            Vec3 hit = Picking.cursorOnPlane(middle, normal);
+            if (hit == null) continue;
+            Vec3 rel = hit.subtract(middle);
+            double u = rel.dot(right()) + 0.5;
+            double v = face == Face.FRONT ? hit.y - pos.getY() : 0.5 - rel.dot(side());
+            double d = hit.distanceToSqr(Picking.camera());
+            if (d < distance && FurnaceAppearance.contains(appearance.rect(layout, i, !editor), u, v)) {
+                distance = d; best = new ZoneHit(i, hit);
+            }
+        }
+        return best;
     }
 
     @Override
@@ -248,6 +304,8 @@ public final class FurnaceStation extends ClientStation {
     public float heldItemTilt() {
         return 10f;
     }
+
+    float heldItemScale() { return hoverZone < 0 ? 1 : (float) geometry().region(hoverZone).itemScale(); }
 
     @Override
     public void click(int button, boolean shift) {
@@ -312,10 +370,13 @@ public final class FurnaceStation extends ClientStation {
     /** Hover glow on the zone under the cursor, and two gauges burnt into the front: cooking and fuel. */
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        FurnaceAppearance appearance = geometry();
         VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
         double flicker = 0.9 + 0.1 * Math.sin(Scene.clock() * 9.0);
-        gauge(pose, glow, camera, layout.cookGauge, cook(), new int[]{255, 196, 90}, flicker);
-        gauge(pose, glow, camera, layout.burnGauge, burn(), new int[]{255, 92, 30}, flicker);
+        gauge(pose, glow, camera, appearance.rect(layout, 3, false), Mth.lerp(gridEditor.amount(), cook(), 0.7), new int[]{255, 196, 90}, flicker, appearance.region(3).out() / 16);
+        gauge(pose, glow, camera, appearance.rect(layout, 4, false), Mth.lerp(gridEditor.amount(), burn(), 0.5), new int[]{255, 92, 30}, flicker, appearance.region(4).out() / 16);
+        gridEditor.renderWorld(pose, buffers, camera, light);
+        if (gridEditor.visible()) return;
         FurnaceLayout.Zone zone = hoverZone < 0 ? null : layout.zone(hoverZone);
         if (zone == null) {
             return;
@@ -323,17 +384,18 @@ public final class FurnaceStation extends ClientStation {
         boolean ok = accepts(hoverZone, Hands.carried());
         // one even, steady glow (it used to pulse, and its two windings fought over depth and shimmered in stripes)
         int[] tint = ok ? new int[]{255, 236, 200} : new int[]{255, 70, 60};
-        quad(pose, buffers.getBuffer(Fx.HIGHLIGHT), camera, pos, side, zone.face(), zone.highlight(), 0.004, tint, tint, 44, false);
+        quad(pose, buffers.getBuffer(Fx.HIGHLIGHT), camera, pos, side, zone.face(), appearance.rect(layout, hoverZone, false),
+                0.004 + appearance.region(hoverZone).out() / 16, tint, tint, 44, false);
     }
 
     /** A thin glowing line on the front, lit up to {@code fill}; the rest is a faint track. */
-    private void gauge(PoseStack pose, VertexConsumer glow, Vec3 camera, double[] strip, double fill, int[] rgb, double flicker) {
+    private void gauge(PoseStack pose, VertexConsumer glow, Vec3 camera, double[] strip, double fill, int[] rgb, double flicker, double out) {
         int[] track = {(int) (rgb[0] * 0.12), (int) (rgb[1] * 0.12), (int) (rgb[2] * 0.12)};
-        quad(pose, glow, camera, pos, side, Face.FRONT, strip, 0.003, track, track, 255);
+        quad(pose, glow, camera, pos, side, Face.FRONT, strip, out + 0.003, track, track, 255);
         if (fill > 0.001) {
             int[] lit = {(int) (rgb[0] * 0.75 * flicker), (int) (rgb[1] * 0.75 * flicker), (int) (rgb[2] * 0.75 * flicker)};
             quad(pose, glow, camera, pos, side, Face.FRONT, new double[]{strip[0], strip[0] + (strip[1] - strip[0]) * fill, strip[2], strip[3]},
-                    0.0035, lit, lit, 255);
+                    out + 0.0035, lit, lit, 255);
         }
     }
 
@@ -367,6 +429,9 @@ public final class FurnaceStation extends ClientStation {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] mouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(mouse[0], mouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         if (hoverZone < 0) {
             return null;
         }
@@ -401,6 +466,9 @@ public final class FurnaceStation extends ClientStation {
 
     @Override
     public Component hint() {
+        if (gridEditor.editing()) return TableGridEditor.text("hint");
         return Component.translatable("cinematic.hint." + key());
     }
+
+    @Override public void renderScreen(GuiGraphics graphics, Font font, float alpha) { gridEditor.render(graphics, font, alpha); }
 }

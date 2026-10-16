@@ -1,6 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.math.Axis;
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
@@ -32,7 +34,9 @@ import org.joml.Quaternionf;
  * The slot runs along the block from north to south (jukebox_top.png), so the jukebox is worked from its east or west
  * side, where a record in it shows its face.
  */
-public final class JukeboxStation extends ClientStation {
+public final class JukeboxStation extends ClientStation implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     /** The record's square as drawn (the disc in it is about three quarters of that across). */
     private static final float RECORD_SIZE = 0.6f;
     /** The disc's radius in the world. */
@@ -145,7 +149,12 @@ public final class JukeboxStation extends ClientStation {
     public void updateCursor(boolean overPanel) {
         aim = null;
         hoverTop = false;
-        if (overPanel || move != Move.NONE) {
+        if (overPanel || gridEditor.visible() || move != Move.NONE) {
+            return;
+        }
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            hoverTop = layoutPick() == 0;
+            if (hoverTop) aim = layoutPoint(0);
             return;
         }
         Vec3 hit = Picking.cursorOnPlane(top.y);
@@ -199,13 +208,17 @@ public final class JukeboxStation extends ClientStation {
     @Override
     public void tick() {
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player == null || Scene.phase != Scene.Phase.ACTIVE) {
+        if (player == null || gridEditor.visible() || Scene.phase != Scene.Phase.ACTIVE) {
             return;
         }
         if (!started && Scene.time > 0.1) {
             // the use that started the scene says what to do: take the record out, or put in the one in hand
             started = true;
             ItemStack hand = player.getMainHandItem();
+            if (Settings.developerMode()) {
+                // In the editor mode a short automatic scene must wait long enough to be edited.
+                return;
+            }
             if (playing()) {
                 begin(Move.EJECT, inside(), -1);
             } else if (isRecord(hand)) {
@@ -224,20 +237,20 @@ public final class JukeboxStation extends ClientStation {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.JUKEBOX, StationActionPayload.Action.CLICK,
                     from < 0 ? 0 : 1, Math.max(from, 0), false, 0));
             if (move == Move.INSERT) {
-                Fx.motes(top.add(0, 0.06, 0), 0.12, 10, 1.0f, 0.82f, 0.45f, 0.25);
+                Fx.motes(layoutPoint(0).add(0, 0.06, 0), 0.12, 10, 1.0f, 0.82f, 0.45f, 0.25);
             }
         }
         double length = move == Move.EJECT ? EJECT : INSERT;
         if (Scene.clock() - moveAt > length + LINGER) {
             // a short scene: done, the player steps away by themselves
             move = Move.NONE;
-            Scene.leave();
+            if (!Settings.developerMode()) Scene.leave();
         }
     }
 
     @Override
     public boolean busy() {
-        return move != Move.NONE;
+        return move != Move.NONE || gridEditor.editing();
     }
 
     /** Where the record's middle is in the move (null when it is not in sight). */
@@ -248,9 +261,11 @@ public final class JukeboxStation extends ClientStation {
         }
         double t = progress();
         Vec3 low = rest(true).add(side().scale(0.18)).add(0, -0.12, 0);
-        Vec3 above = top.add(0, DISC_R + 0.08, 0);
-        Vec3 halfIn = top.add(0, DISC_R * 0.25, 0);
-        Vec3 gone = top.add(0, -DISC_R - 0.02, 0);
+        Vec3 contact = layoutPoint(0);
+        double radius = DISC_R * geometry().scale(0);
+        Vec3 above = contact.add(0, radius + 0.08, 0);
+        Vec3 halfIn = contact.add(0, radius * 0.25, 0);
+        Vec3 gone = contact.add(0, -radius - 0.02, 0);
         if (move == Move.INSERT) {
             if (t < 0.32) {
                 double k = Anim.inOutCubic(t / 0.32);
@@ -284,7 +299,7 @@ public final class JukeboxStation extends ClientStation {
     private Quaternionf recordTurn() {
         double t = progress();
         double lean = move == Move.INSERT ? 1 - Anim.smoother(Anim.window(t, 0.2, 0.42)) : Anim.smoother(Anim.window(t, 0.7, 1.0));
-        return Axis.YP.rotationDegrees(-side.toYRot()).mul(Axis.XP.rotationDegrees((float) (-35 * lean)));
+        return Axis.YP.rotationDegrees(-side.toYRot() + RemainingLayouts.rotation(kind(), 0)).mul(Axis.XP.rotationDegrees((float) (-35 * lean)));
     }
 
     @Nullable
@@ -298,14 +313,14 @@ public final class JukeboxStation extends ClientStation {
         Vec3 restLeft = rest(false);
         Vec3 hand;
         Vec3 disc = recordPoint();
-        Vec3 press = top.add(side().scale(0.05)).add(0, 0.045, 0);
+        Vec3 press = layoutPoint(0).add(side().scale(0.05)).add(0, 0.045, 0);
         if (move == Move.INSERT) {
             if (disc != null && t < 0.72) {
                 hand = edge(disc);
             } else if (t < 0.86) {
                 // the fingers on its top edge push it home
                 double k = Anim.smoother((t - 0.72) / 0.14);
-                hand = Anim.lerp(edge(top.add(0, DISC_R * 0.25, 0)), press, k);
+                hand = Anim.lerp(edge(layoutPoint(0).add(0, DISC_R * geometry().scale(0) * 0.25, 0)), press, k);
             } else {
                 hand = Anim.lerp(press, restRight, Anim.smoother((t - 0.86) / 0.14));
             }
@@ -326,7 +341,7 @@ public final class JukeboxStation extends ClientStation {
 
     /** Where the hand holds a record standing at {@code disc}: by its edge on the right, a little towards the player. */
     private Vec3 edge(Vec3 disc) {
-        return disc.add(right().scale(DISC_R * 0.88)).add(side().scale(0.03)).add(0, 0.01, 0);
+        return disc.add(layoutAxis(0, true).scale(DISC_R * geometry().scale(0) * 0.88)).add(side().scale(0.03)).add(0, 0.01, 0);
     }
 
     @Override
@@ -338,11 +353,12 @@ public final class JukeboxStation extends ClientStation {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         Vec3 at = recordPoint();
         if (at == null || record.isEmpty()) {
             return;
         }
-        float size = RECORD_SIZE;
+        float size = RECORD_SIZE * geometry().scale(0);
         if (move == Move.EJECT) {
             size *= (float) (1 - 0.35 * Anim.smoother(Anim.window(progress(), 0.75, 1.0)));
         }
@@ -366,6 +382,9 @@ public final class JukeboxStation extends ClientStation {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] pointer = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(pointer[0], pointer[1]);
+        if (editorTip != null) return editorTip;
         if (!hoverTop || move != Move.NONE) {
             return null;
         }
@@ -383,4 +402,10 @@ public final class JukeboxStation extends ClientStation {
     public String moveName() {
         return move.name().toLowerCase(java.util.Locale.ROOT) + String.format(" %.2f", move == Move.NONE ? 0 : progress());
     }
+
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
 }

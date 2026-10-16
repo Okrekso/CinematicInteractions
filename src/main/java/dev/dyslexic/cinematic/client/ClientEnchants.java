@@ -40,7 +40,7 @@ public final class ClientEnchants {
     /** Someone enchanted at this table: light it up for onlookers. */
     public static void flash(BlockPos pos) {
         TABLES.computeIfAbsent(pos.immutable(), p -> new Entry()).flashAt = Scene.clock();
-        EnchantFx.burst(EnchantFx.itemCenter(pos, TABLES.get(pos).side, Scene.clock()), 0.7);
+        EnchantFx.burst(EnchantStation.itemPosition(pos, TABLES.get(pos).side, Scene.clock()), 0.7);
     }
 
     public static void unloadChunk(ChunkPos chunk) {

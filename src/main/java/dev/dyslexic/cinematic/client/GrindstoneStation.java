@@ -1,6 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
@@ -42,7 +44,9 @@ import net.minecraft.world.phys.Vec3;
  * grindstone menu (two inputs, the result taken on the first touch of stone), so experience orbs and sounds
  * are vanilla's.
  */
-public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
+public final class GrindstoneStation extends MenuStation<GrindstoneMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     /** Half the height of the wheel's square cross-section (12 px) and half its width along the axle (8 px). */
     static final double HALF = 6 / 16.0;
     static final double WIDTH = 4 / 16.0;
@@ -126,7 +130,7 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
 
     /** Where an input lies on top of the wheel: the first on the right, the second on the left. */
     static Vec3 restPoint(Vec3 wheel, Direction side, int slot) {
-        return wheel.add(0, HALF, 0).add(rightOf(side).scale(slot == 0 ? SLOT_SIDE : -SLOT_SIDE));
+        return RemainingLayouts.point(StationKind.GRINDSTONE, wheel.add(0, HALF, 0), side, slot);
     }
 
     @Override
@@ -183,6 +187,14 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
             return;
         }
         ItemStack carried = Hands.carried();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            int picked = layoutPick();
+            if (picked >= 0 && picked < 2) {
+                if (!carried.isEmpty()) { target = Target.PLACE; placeSlot = slotFor(carried, picked); aim = restPoint(picked); }
+                else if (!slot(picked).isEmpty()) { target = Target.ITEM; hoverSlot = picked; aim = restPoint(picked); }
+            }
+            return;
+        }
         double[] mouse = Picking.mouseGui();
         if (carried.isEmpty()) {
             for (int i = 0; i < 2; i++) {
@@ -316,13 +328,14 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
 
     static Vec3 blade(Direction side, int k) {
         double a = Math.toRadians(SLANT);
-        return Vec3.atLowerCornerOf(side.getNormal()).scale(-Math.cos(a)).add(rightOf(side).scale(k == 0 ? -Math.sin(a) : Math.sin(a)));
+        return Vec3.atLowerCornerOf(side.getNormal()).scale(-Math.cos(a)).add(rightOf(side).scale(k == 0 ? -Math.sin(a) : Math.sin(a)))
+                .yRot((float) Math.toRadians(RemainingLayouts.rotation(StationKind.GRINDSTONE, k)));
     }
 
     /** Where the blade of item {@code k} bites the running stone: under its tip half, on top of the wheel. */
     static Vec3 bite(Vec3 wheel, Direction side, int k, double t) {
         Vec3 at = heldPos(wheel, side, k, t).add(blade(side, k).scale(0.07));
-        return new Vec3(at.x, wheel.y + HALF + 0.004, at.z);
+        return new Vec3(at.x, RemainingLayouts.point(StationKind.GRINDSTONE, wheel.add(0, HALF, 0), side, 2).y - 0.026, at.z);
     }
 
     private Vec3 heldPos(int k, double t) {
@@ -332,7 +345,9 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
     /** Pose of item {@code k} (0 right hand, 1 left) at time {@code t} of the move. */
     static Vec3 heldPos(Vec3 wheel, Direction side, int k, double t) {
         double sideways = (k == 0 ? 0.08 : -0.08) + stroke(t) * (k == 0 ? 1 : -1);
-        Vec3 grinding = wheel.add(0, HALF, 0).add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.04)).add(0, 0.03, 0).add(rightOf(side).scale(sideways));
+        var layout = SpatialLayouts.current(StationKind.GRINDSTONE);
+        var frame = RemainingLayouts.frameAt(StationKind.GRINDSTONE, wheel.add(0, HALF, 0), side);
+        Vec3 grinding = layout.point(frame, 2).add(layout.axis(frame, 2, true).scale(sideways));
         Vec3 lying = restPoint(wheel, side, k).add(0, 0.008, 0);
         double lift = Anim.inOutCubic(Anim.window(t, 0.28, CONTACT));
         Vec3 at = Anim.lerp(lying, grinding, lift).add(0, 0.09 * Anim.hump(lift), 0);
@@ -345,7 +360,7 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
         double lift = Anim.inOutCubic(Anim.window(t, 0.28, CONTACT));
         float lying = k == 0 ? -8f : 8f;
         float slant = k == 0 ? SLANT : -SLANT;
-        return ItemPlacer.awayYaw(side) + TOOL_TURN + (float) (lying + (slant - lying) * lift);
+        return ItemPlacer.awayYaw(side) + TOOL_TURN + RemainingLayouts.rotation(StationKind.GRINDSTONE, k) + (float) (lying + (slant - lying) * lift);
     }
 
     /** The blade dips its tip onto the stone. */
@@ -355,7 +370,7 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
 
     /** Where the hand holds item {@code k}: by the handle, the end nearer the player. */
     private Vec3 handle(int k, Vec3 item) {
-        return item.subtract(blade(k).scale(0.13)).add(0, HAND_Y * 0.6, 0);
+        return item.subtract(blade(k).scale(0.13 * geometry().scale(k))).add(0, HAND_Y * 0.6, 0);
     }
 
     /** Lifted up towards the eye after grinding. */
@@ -524,7 +539,7 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
         boolean clean = !stripping || t >= CLEAN_AT;
         ItemStack shown = clean || !second.isEmpty() && t >= CLEAN_AT ? after : first;
         Vec3 at = heldPos(wheel, side, 0, t);
-        ItemPlacer.drawOriented(pose, buffers, cam, shown, at, ItemPlacer.lying(heldYaw(side, 0, t), heldTilt(t)), ITEM_SIZE, light);
+        ItemPlacer.drawOriented(pose, buffers, cam, shown, at, ItemPlacer.lying(heldYaw(side, 0, t), heldTilt(t)), ITEM_SIZE * RemainingLayouts.scale(StationKind.GRINDSTONE, 0), light);
         if (stripping && t >= CONTACT - 0.1 && t < CLEAN_AT + 0.05) {
             // the enchantment's glow draining out of the blade
             double left = 1 - Anim.window(t, CONTACT, CLEAN_AT);
@@ -532,13 +547,13 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
             EnchantFx.billboard(pose, buffers, camera, at.add(0, 0.02, 0), 0.17, Scene.clock() * 0.6, EnchantFx.GLOW, 0.65f * g, 0.35f * g, g);
         }
         if (!second.isEmpty() && t < CLEAN_AT) {
-            ItemPlacer.drawOriented(pose, buffers, cam, second, heldPos(wheel, side, 1, t), ItemPlacer.lying(heldYaw(side, 1, t), heldTilt(t)), ITEM_SIZE,
+            ItemPlacer.drawOriented(pose, buffers, cam, second, heldPos(wheel, side, 1, t), ItemPlacer.lying(heldYaw(side, 1, t), heldTilt(t)), ITEM_SIZE * RemainingLayouts.scale(StationKind.GRINDSTONE, 1),
                     light);
         } else if (!second.isEmpty() && t < CLEAN_AT + 0.25) {
             double k = Anim.inCubic(Anim.window(t, CLEAN_AT, CLEAN_AT + 0.25));
             Vec3 from = heldPos(wheel, side, 1, CLEAN_AT);
             ItemPlacer.drawOriented(pose, buffers, cam, second, Anim.lerp(from, heldPos(wheel, side, 0, t), k),
-                    ItemPlacer.lying(heldYaw(side, 1, t), heldTilt(t)), (float) (ITEM_SIZE * (1 - k)), light);
+                    ItemPlacer.lying(heldYaw(side, 1, t), heldTilt(t)), (float) (ITEM_SIZE * RemainingLayouts.scale(StationKind.GRINDSTONE, 1) * (1 - k)), light);
         }
         // the bright line where steel meets stone
         if (t >= CONTACT && t < LET_GO) {
@@ -550,6 +565,7 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
     /** The clean item after grinding, at {@code at}: lifted to catch the light, turned and tilted, then settling. */
     static void drawLifted(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Direction side, ItemStack after, Vec3 at, double t, float size,
             int light) {
+        size *= RemainingLayouts.scale(StationKind.GRINDSTONE, 0);
         double k = Anim.window(t, LET_GO, GRIND_LENGTH);
         float tilt = (float) (heldTilt(LET_GO) + (60 - heldTilt(LET_GO)) * Anim.hump(Math.min(1, k * 1.25)) + 18 * Anim.window(k, 0.8, 1));
         float from = heldYaw(side, 0, LET_GO);
@@ -560,9 +576,9 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
     /** An item lying on top of the wheel, blade pointing away. */
     static void drawLying(PoseStack pose, MultiBufferSource buffers, Vec3 cam, ItemStack stack, Vec3 at, Direction side, int slot, float scale,
             int light) {
-        float yaw = ItemPlacer.awayYaw(side) + TOOL_TURN + (slot == 0 ? -8f : 8f);
+        float yaw = ItemPlacer.awayYaw(side) + TOOL_TURN + (slot == 0 ? -8f : 8f) + RemainingLayouts.rotation(StationKind.GRINDSTONE, slot);
         boolean block = ItemPlacer.isBlock(stack);
-        float size = (block ? 0.16f : ITEM_SIZE) * scale;
+        float size = (block ? 0.16f : ITEM_SIZE) * scale * RemainingLayouts.scale(StationKind.GRINDSTONE, slot);
         Vec3 center = at.add(0, block ? size / 2 : 0.004 + slot * 0.003, 0);
         ItemPlacer.drawOriented(pose, buffers, cam, stack, center, ItemPlacer.lying(yaw, 0), size, light);
     }
@@ -614,6 +630,7 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         if (target == Target.PLACE && aim != null) {
             float p = (float) (0.18 + 0.06 * Math.sin(Scene.clock() * 5));
             boolean ok = placeSlot >= 0;
@@ -679,6 +696,9 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] pointer = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(pointer[0], pointer[1]);
+        if (editorTip != null) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         if (target == Target.PLACE) {
             return placeSlot < 0 ? List.of(Component.translatable("cinematic.grindstone.refuse").withStyle(ChatFormatting.RED)) : null;
@@ -714,4 +734,12 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> {
     public boolean stillThere(Level level) {
         return super.stillThere(level) && wheelCenter(pos, level.getBlockState(pos)).distanceToSqr(wheel) < 1e-6;
     }
+
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
+    @Override public float layoutHeldScale() { int slot = target == Target.PLACE ? placeSlot : hoverSlot; return slot < 0 ? 1 : geometry().scale(slot); }
 }

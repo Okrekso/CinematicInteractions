@@ -48,6 +48,7 @@ import net.minecraft.world.level.WorldDataConfiguration;
 import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.level.block.AnvilBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.GrindstoneBlock;
 import net.minecraft.world.level.block.StonecutterBlock;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
@@ -79,7 +80,8 @@ public final class Showcase {
     private static final String FROM = System.getProperty("cinematic.showcase.from", "0");
     /** Just the act started from: the walkthrough ends where it would hand over to the next act. */
     private static final boolean ONLY = Boolean.getBoolean("cinematic.showcase.only");
-    private static final String WORLD = "cinematic-showcase";
+    private static final boolean EDITOR_BATCH = Boolean.getBoolean("cinematic.showcase.editorBatch");
+    private static final String WORLD = System.getProperty("cinematic.showcase.world", "cinematic-showcase");
     private static final BlockPos TABLE = new BlockPos(0, -60, 2);
     private static final BlockPos FURNACE = TABLE.west();
     private static final BlockPos SMOKER = new BlockPos(2, -60, 2);
@@ -174,6 +176,11 @@ public final class Showcase {
                 case "3" -> nextAct("3", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "4" -> nextAct("4", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "5" -> nextAct("5", new Vec3(4.5, -60, 5.4), 180f, BLAST, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+                case "i" -> {
+                    step(2, () -> server(p -> p.serverLevel().setBlockAndUpdate(CRAFTER, Blocks.CRAFTER.defaultBlockState()
+                            .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.ORIENTATION, net.minecraft.core.FrontAndTop.UP_SOUTH))));
+                    nextAct("i", new Vec3(14.5, -60, 14.4), 180f, CRAFTER, new Vec3(0.5, 0.5, 1), Direction.SOUTH);
+                }
                 case "6" -> nextAct("6", new Vec3(-4.5, -60, 11.6), 180f, ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP);
                 case "a" -> smithyAct("a", ANVIL);
                 case "g" -> smithyAct("g", GRINDSTONE);
@@ -223,6 +230,9 @@ public final class Showcase {
                     shelfAct();
                 }
                 case "w" -> watchAct();
+                case "d" -> nextAct("d", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+                case "p" -> nextAct("p", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
+                case "z" -> { developerOptionsScript(); step(3, () -> finish(Minecraft.getInstance())); }
                 default -> use(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP);
             }
         }
@@ -277,6 +287,19 @@ public final class Showcase {
     private static void runScript() {
         switch (act) {
             case "0" -> tableScript();
+            case "d" -> {
+                tableGridEditorScript();
+                step(30, () -> finish(Minecraft.getInstance()));
+            }
+            case "p" -> {
+                StationKind kind = Scene.station.kind();
+                furnaceEditorScript();
+                step(3, Scene::leave);
+                step(45, () -> {});
+                if (kind == StationKind.FURNACE) nextAct("p", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
+                else if (kind == StationKind.SMOKER) nextAct("p", new Vec3(4.5, -60, 5.4), 180f, BLAST, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
+                else { developerOptionsScript(); step(3, () -> finish(Minecraft.getInstance())); }
+            }
             case "3" -> furnaceScript();
             case "4" -> smokerScript();
             case "5" -> blastScript();
@@ -288,7 +311,7 @@ public final class Showcase {
             case "l" -> loomScript();
             case "m" -> cartographyScript();
             case "b" -> brewingScript();
-            case "r" -> crafterScript();
+            case "r", "i" -> crafterScript();
             case "u" -> soulCampfireScript();
             case "k" -> lecternScript();
             case "e" -> shelfScript();
@@ -477,6 +500,7 @@ public final class Showcase {
     private static void tableScript() {
         shot("05_active");
         tableGridAlignmentScript();
+        tableGridEditorScript();
         tableRecipeBookScript();
         tableVisibilityScript();
         tableGlintVisibilityScript();
@@ -543,6 +567,179 @@ public final class Showcase {
     }
 
     /** Texture-derived targets must stay independent of TableGrid, or a misplaced grid would test itself. */
+    private static void tableGridEditorScript() {
+        TableLayout[] original = TableLayouts.profiles();
+        int active = TableLayouts.selected();
+        int[] previousGuiScale = new int[1];
+        boolean originalDev = Settings.developerMode();
+        step(2, () -> {
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            double[] at = table().gridEditor.togglePoint();
+            check("table editor hidden with developer mode off", !table().gridEditor.editing()
+                    && !table().gridEditor.over(at[0], at[1]), "G and icon unavailable");
+            Settings.DEVELOPER_MODE.set(true);
+        });
+        step(2, () -> {
+            TableLayout turned = new TableLayout(1, -1, 90, 1, 1, 1, 1);
+            Vec3 first = turned.cell(TABLE, 0);
+            check("editor quarter-turn geometry", Math.abs(first.x - (TABLE.getX() + 0.375)) < 1e-9
+                    && Math.abs(first.z - (TABLE.getZ() + 0.625)) < 1e-9
+                    && Math.abs(first.y - (TABLE.getY() + 1.0625)) < 1e-9, "independent 90-degree reference=" + first);
+            TableLayout bounded = new TableLayout(100, -100, 45, 1.2, 1.2, Double.NaN, Double.POSITIVE_INFINITY);
+            boolean inside = true;
+            for (double x : new double[]{3.5 / 16, 12.5 / 16}) for (double z : new double[]{3.5 / 16, 12.5 / 16}) {
+                Vec3 p = bounded.point(BlockPos.ZERO, x, z);
+                inside &= p.x >= 0.009 && p.x <= 0.991 && p.z >= 0.009 && p.z <= 0.991;
+            }
+            check("editor clamps malformed layouts", inside && bounded.height() == 0 && bounded.itemScale() == 1,
+                    "rotated corners stay on the block");
+        });
+        step(2, () -> inventoryClick(36, 0));
+        step(2, () -> {
+            double[] at = table().gridEditor.togglePoint();
+            pointGui(at[0], at[1]);
+            screenClick(0);
+        });
+        step(20, () -> {
+            check("editor opens without replacing scene", table().gridEditor.editing() && Minecraft.getInstance().screen instanceof SceneScreen
+                    && !table().showsInventory(), "same scene, inventory hidden");
+            shot("0d0_editor_open");
+        });
+        editorSliderStep(2, 24);
+        editorSliderStep(3, 90);
+        editorSliderStep(4, 80);
+        editorSliderStep(5, 0.5);
+        editorSliderStep(6, 75);
+        step(16, () -> {
+            check("editor live preview", Math.abs(TableLayouts.current().rotation() - 24) < 0.1
+                    && Math.abs(TableLayouts.current().height() - 0.5) < 0.01, "layout=" + TableLayouts.current());
+            shot("0d1_editor_rotated");
+            pointAt(table().cellPoint(4));
+            screenClick(1);
+        });
+        step(3, () -> {
+            check("editor consumes item clicks", Hands.carried().getCount() == 24 && ClientTables.get(TABLE) == null,
+                    "carried=" + Hands.carried());
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        });
+        step(25, () -> {
+            check("editor cancel restores profile", !table().gridEditor.editing() && TableLayouts.current().equals(original[active])
+                    && Scene.phase == Scene.Phase.ACTIVE, "scene remains active");
+            inventoryClick(36, 0);
+        });
+        step(3, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0));
+        step(20, () -> {
+            previousGuiScale[0] = Minecraft.getInstance().options.guiScale().get();
+            Minecraft.getInstance().options.guiScale().set(3);
+            Minecraft.getInstance().resizeDisplay();
+        });
+        step(8, () -> {
+            shot("0d5_editor_gui_scale_3");
+            Minecraft.getInstance().options.guiScale().set(previousGuiScale[0]);
+            Minecraft.getInstance().resizeDisplay();
+        });
+        step(8, () -> {
+            editorControl(80, 249);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_W, 0, 0);
+            check("editor movement keys do not leave", Scene.phase == Scene.Phase.ACTIVE && table().gridEditor.editing(), "still editing");
+        });
+        editorSliderStep(2, 30);
+        editorSliderStep(3, 85);
+        editorSliderStep(4, 90);
+        editorSliderStep(6, 80);
+        step(15, () -> editorControl(145, 38));
+        step(12, () -> {
+            check("editor profile switching", Math.abs(TableLayouts.current().rotation() - original[(active + 1) % 3].rotation()) < 0.1,
+                    "other profile restored");
+            editorControl(18, 38);
+        });
+        step(20, () -> {
+            check("editor profile draft retained", Math.abs(TableLayouts.current().rotation() - 30) < 0.1, "draft survives switching");
+            Vec3 hit = table().cellPoint(4);
+            pointAt(hit);
+            screenClick(0);
+            pointAt(hit.add(0.04, 0, -0.025));
+            double[] mouse = Picking.mouseGui();
+            Minecraft.getInstance().screen.mouseDragged(mouse[0], mouse[1], 0, 4, -2);
+            Minecraft.getInstance().screen.mouseReleased(mouse[0], mouse[1], 0);
+        });
+        step(20, () -> {
+            check("editor drag translates grid", TableLayouts.current().x() > 0.4 && TableLayouts.current().z() < -0.2,
+                    "layout=" + TableLayouts.current());
+            shot("0d2_editor_dragged");
+            editorControl(42, 273);
+        });
+        step(25, () -> {
+            check("editor saves profile", !table().gridEditor.editing() && java.nio.file.Files.exists(TableLayouts.path())
+                    && TableLayouts.profiles()[active].rotation() == 30, "saved=" + TableLayouts.path());
+            try {
+                check("editor persists values", java.nio.file.Files.readString(TableLayouts.path()).contains("30.0"), "JSON contains rotation");
+            } catch (java.io.IOException e) { throw new IllegalStateException(e); }
+        });
+        step(3, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0));
+        step(18, () -> editorControl(80, 249));
+        step(20, () -> {
+            check("editor reset preview", TableLayouts.current().equals(TableLayout.VANILLA), "vanilla preview");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        });
+        step(25, () -> check("editor reset can be cancelled", Math.abs(TableLayouts.current().rotation() - 30) < 0.1,
+                "saved layout retained"));
+        for (int i = 0; i < 9; i++) {
+            final int cell = i;
+            step(2, () -> pointAt(table().cellPoint(cell)));
+            step(4, () -> check("editor transformed picking " + cell, table().hoverCell == cell, "hover=" + table().hoverCell));
+        }
+        step(3, () -> {
+            double[] at = table().recipeBook.togglePoint();
+            pointGui(at[0], at[1]);
+            screenClick(0);
+        });
+        step(18, () -> recipeSearch("wooden_pickaxe"));
+        step(5, () -> pointRecipe("wooden_pickaxe"));
+        step(3, () -> screenClick(0));
+        step(15, () -> {
+            shot("0d3_editor_recipe_ghosts");
+            double[] at = table().recipeBook.layPoint();
+            pointGui(at[0], at[1]);
+            screenClick(0);
+        });
+        step(60, () -> {
+            check("editor recipe layout reaches adjusted cells", !table().result.isEmpty() && table().result.is(Items.WOODEN_PICKAXE)
+                    && table().recipeBook.guide.missingCount == 0, "result=" + table().result);
+            shot("0d4_editor_laid_out");
+        });
+        for (int[] rc : new int[][]{{0,0},{0,1},{0,2},{1,1},{2,1}}) {
+            step(2, () -> pointAt(table().cellPoint(TableGrid.worldIndex(table().sideDirection(), rc[0], rc[1]))));
+            step(4, () -> screenClick(0));
+            step(4, () -> inventoryClick(rc[0] == 0 ? 36 : 37, 0));
+        }
+        step(3, () -> recipeControl(113, 194));
+        step(3, () -> recipeControl(113, 12));
+        step(20, () -> {
+            check("editor walkthrough restores ingredients", ClientTables.get(TABLE) == null
+                    || ClientTables.get(TABLE).list().stream().allMatch(ItemStack::isEmpty), "table emptied");
+            check("editor restore original profiles", TableLayouts.save(original, active), "original profiles restored");
+        });
+        step(25, () -> { Settings.DEVELOPER_MODE.set(originalDev); pointAside(); });
+    }
+
+    private static void editorSliderStep(int field, double value) {
+        step(3, () -> {
+            double[] at = table().gridEditor.sliderPoint(field, value);
+            pointGui(at[0], at[1]);
+            screenClick(0);
+            Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+        });
+    }
+
+    private static void editorControl(double x, double y) {
+        double[] at = table().gridEditor.controlPoint(x, y);
+        pointGui(at[0], at[1]);
+        screenClick(0);
+        Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+    }
+
     private static void tableGridAlignmentScript() {
         step(2, () -> {
             boolean aligned = true;
@@ -935,7 +1132,577 @@ public final class Showcase {
 
     // ---- the furnaces -------------------------------------------------------------------------------
 
+    private static FurnaceStation furnace() { return Scene.station(FurnaceStation.class); }
+
+    private static void furnaceEditorScript() {
+        FurnaceStation station = furnace();
+        StationKind kind = station.kind();
+        FurnaceAppearance[] original = FurnaceLayouts.profiles(kind);
+        int selected = FurnaceLayouts.selected(kind);
+        boolean originalDev = Settings.developerMode();
+        String prefix = "p" + kind.name().toLowerCase(java.util.Locale.ROOT);
+        int[] originalGui = new int[1];
+        StationKind[] otherKinds = java.util.Arrays.stream(new StationKind[]{StationKind.FURNACE, StationKind.SMOKER, StationKind.BLAST_FURNACE})
+                .filter(k -> k != kind).toArray(StationKind[]::new);
+        FurnaceAppearance[][] otherProfiles = {FurnaceLayouts.profiles(otherKinds[0]), FurnaceLayouts.profiles(otherKinds[1])};
+        step(2, () -> {
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            double[] at = station.gridEditor.togglePoint();
+            check(prefix + " developer mode off", !station.gridEditor.editing() && !station.gridEditor.over(at[0], at[1]), "no G or icon");
+            FurnaceAppearance.Region shifted = FurnaceAppearance.Region.VANILLA.with(0, 1).with(1, 1);
+            FurnaceAppearance independent = FurnaceAppearance.VANILLA.with(0, shifted);
+            double[] base = station.layout.center(0);
+            Vec3 expected = FurnaceZones.point(station.pos, station.sideDirection(), station.layout.zone(0).face(), base[0] + 1.0 / 16, base[1] + 1.0 / 16, 0);
+            check(prefix + " independent pixel geometry", independent.point(station.layout, station.pos, station.sideDirection(), 0, base[0], base[1], 0, false).distanceTo(expected) < 1e-9,
+                    "one texture pixel on the original face");
+            FurnaceAppearance.Region malformed = new FurnaceAppearance.Region(Double.NaN, 999, 999, -999, Double.POSITIVE_INFINITY, 999, -999, 999, -999, 999);
+            check(prefix + " malformed values bounded", malformed.u() == 0 && malformed.v() == 6 && malformed.itemScale() == 1.5 && malformed.out() == 0, "finite clamped values");
+            Settings.DEVELOPER_MODE.set(true);
+        });
+        // Pick a real coal stack, then make sure editor clicks cannot insert it.
+        step(3, () -> inventoryClick(16, 0));
+        step(3, () -> {
+            double[] at = station.gridEditor.togglePoint(); pointGui(at[0], at[1]); screenClick(0);
+        });
+        step(20, () -> {
+            check(prefix + " opens in scene", station.gridEditor.editing() && !station.showsInventory(), "inventory hidden");
+            shot(prefix + "_open");
+        });
+        furnaceEditorSlider(0, 0.5);
+        furnaceEditorSlider(1, 0.5);
+        furnaceEditorSlider(2, 85);
+        furnaceEditorSlider(3, 90);
+        furnaceEditorSlider(4, 0.5);
+        furnaceEditorSlider(5, 80);
+        step(18, () -> {
+            check(prefix + " preview", Math.abs(station.geometry().input().u() - 0.5) < 0.01
+                    && Math.abs(station.geometry().input().itemScale() - 0.8) < 0.01, "live geometry");
+            pointAt(station.geometry().center(station.layout, station.pos, station.sideDirection(), 0));
+            screenClick(1);
+        });
+        step(3, () -> {
+            check(prefix + " editor consumes carried clicks", Hands.carried().is(Items.COAL) && Hands.carried().getCount() == 16
+                    && ClientFurnaces.item(station.pos, 0).isEmpty() && ClientFurnaces.item(station.pos, 1).isEmpty(), "real stack untouched");
+            furnaceEditorControl(80, 90);
+        });
+        furnaceEditorSlider(0, 120);
+        furnaceEditorSlider(1, 110);
+        furnaceEditorSlider(2, 0.25);
+        furnaceEditorSlider(3, -0.25);
+        step(18, () -> {
+            check(prefix + " advanced independent", Math.abs(station.geometry().input().itemU() - 0.25) < 0.01
+                    && Math.abs(station.geometry().input().clickWidth() - 1.2) < 0.01, "item and target offsets");
+            shot(prefix + "_advanced");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        });
+        step(25, () -> {
+            check(prefix + " cancel", station.geometry().equals(original[selected]) && Scene.phase == Scene.Phase.ACTIVE, "saved profile restored");
+            inventoryClick(16, 0);
+        });
+        step(3, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0));
+        step(20, () -> furnaceEditorControl(80, 298));
+        furnaceEditorSlider(0, 0.5);
+        furnaceEditorSlider(4, 0.5);
+        step(18, () -> {
+            Vec3 start = station.geometry().center(station.layout, station.pos, station.sideDirection(), 0);
+            pointAt(start); screenClick(0);
+            pointAt(start.add(station.right().scale(0.025)));
+            double[] at = Picking.mouseGui();
+            Minecraft.getInstance().screen.mouseDragged(at[0], at[1], 0, 3, 0);
+            Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+        });
+        step(20, () -> {
+            check(prefix + " drag", station.geometry().input().u() > 0.7, "zone follows face drag");
+            furnaceEditorControl(160, 38);
+        });
+        step(20, () -> {
+            check(prefix + " profile switching", station.geometry().equals(original[(selected + 1) % 3]), "independent profile");
+            furnaceEditorControl(18, 38);
+        });
+        step(20, () -> {
+            check(prefix + " draft retained", station.geometry().input().u() > 0.7, "draft survived switching");
+            furnaceEditorControl(160, 65);
+        });
+        furnaceEditorSlider(0, -0.25);
+        furnaceEditorSlider(1, 0.25);
+        furnaceEditorSlider(2, 90);
+        furnaceEditorSlider(4, 0.25);
+        step(15, () -> furnaceEditorControl(160, 65));
+        furnaceEditorSlider(0, 0.25);
+        furnaceEditorSlider(1, 0.25);
+        furnaceEditorSlider(5, 90);
+        step(18, () -> {
+            check(prefix + " all slots independently edited", Math.abs(station.geometry().fuel().u() + 0.25) < 0.01
+                    && Math.abs(station.geometry().result().itemScale() - 0.9) < 0.01, "fuel and output settings");
+            shot(prefix + "_all_zones");
+            furnaceEditorControl(160, 65);
+        });
+        furnaceEditorSlider(0, 0.5);
+        furnaceEditorSlider(1, 0.5);
+        step(18, () -> {
+            check(prefix + " gauge preview", Math.abs(station.geometry().cooking().v() - 0.5) < 0.01, "indicator moved independently");
+            shot(prefix + "_gauge");
+            furnaceEditorControl(160, 65);
+        });
+        furnaceEditorSlider(0, -0.5);
+        furnaceEditorSlider(1, 0.25);
+        furnaceEditorSlider(4, 0.125);
+        step(18, () -> {
+            check(prefix + " fuel gauge preview", Math.abs(station.geometry().burning().v() - 0.25) < 0.01
+                    && Math.abs(station.geometry().cooking().v() - 0.5) < 0.01, "two independent indicators");
+            shot(prefix + "_fuel_gauge");
+            originalGui[0] = Minecraft.getInstance().options.guiScale().get();
+            Minecraft.getInstance().options.guiScale().set(3); Minecraft.getInstance().resizeDisplay();
+        });
+        step(8, () -> {
+            shot(prefix + "_gui_3");
+            Minecraft.getInstance().options.guiScale().set(originalGui[0]); Minecraft.getInstance().resizeDisplay();
+        });
+        step(8, () -> {
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_W, 0, 0);
+            check(prefix + " movement blocked", station.gridEditor.editing() && Scene.phase == Scene.Phase.ACTIVE, "same scene");
+            furnaceEditorControl(45, 323);
+        });
+        step(25, () -> {
+            check(prefix + " saves JSON", !station.gridEditor.editing() && java.nio.file.Files.exists(FurnaceLayouts.path())
+                    && FurnaceLayouts.profiles(kind)[selected].input().u() > 0.7, "local profile saved");
+            boolean boundedGlow = true;
+            for (var glow : station.layout.glows) for (int zone = 0; zone < 3; zone++) {
+                if (station.layout.zone(zone).face() != glow.face()) continue;
+                double[] rect = station.geometry().glowRect(station.layout, glow, zone);
+                if (rect != null) boundedGlow &= rect[0] >= 0 && rect[1] <= 1 && rect[2] >= 0 && rect[3] <= 1;
+            }
+            check(prefix + " warm light bounded", boundedGlow, "light remains on the configured face");
+            check(prefix + " furnace types independent", java.util.Arrays.equals(otherProfiles[0], FurnaceLayouts.profiles(otherKinds[0]))
+                    && java.util.Arrays.equals(otherProfiles[1], FurnaceLayouts.profiles(otherKinds[1])), "other furnaces unchanged");
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            check(prefix + " saved layout with dev off", !station.gridEditor.editing() && station.geometry().input().u() > 0.7, "geometry applies, editor unavailable");
+        });
+        for (int i = 0; i < 3; i++) {
+            int zone = i;
+            step(3, () -> pointAt(station.geometry().center(station.layout, station.pos, station.sideDirection(), zone)));
+            step(5, () -> check(prefix + " adjusted picking " + zone, station.hoverZone == zone, "hover=" + station.hoverZone));
+        }
+        step(3, () -> inventoryClick(16, 0));
+        step(3, () -> pointAt(station.geometry().center(station.layout, station.pos, station.sideDirection(), 1)));
+        step(5, () -> clickZone(1, 1));
+        step(8, () -> {
+            check(prefix + " real placement", ClientFurnaces.item(station.pos, 1).getCount() == 1 && Hands.carried().getCount() == 15, "one coal in logical fuel slot");
+            inventoryClick(16, 0);
+            server(p -> p.serverLevel().setBlockAndUpdate(station.pos, p.serverLevel().getBlockState(station.pos)
+                    .setValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT, true)));
+        });
+        step(8, () -> {
+            shot(prefix + "_adjusted_warm_light");
+            server(p -> p.serverLevel().setBlockAndUpdate(station.pos, p.serverLevel().getBlockState(station.pos)
+                    .setValue(net.minecraft.world.level.block.AbstractFurnaceBlock.LIT, false)));
+        });
+        step(3, () -> pointAt(station.geometry().center(station.layout, station.pos, station.sideDirection(), 1)));
+        step(5, () -> clickZone(1, 0));
+        step(8, () -> inventoryClick(16, 0));
+        step(3, () -> {
+            Settings.DEVELOPER_MODE.set(true);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+        });
+        step(20, () -> furnaceEditorSliderNow(0, -0.5));
+        step(18, () -> Settings.DEVELOPER_MODE.set(false));
+        step(25, () -> {
+            check(prefix + " disabling dev cancels draft", !station.gridEditor.editing() && station.geometry().equals(FurnaceLayouts.profiles(kind)[selected]), "saved geometry restored");
+            check(prefix + " inventory restored", Hands.carried().isEmpty() && Minecraft.getInstance().player.getInventory().getItem(16).getCount() == 16
+                    && ClientFurnaces.item(station.pos, 1).isEmpty(), "coal returned");
+            check(prefix + " restore profiles", FurnaceLayouts.save(kind, original, selected), "original settings restored");
+            Settings.DEVELOPER_MODE.set(originalDev); pointAside();
+        });
+        step(25, () -> {});
+    }
+
+    /** Real scene input against edited spots, followed by the station's normal recipe walkthrough. */
+    private static Runnable surfaceEditorScript() {
+        SurfaceStation<?> station = (SurfaceStation<?>) Scene.station;
+        StationKind kind = station.kind(), other = kind == StationKind.SMITHING ? StationKind.CARTOGRAPHY : StationKind.SMITHING;
+        String prefix = kind == StationKind.SMITHING ? "sx" : "mx";
+        SurfaceAppearance[] original = SurfaceLayouts.profiles(kind), untouched = SurfaceLayouts.profiles(other);
+        int selected = SurfaceLayouts.selected(kind);
+        boolean dev = Settings.developerMode();
+        int[] stackCount = {0}, guiScale = {0};
+        step(2, () -> {
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            double[] at = station.gridEditor.togglePoint(); pointGui(at[0], at[1]); screenClick(0);
+            check(prefix + " developer gate", !station.gridEditor.editing() && !station.gridEditor.over(at[0], at[1]), "G and icon unavailable");
+            SurfaceAppearance moved = SurfaceAppearance.VANILLA.with(0, SurfaceAppearance.Region.VANILLA.with(0, 1).with(1, 1).with(5, 1));
+            Vec3 p = moved.point(kind, Vec3.ZERO, Direction.SOUTH, 0);
+            double expectedX = kind == StationKind.SMITHING ? -0.26 + 1.0 / 16 : -0.04 + 1.0 / 16;
+            double expectedZ = kind == StationKind.SMITHING ? -0.12 + 1.0 / 16 : 0.04 + 1.0 / 16;
+            check(prefix + " independent pixel geometry", p.distanceTo(new Vec3(expectedX, 1.0 / 16, expectedZ)) < 1e-9, "independent south-facing reference=" + p);
+            var malformed = new SurfaceAppearance.Region(100, -100, Double.NaN, 100, 100, Double.POSITIVE_INFINITY, Double.NaN);
+            check(prefix + " malformed values bounded", malformed.x() == 6 && malformed.z() == -6 && malformed.rotation() == 0
+                    && malformed.width() == 1.5 && malformed.height() == 0 && malformed.itemScale() == 1, "finite values");
+            Settings.DEVELOPER_MODE.set(true);
+            stackCount[0] = Minecraft.getInstance().player.getInventory().getItem(0).getCount();
+            invClick(0, 0);
+        });
+        step(4, () -> { double[] at = station.gridEditor.togglePoint(); pointGui(at[0], at[1]); screenClick(0); });
+        step(20, () -> {
+            check(prefix + " editor opens", station.gridEditor.editing() && !station.showsInventory() && Minecraft.getInstance().screen instanceof SceneScreen, "same scene");
+            pointAside();
+            shot(prefix + "0_editor_open");
+        });
+        surfaceSlider(0, 0.5); surfaceSlider(1, 0.25); surfaceSlider(2, 20); surfaceSlider(3, 90);
+        surfaceSlider(4, 85); surfaceSlider(5, 0.25); surfaceSlider(6, 90);
+        step(18, () -> {
+            check(prefix + " live preview", Math.abs(station.geometry().first().rotation() - 20) < 0.1 && Math.abs(station.surfaceScale(0) - 0.9) < 0.01, "rotation and size");
+            pointAside();
+            shot(prefix + "1_editor_preview");
+            pointAt(station.restPoint(0)); screenClick(1);
+        });
+        step(4, () -> {
+            check(prefix + " editing does not move ingredients", carried().getCount() == stackCount[0] && station.slot(0).isEmpty(), "carried stack unchanged");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        });
+        step(25, () -> {
+            check(prefix + " cancel restores saved", !station.gridEditor.editing() && station.geometry().equals(original[selected]), "scene stays active");
+            invClick(0, 0);
+        });
+        step(4, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0));
+        step(20, () -> surfaceControl(90, 314));
+        surfaceSlider(0, -0.25); surfaceSlider(1, -0.25); surfaceSlider(2, 12); surfaceSlider(3, 90);
+        surfaceSlider(4, 90); surfaceSlider(5, 0.25); surfaceSlider(6, 85);
+        step(18, () -> surfaceControl(150, 38));
+        step(18, () -> {
+            check(prefix + " profiles separate", station.geometry().equals(original[(selected + 1) % 3]), "other profile");
+            surfaceControl(18, 38);
+        });
+        step(20, () -> {
+            check(prefix + " profile draft retained", Math.abs(station.geometry().first().rotation() - 12) < 0.1, "switch back");
+            Vec3 at = station.restPoint(0); pointAt(at); screenClick(0);
+            pointAt(at.add(station.right().scale(0.025)));
+            double[] mouse = Picking.mouseGui();
+            Minecraft.getInstance().screen.mouseDragged(mouse[0], mouse[1], 0, 3, 0);
+            Minecraft.getInstance().screen.mouseReleased(mouse[0], mouse[1], 0);
+        });
+        step(20, () -> {
+            check(prefix + " world drag", station.geometry().first().x() > 0.1, "drag along working right axis");
+            pointAside();
+            shot(prefix + "2_editor_drag");
+            surfaceControl(150, 65);
+        });
+        surfaceSlider(0, -0.5); surfaceSlider(1, 0.25); surfaceSlider(2, -12); surfaceSlider(5, 0.5); surfaceSlider(6, 90);
+        if (kind == StationKind.SMITHING) {
+            step(5, () -> surfaceControl(150, 65));
+            surfaceSlider(0, -0.25); surfaceSlider(1, 0.25); surfaceSlider(2, -20); surfaceSlider(5, 0.25); surfaceSlider(6, 85);
+        }
+        step(18, () -> {
+            check(prefix + " zones independent", station.geometry().first().rotation() > 11.9 && station.geometry().second().rotation() < -11.9, "independent rotation and heights");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_W, 0, 0);
+            check(prefix + " movement blocked", Scene.phase == Scene.Phase.ACTIVE && station.gridEditor.editing(), "still editing");
+            guiScale[0] = Minecraft.getInstance().options.guiScale().get();
+            Minecraft.getInstance().options.guiScale().set(3); Minecraft.getInstance().resizeDisplay();
+        });
+        step(8, () -> {
+            pointAside();
+            shot(prefix + "3_editor_gui3");
+            Minecraft.getInstance().options.guiScale().set(guiScale[0]); Minecraft.getInstance().resizeDisplay();
+        });
+        step(8, () -> surfaceControl(40, 343));
+        step(25, () -> {
+            check(prefix + " saved JSON", !station.gridEditor.editing() && java.nio.file.Files.exists(SurfaceLayouts.path())
+                    && SurfaceLayouts.profiles(kind)[selected].first().rotation() == 12, "local profiles written");
+            check(prefix + " station types independent", java.util.Arrays.equals(untouched, SurfaceLayouts.profiles(other)), "other station untouched");
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            check(prefix + " saved geometry with dev off", !station.gridEditor.editing() && station.geometry().first().rotation() > 11.9, "saved layout remains active");
+        });
+        for (int i = 0; i < SurfaceAppearance.count(kind); i++) {
+            int spot = i;
+            step(3, () -> pointAt(station.restPoint(spot)));
+            step(4, () -> check(prefix + " edited picking " + spot, station.surfaceSlot(false) == spot, "raised rotated contact plane"));
+        }
+        step(3, () -> { Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+        step(18, () -> surfaceControl(90, 314));
+        step(25, () -> { check(prefix + " reset preview", station.geometry().equals(SurfaceAppearance.VANILLA), "vanilla draft"); Settings.DEVELOPER_MODE.set(false); });
+        step(25, () -> {
+            check(prefix + " disabling cancels draft", !station.gridEditor.editing() && station.geometry().first().rotation() > 11.9, "saved layout restored");
+            check(prefix + " inventory restored", carried().isEmpty() && Minecraft.getInstance().player.getInventory().getItem(0).getCount() == stackCount[0], "no items created or lost");
+            pointAside();
+        });
+        return () -> {
+            check(prefix + " restore profiles", SurfaceLayouts.save(kind, original, selected), "original profiles restored");
+            Settings.DEVELOPER_MODE.set(dev);
+        };
+    }
+
+    /** Input, persistence and real operations exercise the same edited geometry. */
+    private static Runnable spatialEditorScript() {
+        SpatialTarget target = (SpatialTarget) Scene.station;
+        ClientStation station = target.layoutStation();
+        StationKind kind = station.kind();
+        SpatialEditor editor = target.layoutEditor();
+        String prefix = "x" + act;
+        SpatialAppearance[] original = SpatialLayouts.profiles(kind);
+        StationKind otherKind = kind == StationKind.BREWING ? StationKind.CRAFTER : StationKind.BREWING;
+        SpatialAppearance[] otherProfiles = SpatialLayouts.profiles(otherKind);
+        int selected = SpatialLayouts.selected(kind);
+        boolean dev = Settings.developerMode();
+        ItemStack hand = carried().copy();
+        int[] guiScale = {0};
+        step(2, () -> {
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            double[] at = editor.togglePoint(); pointGui(at[0], at[1]); screenClick(0);
+            check(prefix + " developer gate", !editor.editing() && !editor.over(at[0], at[1]), "G and gear unavailable");
+            var flat = SpatialAppearance.Frame.of(StationKind.CRAFTER, BlockPos.ZERO, Direction.SOUTH, Direction.UP);
+            var front = SpatialAppearance.Frame.of(StationKind.CRAFTER, BlockPos.ZERO, Direction.SOUTH, Direction.SOUTH);
+            check(prefix + " independent flat geometry", SpatialAppearance.VANILLA.point(flat, 0).distanceTo(new Vec3(5 / 16.0, 1, 5 / 16.0)) < 1e-9, "texture reference");
+            check(prefix + " independent upright geometry", SpatialAppearance.VANILLA.point(front, 0).distanceTo(new Vec3(5 / 16.0, 11 / 16.0, 1)) < 1e-9, "texture reference");
+            var invalid = new SpatialAppearance(null, java.util.Arrays.asList((SurfaceAppearance.Region) null));
+            check(prefix + " malformed profile normalized", invalid.equals(SpatialAppearance.VANILLA), "missing slots restored");
+            if (kind == StationKind.LOOM) {
+                var loomFrame = SpatialAppearance.Frame.of(kind, BlockPos.ZERO, Direction.SOUTH, Direction.UP);
+                check(prefix + " original loom corners", SpatialAppearance.VANILLA.point(loomFrame, 1).distanceTo(new Vec3(0.87, 1, 0.84)) < 1e-9
+                        && SpatialAppearance.VANILLA.point(loomFrame, 2).distanceTo(new Vec3(0.13, 1, 0.84)) < 1e-9, "original corner references");
+                var lowered = SpatialAppearance.VANILLA.with(0, SurfaceAppearance.Region.VANILLA.with(5, -1));
+                check(prefix + " cloth can move down", Math.abs(lowered.point(loomFrame, 0).y - 15 / 16.0) < 1e-9, "lower model surfaces supported");
+            } else if (kind == StationKind.ENCHANTING) {
+                var enchantFrame = SpatialAppearance.Frame.of(kind, BlockPos.ZERO, Direction.SOUTH, Direction.UP);
+                check(prefix + " original enchanting positions", SpatialAppearance.VANILLA.point(enchantFrame, 0).distanceTo(new Vec3(0.5, 1.37, 0.5)) < 1e-9
+                        && SpatialAppearance.VANILLA.point(enchantFrame, 1).distanceTo(new Vec3(0.94, 1.02, 0.68)) < 1e-9
+                        && SpatialAppearance.VANILLA.point(enchantFrame, 3).distanceTo(new Vec3(0.5, 1.67, 0.38)) < 1e-9, "original item, socket and crown");
+            }
+            Settings.DEVELOPER_MODE.set(true);
+        });
+        step(5, () -> { pointAside(); shot(prefix + "0_gear"); });
+        step(2, () -> { double[] gear = editor.togglePoint(); pointGui(gear[0], gear[1]); screenClick(0); });
+        step(22, () -> {
+            check(prefix + " editor opens", editor.editing() && !station.showsInventory(), "same scene");
+            pointAside(); shot(prefix + "0_editor_open");
+        });
+        spatialSlider(0, 0.25); spatialSlider(1, -0.25); spatialSlider(2, 5);
+        spatialSlider(3, 95); spatialSlider(4, 95); spatialSlider(5, 0.25); spatialSlider(6, 90);
+        step(22, () -> {
+            check(prefix + " whole layout preview", Math.abs(target.geometry().group().rotation() - 5) < 0.1, "smooth transform");
+            pointAside(); shot(prefix + "1_editor_preview");
+            pointAt(target.layoutPoint(0)); screenClick(1);
+            check(prefix + " preview leaves items intact", ItemStack.matches(hand, carried()), "no menu click");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        });
+        step(25, () -> {
+            check(prefix + " cancel restores saved", !editor.editing() && target.geometry().equals(original[selected]), "still at station");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+        });
+        step(20, () -> spatialControl(90, 314));
+        spatialSlider(0, 0.125); spatialSlider(1, -0.125); spatialSlider(2, 3);
+        spatialSlider(3, 95); spatialSlider(4, 95); spatialSlider(5, 0.125); spatialSlider(6, 95);
+        step(15, () -> spatialControl(150, 65));
+        spatialSlider(0, 0.25); spatialSlider(1, 0.125); spatialSlider(2, -8); spatialSlider(6, 90);
+        step(20, () -> {
+            check(prefix + " slots independent", target.geometry().region(0).rotation() < -7.9 && target.geometry().region(1).rotation() == 0, "only first slot changed");
+            Vec3 at = target.layoutPoint(0); pointAt(at); screenClick(0);
+            pointAt(at.add(target.layoutFrame().across().scale(0.0125)));
+            double[] mouse = Picking.mouseGui();
+            Minecraft.getInstance().screen.mouseDragged(mouse[0], mouse[1], 0, 3, 0);
+            Minecraft.getInstance().screen.mouseReleased(mouse[0], mouse[1], 0);
+        });
+        step(20, () -> {
+            check(prefix + " direct world drag", target.geometry().region(0).x() > 0.3, "dragged first spot");
+            pointAside(); shot(prefix + "2_editor_drag");
+        });
+        if (kind == StationKind.BREWING) {
+            step(3, () -> {
+                Vec3 at = target.layoutPoint(3); pointAt(at); screenClick(0);
+                pointAt(at.add(0, 0.0125, 0));
+                double[] mouse = Picking.mouseGui();
+                Minecraft.getInstance().screen.mouseDragged(mouse[0], mouse[1], 0, 0, -3);
+                Minecraft.getInstance().screen.mouseReleased(mouse[0], mouse[1], 0);
+            });
+            step(20, () -> check(prefix + " bowl drag at eye level", target.geometry().region(3).height() > 0.1, "raised the bowl directly"));
+        }
+        if (kind == StationKind.ENCHANTING) {
+            step(3, () -> {
+                Vec3 at = target.layoutPoint(4); pointAt(at); screenClick(0);
+                pointAt(at.add(0, 0.0125, 0)); double[] mouse = Picking.mouseGui();
+                Minecraft.getInstance().screen.mouseDragged(mouse[0], mouse[1], 0, 0, -3);
+                Minecraft.getInstance().screen.mouseReleased(mouse[0], mouse[1], 0);
+            });
+            step(20, () -> {
+                check(prefix + " floating offer drag", target.geometry().region(4).height() > 0.1 && target.geometry().region(1).height() == 0, "offer moves independently");
+                shot(prefix + "2b_offer_drag");
+            });
+        }
+        step(3, () -> spatialControl(150, 38));
+        step(20, () -> {
+            check(prefix + " profiles separate", target.geometry().equals(original[(selected + 1) % 3]), "other profile"); spatialControl(18, 38);
+        });
+        step(20, () -> {
+            check(prefix + " draft retained", target.geometry().region(0).rotation() < -7.9, "back to edited profile");
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_W, 0, 0);
+            check(prefix + " movement blocked", editor.editing() && Scene.phase == Scene.Phase.ACTIVE, "no accidental exit");
+            guiScale[0] = Minecraft.getInstance().options.guiScale().get();
+            Minecraft.getInstance().options.guiScale().set(3); Minecraft.getInstance().resizeDisplay();
+        });
+        step(12, () -> {
+            pointAside(); shot(prefix + "3_editor_gui3");
+            Minecraft.getInstance().options.guiScale().set(guiScale[0]); Minecraft.getInstance().resizeDisplay();
+        });
+        step(12, () -> spatialControl(40, 343));
+        step(25, () -> {
+            check(prefix + " saved JSON", !editor.editing() && java.nio.file.Files.exists(SpatialLayouts.path())
+                    && SpatialLayouts.profiles(kind)[selected].region(0).rotation() == -8, "saved local profile");
+            check(prefix + " station profiles independent", java.util.Arrays.equals(otherProfiles, SpatialLayouts.profiles(otherKind)), "other type untouched");
+            if (kind == StationKind.CHISELED_BOOKSHELF) {
+                var mc = Minecraft.getInstance();
+                var state = mc.level.getBlockState(station.pos);
+                var model = mc.getBlockRenderer().getBlockModel(state);
+                var data = model.getModelData(mc.level, station.pos, state, net.neoforged.neoforge.client.model.data.ModelData.EMPTY);
+                boolean occupiedPicture = false;
+                for (Direction face : new Direction[]{null, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP, Direction.DOWN})
+                    occupiedPicture |= model.getQuads(state, face, RandomSource.create(1), data, null).stream()
+                            .anyMatch(q -> q.getSprite().contents().name().getPath().contains("chiseled_bookshelf_occupied"));
+                check(prefix + " original spines hidden", !occupiedPicture, "real block state untouched");
+                var slotted = ShelfBooks.inSlot(station.pos, station.sideDirection(), 0, 0);
+                check(prefix + " book and hand contact agree", slotted.at(0, 0, OpenBook.STACK / 2).distanceTo(target.layoutPoint(0)) < 1e-8, "shared spine");
+            }
+            Settings.DEVELOPER_MODE.set(false);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            check(prefix + " saved with developer off", !editor.editing() && target.geometry().region(0).rotation() < -7.9, "geometry still active");
+        });
+        step(2, () -> check(prefix + " settings profile switch", LayoutProfiles.select(kind, (selected + 1) % 3), "saved selection changed"));
+        step(25, () -> {
+            check(prefix + " settings profile applies", target.geometry().equals(original[(selected + 1) % 3]), "actual world geometry changed");
+            check(prefix + " settings preserve geometry", SpatialLayouts.profiles(kind)[selected].region(0).rotation() == -8, "edited profile retained");
+            check(prefix + " settings restore selection", LayoutProfiles.select(kind, selected), "same profiles as the scene editor");
+        });
+        step(25, () -> check(prefix + " selected geometry returns", target.geometry().region(0).rotation() == -8, "smoothly restored"));
+        for (int i = 0; i < SpatialAppearance.count(kind); i++) {
+            int slot = i;
+            step(3, () -> pointAt(target.layoutPoint(slot)));
+            step(5, () -> {
+                check(prefix + " edited picking " + slot, target.layoutPick() == slot, "surface contact");
+                if (kind == StationKind.CHISELED_BOOKSHELF)
+                    check(prefix + " initial use picking " + slot, ShelfStation.slotAt(station.pos, station.sideDirection(), target.layoutPoint(slot)) == slot,
+                            "initial use and vanilla fallback follow layout");
+            });
+        }
+        step(3, () -> { Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+        step(20, () -> spatialControl(90, 314));
+        step(25, () -> {
+            check(prefix + " reset preview", target.geometry().equals(SpatialAppearance.VANILLA), "vanilla draft");
+            Settings.DEVELOPER_MODE.set(false);
+        });
+        step(25, () -> {
+            check(prefix + " disabling cancels draft", !editor.editing() && target.geometry().region(0).rotation() < -7.9, "saved profile restored");
+            pointAside();
+        });
+        return () -> {
+            check(prefix + " restore profiles", SpatialLayouts.save(kind, original, selected), "original profiles restored");
+            Settings.DEVELOPER_MODE.set(dev);
+        };
+    }
+    private static void spatialControl(double x, double y) {
+        SpatialEditor editor = ((SpatialTarget) Scene.station).layoutEditor();
+        double[] at = editor.controlPoint(x, y); pointGui(at[0], at[1]); screenClick(0);
+        Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+    }
+    private static void spatialSlider(int row, double value) {
+        step(3, () -> {
+            SpatialEditor editor = ((SpatialTarget) Scene.station).layoutEditor();
+            double[] at = editor.sliderPoint(row, value); pointGui(at[0], at[1]); screenClick(0);
+            Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+        });
+    }
+
+    private static void surfaceControl(double x, double y) {
+        SurfaceStation<?> station = (SurfaceStation<?>) Scene.station;
+        double[] at = station.gridEditor.controlPoint(x, y); pointGui(at[0], at[1]); screenClick(0);
+        Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+    }
+    private static void surfaceSlider(int row, double value) {
+        step(3, () -> {
+            SurfaceStation<?> station = (SurfaceStation<?>) Scene.station;
+            double[] at = station.gridEditor.sliderPoint(row, value); pointGui(at[0], at[1]); screenClick(0);
+            Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+        });
+    }
+
+    private static void furnaceEditorControl(double x, double y) {
+        double[] at = furnace().gridEditor.controlPoint(x, y); pointGui(at[0], at[1]); screenClick(0);
+        Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+    }
+    private static void furnaceEditorSliderNow(int row, double value) {
+        double[] at = furnace().gridEditor.sliderPoint(row, value); pointGui(at[0], at[1]); screenClick(0);
+        Minecraft.getInstance().screen.mouseReleased(at[0], at[1], 0);
+    }
+    private static void furnaceEditorSlider(int row, double value) { step(3, () -> furnaceEditorSliderNow(row, value)); }
+
+    private static void developerOptionsScript() {
+        step(8, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var mod = net.neoforged.fml.ModList.get().getModContainerById(Cinematic.MODID).orElseThrow();
+            mc.setScreen(mod.getCustomExtension(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class).orElseThrow().createScreen(mod, null));
+        });
+        step(15, () -> check("developer settings section opens", clickSettingsSection(Minecraft.getInstance().screen,
+                Component.translatable("cinematic.configuration.developer").getString()), "Cloth tab or NeoForge section"));
+        step(18, () -> {
+            verifyProfileControls();
+            shot("pz_developer_settings");
+            check("developer mode defaults off", !Settings.DEVELOPER_MODE.getDefault(), "editor access is opt-in");
+        });
+        step(3, () -> Minecraft.getInstance().setScreen(null));
+    }
+
+    private static void profileWidgets(net.minecraft.client.gui.components.events.GuiEventListener node, List<Object> result) {
+        if (node instanceof net.minecraft.client.gui.components.CycleButton<?> cycle && cycle.getValue() instanceof Integer
+                || node.getClass().getName().endsWith("IntegerSliderEntry")) result.add(node);
+        if (node instanceof net.minecraft.client.gui.components.events.ContainerEventHandler parent)
+            for (var child : parent.children()) profileWidgets(child, result);
+    }
+    private static void verifyProfileControls() {
+        List<Object> selectors = new ArrayList<>(); profileWidgets(Minecraft.getInstance().screen, selectors);
+        check("settings have a profile for every station", selectors.size() == StationKind.values().length, "selectors=" + selectors.size());
+        if (selectors.size() != StationKind.values().length) return;
+        int selected = LayoutProfiles.selected(StationKind.TABLE), next = (selected + 1) % 3;
+        Object first = selectors.getFirst();
+        try {
+            if (first instanceof net.minecraft.client.gui.components.CycleButton<?> cycle) {
+                cycle.onPress();
+                check("NeoForge profile button saves", LayoutProfiles.selected(StationKind.TABLE) == next, "shared JSON selection");
+                while (!cycle.getValue().equals(selected)) cycle.onPress();
+            } else {
+                first.getClass().getMethod("setValue", int.class).invoke(first, next + 1);
+                check("Cloth unsaved profile stays local", LayoutProfiles.selected(StationKind.TABLE) == selected, "cancel does not write a profile");
+                first.getClass().getMethod("save").invoke(first);
+                check("Cloth profile slider saves", LayoutProfiles.selected(StationKind.TABLE) == next, "shared JSON selection");
+                first.getClass().getMethod("setValue", int.class).invoke(first, selected + 1);
+                first.getClass().getMethod("save").invoke(first);
+            }
+            check("settings profile restored", LayoutProfiles.selected(StationKind.TABLE) == selected, "test preserves selection");
+            int anvilProfile = LayoutProfiles.selected(StationKind.ANVIL);
+            check("all station profile files writable", LayoutProfiles.select(StationKind.ANVIL, (anvilProfile + 1) % 3)
+                    && LayoutProfiles.select(StationKind.ANVIL, anvilProfile), "format migration and selection saved");
+        } catch (ReflectiveOperationException error) { check("profile control API", false, error.toString()); }
+    }
+
+    /** NeoForge pairs a section label with an Edit button; Cloth exposes a named tab directly. */
+    private static boolean clickSettingsSection(net.minecraft.client.gui.components.events.GuiEventListener node, String label) {
+        net.minecraft.client.gui.components.AbstractWidget target = null;
+        if (node instanceof net.minecraft.client.gui.components.AbstractButton button && button.getMessage().getString().equals(label)) target = button;
+        if (target == null && node instanceof net.minecraft.client.gui.components.events.ContainerEventHandler container) {
+            for (var child : container.children()) if (clickSettingsSection(child, label)) return true;
+            boolean named = container.children().stream().anyMatch(child -> child instanceof net.minecraft.client.gui.components.AbstractWidget widget
+                    && widget.getMessage().getString().contains(label));
+            if (named) for (var child : container.children()) if (child instanceof net.minecraft.client.gui.components.Button button) { target = button; break; }
+        }
+        if (target == null) return false;
+        double x = target.getX() + target.getWidth() / 2.0, y = target.getY() + target.getHeight() / 2.0;
+        Minecraft.getInstance().screen.mouseClicked(x, y, 0);
+        Minecraft.getInstance().screen.mouseReleased(x, y, 0);
+        return true;
+    }
+
     private static void furnaceScript() {
+        furnaceEditorScript();
         shot("35_active");
         step(4, () -> inventoryClick(41, 0));                // coal in hand
         step(3, () -> pointZone(FURNACE, FurnaceZones.FUEL));
@@ -973,6 +1740,7 @@ public final class Showcase {
     }
 
     private static void smokerScript() {
+        furnaceEditorScript();
         shot("45_active");
         step(4, () -> inventoryClick(9, 0));                 // a stack of coal
         step(3, () -> pointZone(SMOKER, FurnaceZones.FUEL));
@@ -1007,6 +1775,7 @@ public final class Showcase {
     }
 
     private static void blastScript() {
+        furnaceEditorScript();
         shot("55_active");
         step(4, () -> inventoryClick(16, 0));                // coal
         step(3, () -> pointZone(BLAST, FurnaceZones.FUEL));
@@ -1055,6 +1824,7 @@ public final class Showcase {
     // ---- the enchanting table -----------------------------------------------------------------------
 
     private static void enchantScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("65_active");
         step(2, Showcase::pointAside);
         step(8, () -> {
@@ -1095,7 +1865,12 @@ public final class Showcase {
         step(10, () -> shot("71_hover_third"));
         step(2, () -> report("enchanting before the rite"));
         step(2, () -> clickEnchant(EnchantStation.Target.OFFER, 0));      // the third, strongest offer
-        step(2, () -> shot("72_rite_010"));
+        step(2, () -> {
+            boolean dev = Settings.developerMode(); Settings.DEVELOPER_MODE.set(true);
+            Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            check("enchant editor blocked during rite", !enchant().gridEditor.editing() && enchant().busy(), "ritual continues");
+            Settings.DEVELOPER_MODE.set(dev); shot("72_rite_010");
+        });
         step(3, () -> shot("72_rite_025"));
         step(3, () -> shot("72_rite_040"));
         step(3, () -> shot("72_rite_055"));
@@ -1103,7 +1878,10 @@ public final class Showcase {
         step(6, () -> shot("72_rite_100"));
         step(10, () -> shot("72_rite_150"));
         step(20, () -> shot("73_enchanted"));
-        step(2, () -> checkLapisCount("lapis consumed by the third offer", 9));
+        step(2, () -> {
+            checkLapisCount("lapis consumed by the third offer", 9);
+            check("edited enchanting produced an enchanted sword", enchant().item().is(Items.DIAMOND_SWORD) && enchant().item().isEnchanted(), "vanilla enchantments applied");
+        });
         step(2, () -> pointAt(enchant().itemPos()));
         step(8, () -> shot("74_item_hover"));
         step(2, () -> report("enchanting after the rite"));
@@ -1111,6 +1889,8 @@ public final class Showcase {
         step(8, () -> shot("75_sword_in_hand"));
         step(2, () -> invClick(18, 0));
         step(6, () -> report("enchanting before leaving"));
+        step(2, restoreLayout);
+        step(25, Showcase::pointAside);
         step(2, Scene::leave);
         step(50, () -> shot("69_after"));
         step(2, () -> report("enchanting after leaving"));
@@ -1171,6 +1951,7 @@ public final class Showcase {
     }
 
     private static void anvilScript() {
+        Runnable restoreLayout = spatialEditorScript();
         var model = HammerModel.model();
         var quads = model.getQuads(null, null, RandomSource.create(42), ModelData.EMPTY, null);
         var textures = new HashSet<ResourceLocation>();
@@ -1183,12 +1964,12 @@ public final class Showcase {
                         && texture.getPath().startsWith("item/prop/hammer_")), "faces=" + quads.size() + " textures=" + textures);
         shot("a5_active");
         step(4, () -> invClickItem(Items.IRON_PICKAXE));         // a worn pickaxe
-        step(3, () -> pointAt(anvil().top));
+        step(3, () -> pointAt(anvil().restPoint(0)));
         step(12, () -> shot("a6_carry_pickaxe"));
         step(2, () -> clickAnvil(AnvilStation.Target.SURFACE, 0));
         step(10, () -> shot("a7_pickaxe_laid"));
         step(2, () -> invClickItem(Items.ENCHANTED_BOOK));       // Efficiency III goes into it
-        step(3, () -> pointAt(anvil().top.add(0.05, 0, 0)));
+        step(3, () -> pointAt(anvil().restPoint(1)));
         step(10, () -> shot("a8_carry_book"));
         step(2, () -> clickAnvil(AnvilStation.Target.SURFACE, 0));
         step(4, Showcase::pointAside);
@@ -1212,7 +1993,7 @@ public final class Showcase {
         });
         step(2, () -> report("anvil after forging"));
         // the new pickaxe back on the anvil, to engrave a name
-        step(2, () -> pointAt(anvil().top));
+        step(2, () -> pointAt(anvil().restPoint(0)));
         step(6, () -> clickAnvil(AnvilStation.Target.SURFACE, 0));
         step(8, () -> pointAt(anvil().namePoint()));
         step(8, () -> shot("ad_name_hover"));
@@ -1231,6 +2012,7 @@ public final class Showcase {
             check("hammer engraving preserves the forged item", named.is(Items.IRON_PICKAXE) && named.isEnchanted()
                     && named.getHoverName().getString().equals("Кирка мастера"), "result=" + named.getHoverName().getString());
         }));
+        step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("a9_after"));
         smithyAct("g", GRINDSTONE);
@@ -1249,9 +2031,10 @@ public final class Showcase {
     }
 
     private static void grindstoneScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("g5_active");
         step(4, () -> invClickItem(Items.GOLDEN_SWORD));         // Sharpness III, Looting II
-        step(3, () -> pointAt(grindstone().top));
+        step(3, () -> pointAt(grindstone().restPoint(0)));
         step(12, () -> shot("g6_carry_sword"));
         step(2, () -> clickGrindstone(GrindstoneStation.Target.PLACE, 0));
         step(4, Showcase::pointAside);
@@ -1265,6 +2048,7 @@ public final class Showcase {
         step(30, () -> report("grindstone after grinding"));
         step(2, () -> invClick(29, 0));
         step(4, Showcase::pointAside);
+        step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("g9_after"));
         smithyAct("s", SMITHING);
@@ -1293,6 +2077,7 @@ public final class Showcase {
     }
 
     private static void smithingScript() {
+        Runnable restoreLayout = surfaceEditorScript();
         shot("s5_active");
         laySmithing(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, 0, "s6_carry_template", 0);
         laySmithing(Items.DIAMOND_CHESTPLATE, 1, null, 0);
@@ -1305,6 +2090,7 @@ public final class Showcase {
         step(2, () -> clickSmithing(SmithingStation.Target.ITEM, 0));
         moveShots("s9_upgrade", 0.2, 0.4, 0.5, 0.75, 0.95, 1.15, 1.3, 1.4, 1.6, 1.9, 2.2, 2.6);
         step(10, () -> shot("sa_netherite"));
+        step(2, () -> check("edited smithing produces netherite", carried().is(Items.NETHERITE_CHESTPLATE), "real vanilla result=" + carried()));
         step(2, () -> report("smithing after the upgrade"));
         // the new chestplate goes straight back with a coast trim of amethyst
         step(3, () -> pointAt(smithing().restPoint(1)));
@@ -1317,8 +2103,11 @@ public final class Showcase {
         step(2, () -> clickSmithing(SmithingStation.Target.ITEM, 0));
         moveShots("sc_trim", 0.5, 0.95, 1.2, 1.4, 1.9);
         step(16, () -> shot("sd_trimmed"));
+        step(2, () -> check("edited smithing applies trim", carried().has(DataComponents.TRIM), "real trim=" + carried()));
         step(2, () -> invClick(31, 0));
         step(6, () -> report("smithing after the trim"));
+        step(2, restoreLayout);
+        step(25, Showcase::pointAside);
         step(2, Scene::leave);
         step(50, () -> shot("s9_after"));
         smithyAct("c", STONECUTTER);
@@ -1350,6 +2139,7 @@ public final class Showcase {
     }
 
     private static void stonecutterScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("c5_active");
         step(4, () -> invClickItem(Items.STONE));
         step(3, () -> pointAt(stonecutter().restPoint(0)));
@@ -1392,6 +2182,7 @@ public final class Showcase {
         });
         step(12, () -> shot("ce_dial_turned"));
         step(4, () -> report("stonecutter before leaving"));
+        step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("c9_after"));
         restock();
@@ -1466,6 +2257,7 @@ public final class Showcase {
     }
 
     private static void loomScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("l5_active");
         step(4, () -> invClickItem(Items.WHITE_BANNER));
         step(3, () -> pointAt(loom().restPoint(0)));
@@ -1476,7 +2268,31 @@ public final class Showcase {
         step(6, () -> pointAt(loom().restPoint(1)));
         step(1, () -> clickLoom(LoomStation.Target.PLACE, 0));
         step(4, Showcase::pointAside);
-        step(16, () -> shot("l7_board"));
+        step(16, () -> {
+            shot("l7_board"); Settings.DEVELOPER_MODE.set(true);
+            double[] gear = loom().gridEditor.togglePoint(); pointGui(gear[0], gear[1]); screenClick(0);
+        });
+        step(22, () -> {
+            check("loom gear accessible with pattern board", loom().gridEditor.editing() && loom().boardCell(0) == null,
+                    "editor consumes input, patterns hidden");
+            check("loom live inputs preserved", loom().slot(0).is(Items.WHITE_BANNER) && loom().slot(1).is(Items.RED_DYE), "banner and dye intact");
+            pointAside(); shot("xl4_editor_with_cloth"); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+        });
+        step(25, () -> { Settings.DEVELOPER_MODE.set(false); check("loom patterns return after editor", loom().boardCell(0) != null, "board visible"); });
+        step(3, () -> server(p -> p.getInventory().add(new ItemStack(Items.FLOWER_BANNER_PATTERN))));
+        step(5, () -> invClickItem(Items.FLOWER_BANNER_PATTERN));
+        step(3, () -> pointAt(loom().restPoint(2)));
+        step(5, () -> clickLoom(LoomStation.Target.PLACE, 0));
+        step(8, () -> {
+            check("loom edited pattern slot accepts template", loom().slot(2).is(Items.FLOWER_BANNER_PATTERN)
+                    && loom().patternIndex("minecraft:flower") >= 0, "vanilla special pattern available");
+            pointAt(loom().restPoint(2));
+        });
+        step(5, () -> clickLoom(LoomStation.Target.ITEM, 0));
+        step(5, () -> {
+            check("loom template retrieved from edited slot", carried().is(Items.FLOWER_BANNER_PATTERN) && loom().slot(2).isEmpty(), "same logical slot");
+            stash();
+        });
         step(2, () -> loom().scroll(-1));
         step(12, () -> shot("l7b_board_scrolled"));
         step(2, () -> loom().scroll(1));
@@ -1487,6 +2303,11 @@ public final class Showcase {
         step(1, () -> check("loom pattern under the cursor", loom() != null && loom().target == LoomStation.Target.PATTERN,
                 "target=" + (loom() == null ? "-" : loom().target)));
         step(1, () -> clickLoom(LoomStation.Target.PATTERN, 0));
+        step(1, () -> {
+            Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            check("loom editor blocked during weaving", !loom().gridEditor.editing() && loom().moving(), "shuttle continues");
+            Settings.DEVELOPER_MODE.set(false);
+        });
         moveShots("l9_weave", 0.15, 0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.1, 2.3);
         step(12, () -> shot("la_woven"));
         step(2, () -> {
@@ -1497,6 +2318,8 @@ public final class Showcase {
         });
         step(2, Showcase::stash);
         step(4, () -> report("loom after weaving"));
+        step(2, restoreLayout);
+        step(25, Showcase::pointAside);
         step(2, Scene::leave);
         step(50, () -> shot("l9_after"));
         smithyAct("m", CARTOGRAPHY);
@@ -1515,6 +2338,7 @@ public final class Showcase {
     }
 
     private static void cartographyScript() {
+        Runnable restoreLayout = surfaceEditorScript();
         shot("m5_active");
         step(4, () -> invClickItem(Items.FILLED_MAP));
         step(3, () -> pointAt(cartography().restPoint(0)));
@@ -1533,6 +2357,21 @@ public final class Showcase {
         moveShots("m9_zoom", 0.2, 0.45, 0.7, 1.0, 1.3, 1.6, 1.9);
         step(10, () -> shot("ma_zoomed"));
         step(2, () -> check("zoomed map in hand", carried().is(Items.FILLED_MAP), "carried=" + carried()));
+        step(2, Showcase::stash);
+        // Copy with the edited map and addition spots before locking one of the resulting maps.
+        step(8, () -> server(p -> p.getInventory().add(new ItemStack(Items.MAP))));
+        step(4, () -> invClickItem(Items.FILLED_MAP));
+        step(3, () -> pointAt(cartography().restPoint(0)));
+        step(6, () -> clickCartography(CartographyStation.Target.PLACE, 1));
+        step(4, Showcase::stash);
+        step(4, () -> invClickItem(Items.MAP));
+        step(3, () -> pointAt(cartography().restPoint(1)));
+        step(6, () -> clickCartography(CartographyStation.Target.PLACE, 0));
+        step(4, () -> pointAt(cartography().restPoint(0)));
+        step(6, () -> clickCartography(CartographyStation.Target.ITEM, 0));
+        moveShots("mc_copy", 0.3, 0.6, 1.0, 1.2, 1.4, 1.7);
+        step(10, () -> check("copied maps in hand", carried().is(Items.FILLED_MAP) && carried().getCount() == 2,
+                "carried=" + carried()));
         step(2, Showcase::stash);
         // lock the new map under glass
         step(4, () -> {
@@ -1559,6 +2398,8 @@ public final class Showcase {
         }));
         step(2, Showcase::stash);
         step(4, () -> report("cartography before leaving"));
+        step(2, restoreLayout);
+        step(25, Showcase::pointAside);
         step(2, Scene::leave);
         step(50, () -> shot("m9_after"));
         smithyAct("b", BREWING);
@@ -1577,6 +2418,7 @@ public final class Showcase {
     }
 
     private static void brewingScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("b5_active");
         for (int i = 0; i < 3; i++) {
             int bottle = i;
@@ -1637,6 +2479,7 @@ public final class Showcase {
         step(6, () -> clickBrewing(BrewingStation.Target.ITEM, 0));
         step(8, () -> shot("b9_bottle_in_hand"));
         step(2, Showcase::stash);
+        step(4, restoreLayout);
         step(4, () -> report("brewing before leaving"));
         step(2, Scene::leave);
         step(50, () -> shot("b9_after"));
@@ -1656,6 +2499,7 @@ public final class Showcase {
     }
 
     private static void crafterScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("r5_active");
         step(4, () -> invClickItem(Items.OAK_PLANKS));
         for (int cell : new int[]{0, 1, 3, 4}) {
@@ -1686,10 +2530,12 @@ public final class Showcase {
             check("crafter made a crafting table on the signal", table, "items=" + made.size());
             p.serverLevel().setBlockAndUpdate(CRAFTER.east(), Blocks.AIR.defaultBlockState());
         }));
+        step(4, restoreLayout);
         step(4, () -> report("crafter before leaving"));
         step(2, Scene::leave);
         step(50, () -> shot("r9_after"));
-        campfireAct();
+        if (ONLY) step(2, () -> finish(Minecraft.getInstance()));
+        else campfireAct();
     }
 
     private static CampfireStation campfire() {
@@ -1739,6 +2585,7 @@ public final class Showcase {
     }
 
     private static void campfireScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("f5_active");
         step(4, () -> invClickItem(Items.CHICKEN));
         step(3, () -> pointAt(campfire().spot(0)));
@@ -1762,6 +2609,34 @@ public final class Showcase {
             }
             check("three pieces on the fire", food == 3, "food=" + food);
         }));
+        int[] beforeCooldown = {0};
+        step(2, () -> {
+            CampfireStation station = campfire();
+            check("campfire timers reach the seated player", station != null && station.syncedCookingTime(0) > 0
+                    && station.syncedProgress(0) > 0 && station.syncedLit(),
+                    "time=" + (station == null ? "-" : station.syncedProgress(0) + "/" + station.syncedCookingTime(0)));
+            beforeCooldown[0] = station == null ? 0 : station.syncedProgress(0);
+            server(p -> {
+                var level = p.serverLevel();
+                var state = level.getBlockState(CAMPFIRE);
+                level.setBlock(CAMPFIRE, state.setValue(CampfireBlock.LIT, false), 3);
+            });
+        });
+        step(20, () -> shot("f7_cooling"));
+        step(2, () -> {
+            CampfireStation station = campfire();
+            check("extinguished campfire cools its progress", station != null && !station.syncedLit()
+                    && station.syncedProgress(0) < beforeCooldown[0],
+                    "progress=" + (station == null ? "-" : station.syncedProgress(0)));
+            server(p -> {
+                var level = p.serverLevel();
+                var state = level.getBlockState(CAMPFIRE);
+                level.setBlock(CAMPFIRE, state.setValue(CampfireBlock.LIT, true), 3);
+            });
+        });
+        step(12, () -> shot("f7_relit"));
+        step(2, () -> check("relit campfire resumes cooking", campfire() != null && campfire().syncedLit()
+                && campfire().syncedProgress(0) > 0, "progress=" + (campfire() == null ? "-" : campfire().syncedProgress(0))));
         step(2, () -> pointAt(campfire().spot(farSpot())));
         step(14, () -> shot("f8_lean_far_spot"));
         step(2, () -> check("leaning in to reach the far side of the fire",
@@ -1779,6 +2654,7 @@ public final class Showcase {
         step(4, () -> report("campfire before standing up"));
         step(2, Scene::leave);
         step(50, () -> shot("f9_after"));
+        step(2, restoreLayout);
         soulCampfireAct();
     }
 
@@ -1802,8 +2678,35 @@ public final class Showcase {
     }
 
     private static void soulCampfireScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("u5_active");
-        step(40, () -> shot("u6_resting"));
+        step(4, () -> invClickItem(Items.CHICKEN));
+        step(3, () -> pointAt(campfire().spot(0)));
+        step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 1));
+        step(2, Showcase::stash);
+        step(2, () -> server(p -> {
+            if (p.serverLevel().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.cookingTime[0] = 80; // A short recipe for filming both the rising bar and its disappearance.
+                fire.setChanged();
+            }
+        }));
+        step(12, () -> shot("u6_cooking_early"));
+        int[] early = {0};
+        step(2, () -> {
+            CampfireStation station = campfire();
+            check("soul campfire has its own cooking timer", station != null && station.syncedCookingTime(0) == 80
+                    && station.syncedProgress(0) > 0 && station.syncedLit(),
+                    "time=" + (station == null ? "-" : station.syncedProgress(0) + "/" + station.syncedCookingTime(0)));
+            early[0] = station == null ? 0 : station.syncedProgress(0);
+        });
+        step(24, () -> shot("u7_cooking_late"));
+        step(2, () -> check("soul campfire progress rises", campfire() != null && campfire().syncedProgress(0) > early[0],
+                "progress=" + (campfire() == null ? "-" : campfire().syncedProgress(0))));
+        step(52, () -> shot("u8_cooked"));
+        step(2, () -> check("cooking indicator clears when food finishes", campfire() != null && campfire().syncedCookingTime(0) == 0
+                && Minecraft.getInstance().level.getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire
+                && fire.getItems().get(0).isEmpty(), "time=" + (campfire() == null ? "-" : campfire().syncedCookingTime(0))));
+        step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("u9_after"));
         lecternAct();
@@ -1861,7 +2764,11 @@ public final class Showcase {
     }
 
     private static void lecternScript() {
-        shot("k5_active");
+        Runnable restoreLayout = spatialEditorScript();
+        step(2, Scene::leave);
+        step(40, () -> { check("lectern profile outside scene", StationDisplayLayouts.customLectern() && Scene.phase == Scene.Phase.NONE, "vanilla display uses saved geometry"); shot("xk4_book_outside"); });
+        step(2, () -> useAt(LECTERN, new Vec3(0.5, 0.9, 0.6), Direction.UP));
+        step(65, () -> { check("lectern reopens with saved geometry", lectern() != null && Scene.phase == Scene.Phase.ACTIVE, "book remains readable"); shot("k5_active"); });
         step(2, () -> check("lectern book open at the first spread", lectern() != null && lectern().spread() == 0,
                 "spread=" + (lectern() == null ? "-" : lectern().spread())));
         step(2, () -> pointAt(lectern().pageCenter(false)));
@@ -1898,6 +2805,7 @@ public final class Showcase {
             boolean empty = !p.serverLevel().getBlockState(LECTERN).getValue(net.minecraft.world.level.block.LecternBlock.HAS_BOOK);
             check("book taken off the lectern", taken && empty, "inventory=" + taken + " lecternEmpty=" + empty);
         }));
+        step(2, restoreLayout);
         step(30, () -> shot("k9_after"));
         step(2, () -> server(p -> {
             // put it back for the third-person shot
@@ -1945,6 +2853,7 @@ public final class Showcase {
     }
 
     private static void shelfScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("e5_active");
         // an enchanted book slides out under the cursor and says what it carries
         step(2, () -> pointAt(shelf().slotPoint(0)));
@@ -2010,6 +2919,7 @@ public final class Showcase {
         step(4, () -> report("shelf before leaving"));
         step(2, Scene::leave);
         step(40, () -> shot("e9_after"));
+        step(4, restoreLayout);
         // a book in hand used on an empty place: the scene puts it straight in
         step(2, () -> {
             act = "ej";
@@ -2057,6 +2967,7 @@ public final class Showcase {
     }
 
     private static void beaconScript() {
+        Runnable restoreLayout = spatialEditorScript();
         shot("n5_active");
         step(2, () -> check("beacon stands on a full pyramid", beacon() != null && beacon().menu() != null && beacon().menu().getLevels() == 4,
                 "levels=" + (beacon() == null || beacon().menu() == null ? "-" : beacon().menu().getLevels())));
@@ -2083,6 +2994,7 @@ public final class Showcase {
         }));
         step(2, () -> check("payment used up", beacon() != null && beacon().slot(0).isEmpty(), "slot=" + (beacon() == null ? "-" : beacon().slot(0))));
         step(4, () -> report("beacon before leaving"));
+        step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("n9_after"));
         heightAct();
@@ -2312,6 +3224,7 @@ public final class Showcase {
     }
 
     private static void heightAct() {
+        if (EDITOR_BATCH) { developerOptionsScript(); jukeboxAct(); return; }
         if (stopHere("h")) {
             return;
         }
@@ -2434,6 +3347,8 @@ public final class Showcase {
         step(16, () -> shot("o4_settings_interface"));
         step(2, () -> clickWidget(Component.translatable("cinematic.settings.camera").getString()));
         step(16, () -> shot("o5_settings_camera"));
+        step(2, () -> check("developer tab opens", clickSettingsSection(Minecraft.getInstance().screen, Component.translatable("cinematic.configuration.developer").getString()), "profile selectors available"));
+        step(16, () -> { verifyProfileControls(); shot("o5_settings_developer"); });
         step(2, () -> Minecraft.getInstance().setScreen(null));
 
         // the height logic off: no window, a word on why
@@ -2724,9 +3639,23 @@ public final class Showcase {
     // ---- the jukebox ----------------------------------------------------------------------------------
 
     private static void jukeboxAct() {
-        if (stopHere("j")) {
-            return;
-        }
+        if (stopHere("j")) return;
+        boolean developer = Settings.developerMode();
+        step(35, () -> {
+            act = "jx"; closeWindow(); Settings.DEVELOPER_MODE.set(true);
+            hold(8, new ItemStack(Items.MUSIC_DISC_CAT));
+            standLooking(new Vec3(JUKEBOX.getX() - 1.6, -60, JUKEBOX.getZ() + 0.5), Vec3.atCenterOf(JUKEBOX));
+        });
+        step(20, () -> useAt(JUKEBOX, new Vec3(0.5, 1, 0.5), Direction.UP));
+        step(75, () -> {
+            check("jukebox waits for editing", Scene.phase == Scene.Phase.ACTIVE && Scene.station.kind() == StationKind.JUKEBOX && !Scene.station.busy(), "no automatic insertion in developer mode");
+            Runnable restoreLayout = spatialEditorScript();
+            step(2, Scene::leave); step(45, () -> Settings.DEVELOPER_MODE.set(false));
+            jukeboxOperations(developer, restoreLayout);
+        });
+    }
+
+    private static void jukeboxOperations(boolean developer, Runnable restoreLayout) {
         step(40, () -> {
             act = "j";
             closeWindow();
@@ -2787,6 +3716,8 @@ public final class Showcase {
             server(p -> check("jukebox, scene off: the record pops out the vanilla way",
                     !p.serverLevel().getBlockState(JUKEBOX).getValue(net.minecraft.world.level.block.JukeboxBlock.HAS_RECORD), ""));
             Settings.SCENES.get(StationKind.JUKEBOX).set(true);
+            restoreLayout.run();
+            Settings.DEVELOPER_MODE.set(developer);
         });
         quickAct();
     }
@@ -2794,6 +3725,7 @@ public final class Showcase {
     // ---- the quick way back to the station just stepped away from ------------------------------------
 
     private static void quickAct() {
+        if (EDITOR_BATCH) { step(5, () -> finish(Minecraft.getInstance())); return; }
         if (stopHere("q")) {
             return;
         }

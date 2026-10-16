@@ -11,6 +11,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.EnchantmentNames;
 import net.minecraft.client.player.LocalPlayer;
@@ -45,7 +46,9 @@ import net.minecraft.world.phys.Vec3;
  * the glyphs of the bookshelves pour in, then light bursts out and the item turns, enchanted.
  * Everything underneath is the vanilla enchanting menu, opened by the server without its window.
  */
-public final class EnchantStation extends ClientStation {
+public final class EnchantStation extends ClientStation implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    static final double OFFER_HIGH = 0.92, OFFER_LOW = 0.74, OFFER_FAR = -0.12, OFFER_NEAR = 0.02, OFFER_SPREAD = 0.4;
     static final double HAND_Y = 0.062;
     static final double ITEM_REACH = 0.075;
     public static final double RITUAL_LENGTH = 1.5;
@@ -106,6 +109,45 @@ public final class EnchantStation extends ClientStation {
     @Override
     public SoundEvent touchSound() {
         return SoundEvents.STONE_STEP;
+    }
+
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
+    @Override public SpatialAppearance.Frame layoutFrame() { return SpatialAppearance.Frame.of(kind(), pos, side, Direction.UP); }
+    @Override public ItemStack layoutItem(int slot) {
+        return slot == 0 ? item() : slot == 1 ? lapis() > 0 ? new ItemStack(Items.LAPIS_LAZULI) : ItemStack.EMPTY
+                : offered(slot - 2) ? new ItemStack(Items.ENCHANTED_BOOK) : ItemStack.EMPTY;
+    }
+    @Override public Vec3 layoutPoint(int slot) { return slot == 0 ? itemPos() : slot == 1 ? corner() : sigilPos(slot - 2); }
+    @Override public Vec3 layoutNormal(int slot) { return Picking.camera().subtract(layoutPoint(slot)).normalize(); }
+    @Override public Vec3 layoutAxis(int slot, boolean across) {
+        Vec3 normal = layoutNormal(slot), a = new Vec3(0, 1, 0).cross(normal).normalize(), b = normal.cross(a);
+        double angle = Math.toRadians(geometry().rotation(slot));
+        return across ? a.scale(Math.cos(angle)).add(b.scale(Math.sin(angle))) : b.scale(Math.cos(angle)).subtract(a.scale(Math.sin(angle)));
+    }
+    @Override public boolean busy() { return ritualTime() >= 0 || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public List<Vec3> workSamples() {
+        // The floating offers can sit above the player's reach; availability is checked at the actual table.
+        List<Vec3> points = new ArrayList<>(super.workSamples());
+        if (!geometry().equals(SpatialAppearance.VANILLA)) points.add(corner());
+        return points;
+    }
+    @Override public float layoutHeldScale() { return target == Target.LAPIS ? geometry().scale(1) : target == Target.ITEM || target == Target.SURFACE ? geometry().scale(0) : 1; }
+    @Override public void layoutGhost(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int slot, int light) {
+        if (slot == 0) drawFloating(pose, buffers, camera, new ItemStack(Items.DIAMOND_SWORD), itemPos(),
+                (float) (Scene.clock() * 40 + geometry().rotation(0)), ITEM_SIZE * geometry().scale(0));
+        else if (slot == 1) drawLapis(pose, buffers, camera, corner(), 1, light, geometry().scale(1), (float) -geometry().rotation(1));
+        else drawSigil(pose, buffers, Minecraft.getInstance().gameRenderer.getMainCamera(), slot - 2, sigilPos(slot - 2),
+                gridEditor.presence(), false, true, 0.6f * gridEditor.presence(), slot - 1);
+    }
+    static Vec3 itemPosition(BlockPos pos, Direction side, double clock) {
+        return SpatialLayouts.current(StationKind.ENCHANTING).point(SpatialAppearance.Frame.of(StationKind.ENCHANTING, pos, side, Direction.UP), 0)
+                .add(0, EnchantFx.itemCenter(pos, side, clock).y - EnchantFx.itemCenter(pos, side, 0).y, 0);
+    }
+    static Vec3 lapisPosition(BlockPos pos, Direction side) {
+        return SpatialLayouts.current(StationKind.ENCHANTING).point(SpatialAppearance.Frame.of(StationKind.ENCHANTING, pos, side, Direction.UP), 1);
     }
 
     // ---- staging -------------------------------------------------------------------------------------
@@ -186,16 +228,13 @@ public final class EnchantStation extends ClientStation {
     public Vec3 itemPos() {
         double t = ritualTime();
         double lift = t >= 0 ? 0.1 * Anim.hump(Anim.window(t * RITUAL_LENGTH, 0.2, 1.3)) : 0;
-        return EnchantFx.itemCenter(pos, side, Scene.clock()).add(0, lift, 0);
+        return itemPosition(pos, side, Scene.clock()).add(0, lift, 0);
     }
 
     /** The offers hang in a crown over the item: the middle one highest, the outer ones beside it and towards the player. */
     public Vec3 sigilPos(int k) {
-        int off = k - 1;
         double clock = Scene.clock();
-        Vec3 at = top.add(0, (off == 0 ? 0.92 : 0.74) + 0.015 * Math.sin(clock * 1.3 + k * 2.1), 0)
-                .add(side().scale(off == 0 ? -0.12 : 0.02))
-                .add(right().scale(off * 0.4));
+        Vec3 at = geometry().point(layoutFrame(), k + 2).add(0, 0.015 * Math.sin(clock * 1.3 + k * 2.1), 0);
         if (k == denyOffer) {
             double d = clock - denyAt;
             if (d >= 0 && d < 0.35) {
@@ -206,7 +245,7 @@ public final class EnchantStation extends ClientStation {
     }
 
     public Vec3 corner() {
-        return EnchantFx.lapisCorner(pos, side);
+        return lapisPosition(pos, side);
     }
 
     /** Projected radius in GUI pixels of a sphere of {@code radius} blocks at {@code center}. */
@@ -230,11 +269,21 @@ public final class EnchantStation extends ClientStation {
     @Override
     public void updateCursor(boolean overPanel) {
         clearCursor();
-        if (overPanel || menu() == null) {
+        if (overPanel || gridEditor.visible() || menu() == null) {
             return;
         }
         double[] mouse = Picking.mouseGui();
-        if (ritualTime() < 0) {
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            int hit = layoutPick();
+            if (hit >= 2 && offered(hit - 2) && ritualTime() < 0) {
+                target = Target.OFFER; hoverOffer = hit - 2; aim = sigilPos(hoverOffer); aimAir = true; return;
+            }
+            if (hit == 0) {
+                target = item().isEmpty() ? Target.SURFACE : Target.ITEM; aim = itemPos(); aimAir = true; return;
+            }
+            if (hit == 1) { target = Target.LAPIS; aim = corner(); aimAir = true; return; }
+        }
+        if (geometry().equals(SpatialAppearance.VANILLA) && ritualTime() < 0) {
             for (int k = 0; k < 3; k++) {
                 if (offered(k) && under(mouse, sigilPos(k), 0.15)) {
                     target = Target.OFFER;
@@ -245,21 +294,21 @@ public final class EnchantStation extends ClientStation {
                 }
             }
         }
-        if (!item().isEmpty() && under(mouse, itemPos(), 0.15)) {
+        if (geometry().equals(SpatialAppearance.VANILLA) && !item().isEmpty() && under(mouse, itemPos(), 0.15)) {
             target = Target.ITEM;
             aim = itemPos();
             aimAir = true;
             return;
         }
         // The empty crystal and the count float a little above the socket, but both point the hand to it.
-        if (under(mouse, corner().add(0, 0.06, 0), 0.09)) {
+        if (geometry().equals(SpatialAppearance.VANILLA) && under(mouse, corner().add(0, 0.06, 0), 0.09)) {
             target = Target.LAPIS;
             aim = corner();
             aimAir = true;
             return;
         }
         Vec3 socketHit = Picking.cursorOnPlane(corner().y);
-        if (socketHit != null && socketHit.distanceToSqr(corner()) <= EnchantFx.LAPIS_RADIUS * EnchantFx.LAPIS_RADIUS) {
+        if (geometry().equals(SpatialAppearance.VANILLA) && socketHit != null && socketHit.distanceToSqr(corner()) <= EnchantFx.LAPIS_RADIUS * EnchantFx.LAPIS_RADIUS) {
             target = Target.LAPIS;
             aim = corner();
             aimAir = true;
@@ -313,7 +362,7 @@ public final class EnchantStation extends ClientStation {
         }
         double raise = Anim.hump(Anim.window(t, 0, 0.85));
         Vec3 c = itemPos().add(side().scale(0.07)).add(0, -0.1 + 0.05 * raise, 0);
-        double spread = 0.17 - 0.04 * raise;
+        double spread = (0.17 - 0.04 * raise) * Math.max(0.8, geometry().scale(0));
         return new Vec3[]{c.add(right().scale(spread)), c.add(right().scale(-spread))};
     }
 
@@ -321,6 +370,7 @@ public final class EnchantStation extends ClientStation {
 
     @Override
     public void click(int button, boolean shift) {
+        if (gridEditor.visible()) return;
         EnchantmentMenu menu = menu();
         if (menu == null) {
             return;
@@ -400,6 +450,7 @@ public final class EnchantStation extends ClientStation {
 
     @Override
     public void onEnd() {
+        gridEditor.cancel();
         leavingItem = item().copy();
         leavingLapis = lapis();
         LocalPlayer player = Minecraft.getInstance().player;
@@ -500,7 +551,7 @@ public final class EnchantStation extends ClientStation {
             EnchantFx.billboard(pose, buffers, camera, at, 0.24, clock * 0.4, EnchantFx.GLOW, 0.3f * g, 0.18f * g, 0.5f * g);
             double extraSpin = t >= 0 ? 900 * Anim.outCubic(t) : 0;
             double pulse = t >= 0 && t * RITUAL_LENGTH > RITUAL_PEAK ? 1 + 0.18 * Anim.hump(Anim.window(t, RITUAL_PEAK / RITUAL_LENGTH, 0.8)) : 1;
-            drawFloating(pose, buffers, cam, item, at, (float) (clock * 40 + extraSpin), (float) (ITEM_SIZE * fade * pulse));
+            drawFloating(pose, buffers, cam, item, at, (float) (clock * 40 + extraSpin + geometry().rotation(0)), (float) (ITEM_SIZE * fade * pulse * geometry().scale(0)));
         }
         // the server takes the lapis for the rite at once; what flies into the item is drawn in renderWorld
         int lapis = outro ? leavingLapis : lapis();
@@ -511,22 +562,22 @@ public final class EnchantStation extends ClientStation {
         if (presence > 0.01) {
             float socket = (float) ((0.50 + 0.42 * lapisFocus) * presence);
             boolean wrong = this.target == Target.LAPIS && !Hands.carried().isEmpty() && !Hands.carried().is(Items.LAPIS_LAZULI);
-            EnchantFx.circle(pose, buffers, cam, corner().add(0, 0.006, 0), 0.10, clock * 0.3,
+            EnchantFx.circle(pose, buffers, cam, corner().add(0, 0.006, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
                     wrong ? socket : socket * 0.2f, wrong ? socket * 0.2f : socket * 0.55f, wrong ? socket * 0.2f : socket);
             if (lapis == 0 && t < 0) {
-                EnchantFx.lapisGhost(pose, buffers, camera, corner().add(0, 0.052 + Math.sin(clock * 1.5) * 0.004, 0), socket);
+                EnchantFx.lapisGhost(pose, buffers, camera, corner().add(0, 0.052 + Math.sin(clock * 1.5) * 0.004, 0), socket, geometry().scale(1), (float) -geometry().rotation(1));
             }
         }
         if (lapis > 0 && fade > 0.01) {
-            drawLapis(pose, buffers, cam, corner(), lapis, light, (float) fade);
-            drawLapisCount(pose, buffers, camera, corner().add(0, 0.115, 0), lapis, (float) presence);
+            drawLapis(pose, buffers, cam, corner(), lapis, light, (float) fade * geometry().scale(1), (float) -geometry().rotation(1));
+            drawLapisCount(pose, buffers, camera, corner().add(0, 0.115 * geometry().scale(1), 0), lapis, (float) presence);
         }
         if (t >= 0) {
             double peak = RITUAL_PEAK / RITUAL_LENGTH;
             double beam = t < peak ? 0 : 1 - Anim.smoother((t - peak) / (1 - peak));
             if (beam > 0.01) {
                 float b = (float) (beam * 1.3);
-                EnchantFx.beam(pose, buffers, cam, top, 1.9, 0.5 + 0.3 * beam, clock * 0.9, 0.7f * b, 0.5f * b, 1.0f * b);
+                EnchantFx.beam(pose, buffers, cam, new Vec3(itemPos().x, top.y, itemPos().z), 1.9, 0.5 + 0.3 * beam, clock * 0.9, 0.7f * b, 0.5f * b, 1.0f * b);
             }
         }
     }
@@ -534,6 +585,7 @@ public final class EnchantStation extends ClientStation {
     /** Sigils, the hover glow and the things flying into the item; only while working. */
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         Minecraft mc = Minecraft.getInstance();
         Camera cam = mc.gameRenderer.getMainCamera();
         EnchantmentMenu menu = menu();
@@ -561,7 +613,7 @@ public final class EnchantStation extends ClientStation {
                 double f = Anim.inOutSine(Anim.window(t * RITUAL_LENGTH, 0.04 + i * 0.07, RITUAL_PEAK - 0.02));
                 if (f > 0 && f < 1) {
                     Vec3 p = Anim.lerp(corner().add(0, 0.02, 0), itemPos(), f).add(0, 0.18 * Anim.hump(f), 0);
-                    drawFloating(pose, buffers, camera, new ItemStack(Items.LAPIS_LAZULI), p, (float) (clock * 300 + i * 90), (float) (0.16 * (1 - 0.6 * f)));
+                    drawFloating(pose, buffers, camera, new ItemStack(Items.LAPIS_LAZULI), p, (float) (clock * 300 + i * 90), (float) (0.16 * (1 - 0.6 * f) * geometry().scale(1)));
                 }
             }
         }
@@ -594,21 +646,22 @@ public final class EnchantStation extends ClientStation {
             return;
         }
         double clock = Scene.clock();
-        float size = (float) (0.13 * appear * (hovered ? 1.2 : 1.0));
+        float size = (float) (0.13 * appear * (hovered ? 1.2 : 1.0) * geometry().scale(k + 2));
         float b = brightness * (hovered ? 1.35f : 0.85f);
         float r = affordable ? 0.55f : 0.5f;
         float g = affordable ? 0.45f : 0.12f;
         float bl = affordable ? 1.0f : 0.16f;
         EnchantFx.billboard(pose, buffers, camera, at, size * 1.8, 0, EnchantFx.GLOW, r * b * 0.35f, g * b * 0.35f, bl * b * 0.35f);
         double turn = clock * (hovered ? 1.8 : 0.5) * (k % 2 == 0 ? 1 : -1);
-        EnchantFx.billboard(pose, buffers, camera, at, size, turn, EnchantFx.CIRCLE, r * b, g * b, bl * b);
+        EnchantFx.billboard(pose, buffers, camera, at, size, turn + Math.toRadians(geometry().rotation(k + 2)), EnchantFx.CIRCLE, r * b, g * b, bl * b);
 
         Font font = Minecraft.getInstance().font;
         Vec3 cam = camera.getPosition();
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
         pose.mulPose(camera.rotation());
-        float s = 0.01f * appear * (hovered ? 1.2f : 1f);
+        pose.mulPose(Axis.ZP.rotationDegrees((float) geometry().rotation(k + 2)));
+        float s = 0.01f * appear * (hovered ? 1.2f : 1f) * geometry().scale(k + 2);
         pose.scale(s, -s, s);
         String number = String.valueOf(cost);
         int numberColor = affordable ? 0xFFF4EEFF : 0xFFFF6B6B;
@@ -643,11 +696,19 @@ public final class EnchantStation extends ClientStation {
     }
 
     static void drawLapis(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 corner, int count, int light, float scale) {
+        drawLapis(pose, buffers, cam, corner, count, light, scale, 0);
+    }
+
+    static void drawLapis(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 corner, int count, int light, float scale, float rotation) {
+        Vec3 pivot = corner.subtract(cam);
+        pose.pushPose(); pose.translate(pivot.x, pivot.y, pivot.z);
+        pose.mulPose(Axis.YP.rotationDegrees(rotation)); pose.translate(-pivot.x, -pivot.y, -pivot.z);
         int copies = count >= 16 ? 3 : count >= 4 ? 2 : 1;
         for (int i = 0; i < copies; i++) {
-            Vec3 at = corner.add((i - (copies - 1) / 2.0) * 0.05, 0.001 + i * 0.008, (i % 2) * 0.03);
+            Vec3 at = corner.add((i - (copies - 1) / 2.0) * 0.05 * scale, (0.001 + i * 0.008) * scale, (i % 2) * 0.03 * scale);
             ItemPlacer.render(pose, buffers, cam, new ItemStack(Items.LAPIS_LAZULI), at, Direction.NORTH, 4242L + i * 17L, 0.8f * scale, 0f, light);
         }
+        pose.popPose();
     }
 
     // ---- words ---------------------------------------------------------------------------------------
@@ -655,6 +716,9 @@ public final class EnchantStation extends ClientStation {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] mouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(mouse[0], mouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         EnchantmentMenu menu = menu();
         if (menu == null) {

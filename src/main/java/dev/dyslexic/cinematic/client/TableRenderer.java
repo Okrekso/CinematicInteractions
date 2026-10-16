@@ -65,7 +65,8 @@ public final class TableRenderer {
         double midpoint = TableStation.CRAFT_MID / TableStation.CRAFT_LENGTH;
         boolean gathering = station != null && gathering(station);
         double squeeze = craft < 0 ? 0 : craft < midpoint ? Anim.inOutSine(craft / midpoint) : 1 - Anim.outCubic((craft - midpoint) / (1 - midpoint));
-        Vec3 center = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
+        TableLayout layout = TableLayouts.current();
+        Vec3 center = layout.center(pos);
 
         for (int i = 0; i < TableGrid.CELLS; i++) {
             ItemStack stack = gathering ? station.craftItems[i] : entry == null ? ItemStack.EMPTY : entry.items[i];
@@ -77,7 +78,7 @@ public final class TableRenderer {
                 continue;
             }
             byte facing = gathering ? station.craftFacing[i] : entry.facing[i];
-            Vec3 base = new Vec3(pos.getX() + TableGrid.cellX(i), pos.getY() + 1.0, pos.getZ() + TableGrid.cellZ(i));
+            Vec3 base = layout.cell(pos, i);
             float scale = 1f;
             if (squeeze > 0) {
                 base = Anim.lerp(base, center, squeeze * 0.55).add(0, 0.05 * squeeze, 0);
@@ -92,7 +93,7 @@ public final class TableRenderer {
                 }
             }
             long seed = pos.asLong() * 31L + i * 7919L;
-            ItemPlacer.render(pose, buffers, cam, stack, base, Direction.from2DDataValue(facing), seed, scale, 0f, light, opacity);
+            layout.renderItem(pose, buffers, cam, stack, base, Direction.from2DDataValue(facing), seed, scale, 0f, light, opacity, false);
         }
     }
 }

@@ -67,19 +67,7 @@ public final class ItemPlacer {
         if (stack.isEmpty() || scale <= 0.001f) {
             return;
         }
-        if (opacity < 0.999f) {
-            MultiBufferSource source = buffers;
-            float alpha = (float) Anim.clamp01(opacity);
-            // Glint must keep its fixed buffer: the item renderer writes to it and the model buffer together.
-            buffers = type -> new VertexConsumerWrapper(source.getBuffer(type.format() == DefaultVertexFormat.NEW_ENTITY
-                    ? FADING_TYPES.computeIfAbsent(type, ItemPlacer::fadingType) : type)) {
-                @Override
-                public VertexConsumer setColor(int r, int g, int b, int a) {
-                    parent.setColor(r, g, b, Math.round(a * alpha));
-                    return this;
-                }
-            };
-        }
+        buffers = opacity(buffers, opacity);
         Minecraft mc = Minecraft.getInstance();
         ItemRenderer renderer = mc.getItemRenderer();
         BakedModel model = renderer.getModel(stack, mc.level, null, (int) seed);
@@ -112,6 +100,20 @@ public final class ItemPlacer {
             renderer.render(stack, ItemDisplayContext.FIXED, false, pose, buffers, light, OverlayTexture.NO_OVERLAY, model);
             pose.popPose();
         }
+    }
+
+    static MultiBufferSource opacity(MultiBufferSource buffers, float opacity) {
+        if (opacity >= 0.999f) return buffers;
+        float alpha = (float) Anim.clamp01(opacity);
+        // Glint must keep its fixed buffer: the item renderer writes to it and the model buffer together.
+        return type -> new VertexConsumerWrapper(buffers.getBuffer(type.format() == DefaultVertexFormat.NEW_ENTITY
+                ? FADING_TYPES.computeIfAbsent(type, ItemPlacer::fadingType) : type)) {
+            @Override
+            public VertexConsumer setColor(int r, int g, int b, int a) {
+                parent.setColor(r, g, b, Math.round(a * alpha));
+                return this;
+            }
+        };
     }
 
     /** Keep each model's texture (including special block items), but allow its vertex alpha to blend. */

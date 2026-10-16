@@ -1,6 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.dyslexic.cinematic.Cinematic;
 import dev.dyslexic.cinematic.station.StationKind;
@@ -11,8 +13,6 @@ import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LightTexture;
@@ -46,7 +46,9 @@ import org.joml.Vector3f;
  * beam flares up into the sky while the camera draws back to watch. Underneath is the vanilla beacon menu; lighting
  * it sends the same packet as the window's confirm button.
  */
-public final class BeaconStation extends MenuStation<BeaconMenu> {
+public final class BeaconStation extends MenuStation<BeaconMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     static final double HAND_Y = 0.06;
     static final double ITEM_REACH = 0.07;
     static final double LIGHT_LENGTH = 3.0;
@@ -66,7 +68,7 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
      * and how they treat an icon depends on the pack (some left it nearly black, some nearly invisible); they never touch
      * the interface. The rings and the dark glass round the icons stay in the world.
      */
-    private record Icon(TextureAtlasSprite sprite, Vec3 at, double half, float brightness, float alpha, String label, int labelColor, Vec3 labelAt) {}
+    private record Icon(TextureAtlasSprite sprite, Vec3 at, double half, float brightness, float alpha, String label, int labelColor, Vec3 labelAt, float rotation) {}
 
     private final List<Icon> icons = new ArrayList<>();
 
@@ -161,35 +163,12 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
      * second power right of the beam, its stronger version above it. All a little in front of the beam.
      */
     Vec3 powerPos(int index) {
-        List<Power> list = powers();
-        Power power = list.get(index);
-        double clock = Scene.clock();
-        Vec3 out = side(), across = right();
-        double x, y;
-        if (!power.secondary()) {
-            int row = power.tier();
-            int inRow = BeaconBlockEntity.BEACON_EFFECTS.get(row).size();
-            int column = index - (row == 0 ? 0 : row == 1 ? 2 : 4);
-            x = inRow == 1 ? -0.62 : column == 0 ? -0.8 : -0.45;
-            y = 0.2 + 0.31 * row;
-        } else {
-            x = 0.6;
-            y = 0.36 + 0.31 * (index - 5);
-        }
-        Vec3 at = top.add(out.scale(0.14 - 0.08 * Math.abs(x))).add(across.scale(x)).add(0, y, 0);
-        double bob = 0.012 * Math.sin(clock * 1.4 + index * 1.7);
-        if (index == hoverPower && denyAt > 0) {
-            double d = clock - denyAt;
-            if (d >= 0 && d < 0.35) {
-                at = at.add(across.scale(0.02 * Math.sin(d * 60) * (1 - d / 0.35)));
-            }
-        }
-        return at.add(0, bob, 0);
+        return layoutPoint(index + 1).add(0, 0.012 * Math.sin(Scene.clock() * 1.4 + index * 1.7), 0);
     }
 
     /** Where the payment floats: over the glass, in front of the beam. */
     Vec3 paymentPos() {
-        return top.add(side().scale(0.27)).add(0, 0.14 + 0.012 * Math.sin(Scene.clock() * 1.9), 0);
+        return layoutPoint(0).add(0, 0.012 * Math.sin(Scene.clock() * 1.9), 0);
     }
 
     /** The point of the beam level with something, which a thread of light runs to. */
@@ -255,6 +234,12 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
         double[] mouse = Picking.mouseGui();
         ItemStack carried = Hands.carried();
         List<Power> list = powers();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            int picked = layoutPick();
+            if (picked > 0 && picked <= list.size() && carried.isEmpty()) { target = Target.POWER; hoverPower = picked - 1; aim = powerPos(hoverPower); }
+            else if (picked == 0) { target = payment().isEmpty() ? carried.isEmpty() ? Target.NONE : Target.TOP : Target.PAYMENT; aim = paymentPos(); }
+            return;
+        }
         if (carried.isEmpty()) {
             for (int i = 0; i < list.size(); i++) {
                 if (GrindstoneStation.under(mouse, powerPos(i), 0.12)) {
@@ -516,7 +501,7 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
                 float g = (float) (0.22 + 0.5 * sink);
                 float[] c = ready() || t >= 0 ? burstColor(t) : new float[]{1f, 0.85f, 0.5f};
                 EnchantFx.billboard(pose, buffers, camera, at, 0.14 + 0.1 * sink, clock * 0.5, EnchantFx.GLOW, c[0] * g, c[1] * g, c[2] * g);
-                EnchantStation.drawFloating(pose, buffers, cam, item, at, spin, (float) (0.26 * (1 - 0.7 * sink)));
+                EnchantStation.drawFloating(pose, buffers, cam, item, at, spin + (float) geometry().rotation(0), (float) (0.26 * geometry().scale(0) * (1 - 0.7 * sink)));
             }
         }
         double presence = Scene.phase == Scene.Phase.INTRO ? Anim.smoother(Anim.window(Scene.introProgress(), 0.4, 1))
@@ -614,6 +599,7 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
     /** The crown of powers, only while working. */
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         BeaconMenu menu = menu();
         if (menu == null) {
             return;
@@ -650,10 +636,11 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
             return;
         }
         double clock = Scene.clock();
+        int layoutSlot = powers().indexOf(power) + 1;
         float[] c = color(power.effect());
         float k = open ? (chosen ? 1f : hovered ? 0.85f : active ? 0.65f : 0.45f) : 0.14f;
         k *= appear;
-        double size = 0.1 * appear * (hovered && open ? 1.15 : 1) * (chosen ? 1.1 : 1);
+        double size = 0.1 * geometry().scale(layoutSlot) * appear * (hovered && open ? 1.15 : 1) * (chosen ? 1.1 : 1);
         // dark glass behind it, so the icon reads against the sky and the white beam
         Fx.shade(pose, buffers, camera, at, size * 1.4, 0.75f * appear);
         if (chosen) {
@@ -664,12 +651,12 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
                     c[0] * 0.6f * appear, c[1] * 0.6f * appear, c[2] * 0.6f * appear);
         }
         EnchantFx.billboard(pose, buffers, camera, at, size * 2.0, 0, EnchantFx.GLOW, c[0] * k * 0.35f, c[1] * k * 0.35f, c[2] * k * 0.35f);
-        double turn = clock * (chosen ? 1.2 : 0.35) * (power.tier() % 2 == 0 ? 1 : -1);
+        double turn = clock * (chosen ? 1.2 : 0.35) * (power.tier() % 2 == 0 ? 1 : -1) + Math.toRadians(geometry().rotation(layoutSlot));
         EnchantFx.billboard(pose, buffers, camera, at, size * 1.3, turn, chosen ? EnchantFx.CIRCLE : RING, c[0] * k, c[1] * k, c[2] * k);
         // the pyramid level a power needs, or the II of the stronger power
         String label = !open || power.upgrade() ? power.upgrade() ? "II" : "I".repeat(power.tier() + 1).replace("IIII", "IV") : "";
         icons.add(new Icon(Minecraft.getInstance().getMobEffectTextures().get(power.effect()), at, size * 0.7, open ? 1f : 0.35f, appear, label,
-                !open ? 0x9A9AA6 : 0xFFF2C0, at.add(0, -size * 1.62, 0)));
+                !open ? 0x9A9AA6 : 0xFFF2C0, at.add(0, -size * 1.62, 0), (float) geometry().rotation(layoutSlot)));
         if (chosen && Fx.RANDOM.nextDouble() < Scene.frameDt * 6) {
             double a = Fx.RANDOM.nextDouble() * Math.PI * 2;
             Fx.spark(at.add(Math.cos(a) * size, Math.sin(a) * size, 0), new Vec3(0, 0.05, 0), 0.6, 0.008f, c[0], c[1], c[2], -0.05, 0);
@@ -697,6 +684,7 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
             float a = Math.min(1, icon.alpha()) * alpha;
             g.pose().pushPose();
             g.pose().translate(at[0], at[1], 0);
+            g.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-icon.rotation()));
             float s = (float) (icon.half() * perBlock / 9);
             g.pose().scale(s, s, 1);
             g.blit(-9, -9, 0, 18, 18, icon.sprite(), icon.brightness(), icon.brightness(), icon.brightness(), a);
@@ -712,6 +700,7 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
                 g.pose().popPose();
             }
         }
+        gridEditor.render(g, font, alpha);
     }
 
     // ---- what others see -------------------------------------------------------------------------------
@@ -721,9 +710,10 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
         if (items.isEmpty() || items.get(0).isEmpty()) {
             return;
         }
-        Vec3 at = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(side.getNormal()).scale(0.27)).add(0, 0.64 + 0.012 * Math.sin(Scene.clock() * 1.9), 0);
+        Vec3 at = RemainingLayouts.point(StationKind.BEACON, Vec3.atBottomCenterOf(pos).add(0, 1, 0), side, 0)
+                .add(0, 0.012 * Math.sin(Scene.clock() * 1.9), 0);
         EnchantFx.billboard(pose, buffers, camera, at, 0.14, Scene.clock() * 0.5, EnchantFx.GLOW, 0.22f, 0.19f, 0.11f);
-        EnchantStation.drawFloating(pose, buffers, camera.getPosition(), items.get(0), at, (float) (Scene.clock() * 50), 0.26f);
+        EnchantStation.drawFloating(pose, buffers, camera.getPosition(), items.get(0), at, (float) (Scene.clock() * 50), 0.26f * RemainingLayouts.scale(StationKind.BEACON, 0));
     }
 
     /** Someone else lit their beacon: the light breaks out for onlookers too (in the beacon's own gold). */
@@ -745,6 +735,9 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] pointer = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(pointer[0], pointer[1]);
+        if (editorTip != null) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         switch (target) {
             case POWER -> {
@@ -798,4 +791,10 @@ public final class BeaconStation extends MenuStation<BeaconMenu> {
     public Component hint() {
         return Component.translatable("cinematic.hint.beacon");
     }
+
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
 }

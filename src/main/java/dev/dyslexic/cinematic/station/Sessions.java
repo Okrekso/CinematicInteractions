@@ -109,6 +109,9 @@ public final class Sessions {
         if (kind.isFurnace()) {
             FurnaceActions.sendState(player, session);
         }
+        if (kind == StationKind.CAMPFIRE) {
+            CampfireActions.sendProgress(player, session);
+        }
         if (kind == StationKind.JUKEBOX) {
             JukeboxActions.show(player, session);
         }
@@ -183,6 +186,9 @@ public final class Sessions {
         }
         if (session.kind().isFurnace() && player.tickCount % 4 == 0) {
             FurnaceActions.sendState(player, session);
+        }
+        if (session.kind() == StationKind.CAMPFIRE && player.tickCount % 4 == 0) {
+            CampfireActions.sendProgress(player, session);
         }
         if (session.kind() == StationKind.CHISELED_BOOKSHELF && player.tickCount % 4 == 0) {
             ShelfActions.tick(player, session);

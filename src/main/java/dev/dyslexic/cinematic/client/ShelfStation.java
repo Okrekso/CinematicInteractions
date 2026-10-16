@@ -43,7 +43,17 @@ import org.lwjgl.glfw.GLFW;
  * <p>
  * The server takes and puts books by the shelf's own rules ({@code ShelfActions}); reading takes nothing off the shelf.
  */
-public final class ShelfStation extends ClientStation {
+public final class ShelfStation extends ClientStation implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    private final OpenBook layoutGhost = new OpenBook();
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
+    @Override public ItemStack layoutItem(int slot) { return occupied(slot) ? bookIn(slot).isEmpty() ? new ItemStack(Items.BOOK) : bookIn(slot) : ItemStack.EMPTY; }
+    @Override public SpatialAppearance.Frame layoutFrame() { return SpatialAppearance.Frame.of(kind(), pos, side, side); }
+    @Override public List<Vec3> workSamples() { return layoutSamples(super.workSamples()); }
+    @Override public void renderScreen(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.gui.Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public void layoutGhost(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int slot, int light) {
+        ShelfBooks.draw(pose, buffers, camera, slot, new ItemStack(Items.BOOK), ShelfBooks.inSlot(pos, facing, slot, 0), layoutGhost, light);
+    }
     public enum Target { NONE, BOOK, PLACE, PAGE }
 
     private enum Move { NONE, TAKE, PUT, OPEN, CLOSE }
@@ -126,13 +136,31 @@ public final class ShelfStation extends ClientStation {
     /** Reading, the book takes the whole view (as at a lectern): no drawer over it. */
     @Override
     public boolean showsInventory() {
-        return !reading && move != Move.OPEN && move != Move.CLOSE;
+        return !gridEditor.visible() && !reading && move != Move.OPEN && move != Move.CLOSE;
     }
 
     // ---- the shelf ---------------------------------------------------------------------------------------
 
     /** The slot a point of the shelf's face is in, as vanilla divides the face (-1: not on the face). */
     static int slotAt(BlockPos pos, Direction facing, Vec3 point) {
+        SpatialAppearance layout = SpatialLayouts.current(StationKind.CHISELED_BOOKSHELF);
+        if (!layout.equals(SpatialAppearance.VANILLA)) {
+            var frame = SpatialAppearance.Frame.of(StationKind.CHISELED_BOOKSHELF, pos, facing, facing);
+            Vec3 eye = Minecraft.getInstance().player == null ? point.add(frame.normal()) : Minecraft.getInstance().player.getEyePosition();
+            Vec3 ray = point.subtract(eye);
+            double denominator = ray.dot(frame.normal());
+            if (Math.abs(denominator) < 1e-9) return -1;
+            int best = -1; double distance = Double.MAX_VALUE;
+            for (int i = 0; i < 6; i++) {
+                Vec3 at = layout.point(frame, i);
+                double t = at.subtract(eye).dot(frame.normal()) / denominator;
+                Vec3 hit = eye.add(ray.scale(t));
+                if (t >= 0 && layout.contains(frame, i, hit) && hit.distanceToSqr(at) < distance) {
+                    best = i; distance = hit.distanceToSqr(at);
+                }
+            }
+            return best;
+        }
         Vec3 rel = point.subtract(Vec3.atCenterOf(pos).add(ShelfBooks.out(facing).scale(0.5)));
         double u = 8 + rel.dot(ShelfBooks.right(facing)) * 16, v = 8 - rel.y * 16;
         if (Math.abs(rel.dot(ShelfBooks.out(facing))) > 0.05 || u < 0 || u > 16 || v < 0 || v > 16) {
@@ -231,7 +259,7 @@ public final class ShelfStation extends ClientStation {
             return;
         }
         Vec3 hit = Picking.cursorOnPlane(front, side());
-        int slot = hit == null ? -1 : slotAt(pos, facing, hit);
+        int slot = geometry().equals(SpatialAppearance.VANILLA) ? hit == null ? -1 : slotAt(pos, facing, hit) : layoutPick();
         if (slot < 0) {
             return;
         }
@@ -381,7 +409,7 @@ public final class ShelfStation extends ClientStation {
 
     @Override
     public boolean busy() {
-        return move != Move.NONE || reading;
+        return move != Move.NONE || reading || gridEditor.editing();
     }
 
     private void send(StationActionPayload.Action action, int index, int button, boolean shift) {
@@ -404,6 +432,7 @@ public final class ShelfStation extends ClientStation {
     /** Every frame: the moves go on, the server is told at their moments, the book being read settles. */
     @Override
     public void beforeFrame() {
+        gridEditor.frame();
         double t = Scene.clock() - moveAt;
         switch (move) {
             case TAKE -> {
@@ -498,6 +527,7 @@ public final class ShelfStation extends ClientStation {
     /** Stepping away (or dropped) mid-move: the book finishes its way by itself. */
     @Override
     public void onEnd() {
+        gridEditor.cancel();
         ShelfBooks.keepEmpty(pos, 0);
         if (moveSlot < 0 || move == Move.NONE && !reading) {
             return;
@@ -687,7 +717,7 @@ public final class ShelfStation extends ClientStation {
         double shake = Scene.clock() - denyAt < 0.3 ? 0.006 * Math.sin((Scene.clock() - denyAt) * 60) : 0;
         for (int i = 0; i < peek.length; i++) {
             boolean shaking = shake != 0 && i == hoverSlot;
-            if ((peek[i] > 0.001 || shaking) && occupied(i)) {
+            if ((peek[i] > 0.001 || shaking || ShelfLayoutBooks.drawsRestingBooks()) && occupied(i) && ShelfBooks.flight(pos, i) == null) {
                 ShelfBooks.Pose there = ShelfBooks.inSlot(pos, facing, i, peek[i]).moved(right().scale(shaking ? shake : 0));
                 ShelfBooks.draw(pose, buffers, cam, i, bookIn(i), there, shut, light);
             }
@@ -709,6 +739,7 @@ public final class ShelfStation extends ClientStation {
     /** The place under the cursor framed, enchanted books shimmering on the shelf. */
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         double clock = Scene.clock();
         if (!reading) {
             for (int i = 0; i < ShelfBooks.SPINES.length; i++) {
@@ -730,6 +761,13 @@ public final class ShelfStation extends ClientStation {
         double out = target == Target.BOOK ? peek[hoverSlot] + ShelfBooks.PROUD + 0.002 : 0.003;
         Vec3 a = ShelfBooks.face(pos, facing, r[0] - 0.5, r[1] - 0.5, out), b = ShelfBooks.face(pos, facing, r[2] + 0.5, r[1] - 0.5, out);
         Vec3 c = ShelfBooks.face(pos, facing, r[2] + 0.5, r[3] + 0.5, out), d = ShelfBooks.face(pos, facing, r[0] - 0.5, r[3] + 0.5, out);
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            double[] half = geometry().half(layoutFrame(), hoverSlot);
+            Vec3 at = slotPoint(hoverSlot).add(side().scale(out));
+            Vec3 u = geometry().axis(layoutFrame(), hoverSlot, true).scale(half[0]);
+            Vec3 v = geometry().axis(layoutFrame(), hoverSlot, false).scale(half[1]);
+            a = at.subtract(u).add(v); b = at.add(u).add(v); c = at.add(u).subtract(v); d = at.subtract(u).subtract(v);
+        }
         int[] tint = ok ? new int[]{255, 236, 200} : new int[]{255, 70, 60};
         VertexConsumer vc = buffers.getBuffer(Fx.HIGHLIGHT);
         int alpha = target == Target.BOOK ? 30 : 44;
@@ -743,6 +781,9 @@ public final class ShelfStation extends ClientStation {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] editorMouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(editorMouse[0], editorMouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         if (target == Target.BOOK) {
             ItemStack there = bookIn(hoverSlot);

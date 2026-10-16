@@ -7,8 +7,8 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Shader renderers can call the hand renderer directly, bypassing GameRenderer's ordinary hand pass. */
-@Mixin(ItemInHandRenderer.class)
+/** Applied after Punchy so this HEAD guard is inserted before its default-priority hand renderer. */
+@Mixin(value = ItemInHandRenderer.class, priority = 900)
 public abstract class FirstPersonHandsMixin {
     @Inject(method = "renderHandsWithItems", at = @At("HEAD"), cancellable = true)
     private void cinematic$sceneHands(CallbackInfo ci) {

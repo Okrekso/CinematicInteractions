@@ -41,8 +41,10 @@ neoForge {
             client()
             gameDirectory = project.file('run-showcase')
             systemProperty 'cinematic.showcase', 'true'
+            systemProperty 'cinematic.showcase.world', (project.findProperty('showcaseWorld') ?: 'cinematic-showcase').toString()
             systemProperty 'cinematic.showcase.from', (project.findProperty('from') ?: '0').toString()
             systemProperty 'cinematic.showcase.only', (project.findProperty('only') ?: 'false').toString()
+            systemProperty 'cinematic.showcase.editorBatch', (project.findProperty('editorBatch') ?: 'false').toString()
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
@@ -51,13 +53,16 @@ neoForge {
             client()
             gameDirectory = project.file('run-showcase-iris')
             systemProperty 'cinematic.showcase', 'true'
+            systemProperty 'cinematic.showcase.world', (project.findProperty('showcaseWorld') ?: 'cinematic-showcase').toString()
             systemProperty 'cinematic.showcase.from', (project.findProperty('from') ?: '0').toString()
             systemProperty 'cinematic.showcase.only', (project.findProperty('only') ?: 'false').toString()
+            systemProperty 'cinematic.showcase.editorBatch', (project.findProperty('editorBatch') ?: 'false').toString()
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
         configureEach {
             logLevel = org.slf4j.event.Level.INFO
+            if (project.hasProperty('traceMixins')) systemProperty 'mixin.debug.export', 'true'
         }
     }
 

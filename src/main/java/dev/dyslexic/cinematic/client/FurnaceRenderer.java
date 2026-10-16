@@ -30,12 +30,15 @@ public final class FurnaceRenderer {
     private FurnaceRenderer() {}
 
     private static final double MAX_DISTANCE_SQR = 48 * 48;
+    private static final int[] FUEL_GLOW = {FurnaceZones.FUEL};
+    private static final int[] INPUT_GLOW = {FurnaceZones.INPUT};
+    private static final int[] COOKING_GLOW = {FurnaceZones.INPUT, FurnaceZones.RESULT};
 
     public static void renderAll(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Frustum frustum, ClientLevel level) {
         FurnaceStation mine = Scene.station(FurnaceStation.class);
         for (Map.Entry<BlockPos, ClientFurnaces.Entry> e : ClientFurnaces.FURNACES.entrySet()) {
             BlockPos pos = e.getKey();
-            if (pos.distToCenterSqr(cam) > MAX_DISTANCE_SQR || !frustum.isVisible(new AABB(pos).inflate(0.2))) {
+            if (pos.distToCenterSqr(cam) > MAX_DISTANCE_SQR) {
                 continue;
             }
             BlockState state = level.getBlockState(pos);
@@ -44,6 +47,8 @@ public final class FurnaceRenderer {
             if (layout == null) {
                 continue;
             }
+            FurnaceAppearance appearance = FurnaceLayouts.current(kind);
+            if (!frustum.isVisible(new AABB(pos).inflate(appearance.equals(FurnaceAppearance.VANILLA) ? 0.2 : 0.6))) continue;
             Direction facing = state.getValue(AbstractFurnaceBlock.FACING);
             Vec3 toCamera = cam.subtract(FurnaceZones.point(pos, facing, 0.5, 0.5, 0));
             boolean frontSeen = toCamera.dot(Vec3.atLowerCornerOf(facing.getNormal())) > 0;
@@ -54,18 +59,18 @@ public final class FurnaceRenderer {
             ClientFurnaces.Entry entry = e.getValue();
             for (FurnaceLayout.Bed bed : layout.beds) {
                 if (bed.face() == Face.FRONT ? frontSeen : topSeen) {
-                    drawBed(pose, buffers, cam, pos, facing, entry, bed, bed.slot() == FurnaceZones.RESULT ? light : inside);
+                    drawBed(pose, buffers, cam, pos, facing, entry, layout, appearance, bed, bed.slot() == FurnaceZones.RESULT ? light : inside);
                 }
             }
             if (lit) {
                 double heat = mine != null && mine.pos.equals(pos) ? mine.cook() : 0.5;
-                drawGlow(pose, buffers, cam, pos, facing, layout, heat, frontSeen, topSeen);
+                drawGlow(pose, buffers, cam, pos, facing, layout, appearance, heat, frontSeen, topSeen);
             }
         }
     }
 
     private static void drawBed(PoseStack pose, MultiBufferSource buffers, Vec3 cam, BlockPos pos, Direction facing,
-            ClientFurnaces.Entry entry, FurnaceLayout.Bed bed, int light) {
+            ClientFurnaces.Entry entry, FurnaceLayout layout, FurnaceAppearance appearance, FurnaceLayout.Bed bed, int light) {
         ItemStack stack = entry.items[bed.slot()];
         if (stack.isEmpty()) {
             return;
@@ -81,18 +86,19 @@ public final class FurnaceRenderer {
             if (bed.face() == Face.FRONT) {
                 // a fresh item slides in from the front
                 double out = -bed.depth() + wobble * 0.02 + 0.06 * slide;
-                base = FurnaceZones.point(pos, facing, u, bed.floor() + 0.002 + c * 0.0015, out);
+                base = appearance.point(layout, pos, facing, bed.slot(), u, bed.floor() + 0.002 + c * 0.0015, out, true);
             } else {
                 // charged from the top: it settles half-sunk into the furnace
                 double v = bed.floor() + wobble * 0.08;
-                base = FurnaceZones.top(pos, facing, u, v, -bed.depth() + 0.06 * slide);
+                base = appearance.point(layout, pos, facing, bed.slot(), u, v, -bed.depth() + 0.06 * slide, true);
             }
-            ItemPlacer.renderOne(pose, buffers, cam, stack, base, facing, seed + c * 31L, 0.95f, bed.tilt(), light);
+            ItemPlacer.renderOne(pose, buffers, cam, stack, base, facing, seed + c * 31L,
+                    0.95f * (float) appearance.region(bed.slot()).itemScale(), bed.tilt(), light);
         }
     }
 
     /** Warm light inside the openings, strongest at their floors and flickering with the fire; the cooking one heats up. */
-    private static void drawGlow(PoseStack pose, MultiBufferSource buffers, Vec3 cam, BlockPos pos, Direction facing, FurnaceLayout layout,
+    private static void drawGlow(PoseStack pose, MultiBufferSource buffers, Vec3 cam, BlockPos pos, Direction facing, FurnaceLayout layout, FurnaceAppearance appearance,
             double heat, boolean frontSeen, boolean topSeen) {
         double t = Scene.clock() + (pos.asLong() & 255) * 0.37;
         double flicker = 0.82 + 0.1 * Math.sin(t * 11.3) + 0.08 * Math.sin(t * 23.1 + 1.3);
@@ -101,20 +107,27 @@ public final class FurnaceRenderer {
             if (g.face() == Face.FRONT ? !frontSeen : !topSeen) {
                 continue;
             }
-            double[] rect = {g.u0(), g.u1(), g.v0(), g.v1()};
-            if (g.fire()) {
-                double strength = 120 * flicker;
-                FurnaceStation.quad(pose, glow, cam, pos, facing, g.face(), rect, 0.003, rgb(strength, 0.42, 0.1),
-                        rgb(strength * 0.25, 0.35, 0.08), 255);
-            } else if (g.face() == Face.TOP) {
-                // the molten heart of a blast furnace glowing up through its top
-                double strength = (130 + 90 * heat) * flicker;
-                Vec3 center = FurnaceZones.top(pos, facing, (g.u0() + g.u1()) / 2, (g.v0() + g.v1()) / 2, 0.003);
-                radial(pose, glow, cam, center, (g.u1() - g.u0()) * 0.72, rgb(strength, 0.45, 0.12));
-            } else {
-                double strength = (35 + 70 * heat) * flicker;
-                FurnaceStation.quad(pose, glow, cam, pos, facing, g.face(), rect, 0.003, rgb(strength, 0.5, 0.16),
-                        rgb(strength * 0.08, 0.5, 0.16), 255);
+            int[] regions = g.fire() ? FUEL_GLOW
+                    : g.face() == Face.TOP || appearance.equals(FurnaceAppearance.VANILLA) ? INPUT_GLOW
+                    : COOKING_GLOW;
+            for (int region : regions) {
+                double[] rect = appearance.glowRect(layout, g, region);
+                if (rect == null) continue;
+                double out = 0.003 + appearance.region(region).out() / 16;
+                if (g.fire()) {
+                    double strength = 120 * flicker;
+                    FurnaceStation.quad(pose, glow, cam, pos, facing, g.face(), rect, out, rgb(strength, 0.42, 0.1),
+                            rgb(strength * 0.25, 0.35, 0.08), 255);
+                } else if (g.face() == Face.TOP) {
+                    // the molten heart of a blast furnace glowing up through its top
+                    double strength = (130 + 90 * heat) * flicker;
+                    Vec3 center = FurnaceZones.top(pos, facing, (rect[0] + rect[1]) / 2, (rect[2] + rect[3]) / 2, out);
+                    radial(pose, glow, cam, center, (rect[1] - rect[0]) * 0.72, rgb(strength, 0.45, 0.12));
+                } else {
+                    double strength = (35 + 70 * heat) * flicker;
+                    FurnaceStation.quad(pose, glow, cam, pos, facing, g.face(), rect, out, rgb(strength, 0.5, 0.16),
+                            rgb(strength * 0.08, 0.5, 0.16), 255);
+                }
             }
         }
     }

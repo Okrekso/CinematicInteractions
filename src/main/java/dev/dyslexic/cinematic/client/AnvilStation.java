@@ -1,6 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
 import java.util.List;
@@ -8,7 +10,6 @@ import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.LightTexture;
@@ -36,7 +37,9 @@ import net.minecraft.world.phys.Vec3;
  * hand. The item's name hangs over it; touching the name lets the player type a new one. Underneath is the
  * vanilla anvil menu, so costs, repairs and the anvil wearing out are vanilla's.
  */
-public final class AnvilStation extends MenuStation<AnvilMenu> {
+public final class AnvilStation extends MenuStation<AnvilMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     static final double HAND_Y = 0.062;
     static final double ITEM_REACH = 0.075;
     static final float MAIN_SIZE = 0.4f;
@@ -56,6 +59,7 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
 
     public final Vec3 top;
     public Target target = Target.NONE;
+    private int layoutSlot = -1;
 
     // the move, as it was when it began
     private ItemStack mainBefore = ItemStack.EMPTY;
@@ -99,13 +103,12 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     }
 
     static Vec3 mainPoint(Vec3 top, Direction side) {
-        return top.add(rightOf(side).scale(-0.02));
+        return RemainingLayouts.point(StationKind.ANVIL, top, side, 0);
     }
 
     /** What goes into the item lies on top of it, a little to the right and askew. */
     static Vec3 additionPoint(Vec3 top, Direction side) {
-        Vec3 out = Vec3.atLowerCornerOf(side.getNormal());
-        return top.add(rightOf(side).scale(0.07)).add(out.scale(-0.03)).add(0, 0.012, 0);
+        return RemainingLayouts.point(StationKind.ANVIL, top, side, 1);
     }
 
     @Override
@@ -115,11 +118,11 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     }
 
     Vec3 namePoint() {
-        return top.add(side().scale(0.02)).add(0, 0.2, 0);
+        return layoutPoint(2);
     }
 
     private Vec3 costPoint() {
-        return top.add(side().scale(-0.04)).add(0, 0.3, 0);
+        return namePoint().add(side().scale(-0.06)).add(0, 0.1, 0);
     }
 
     // ---- staging -------------------------------------------------------------------------------------
@@ -165,6 +168,16 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
             return;
         }
         ItemStack carried = Hands.carried();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            int picked = layoutPick();
+            layoutSlot = picked;
+            if (picked == 2 && carried.isEmpty() && !slot(0).isEmpty()) { target = Target.NAME; aim = namePoint(); }
+            else if (picked >= 0 && picked < 2) {
+                target = carried.isEmpty() ? !slot(picked).isEmpty() ? Target.STACK : Target.NONE : Target.SURFACE;
+                aim = layoutPoint(picked);
+            }
+            return;
+        }
         double[] mouse = Picking.mouseGui();
         boolean pile = !slot(0).isEmpty() || !slot(1).isEmpty();
         if (carried.isEmpty() && !slot(0).isEmpty() && overName(mouse)) {
@@ -206,6 +219,7 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     public void clearCursor() {
         super.clearCursor();
         target = Target.NONE;
+        layoutSlot = -1;
     }
 
     @Override
@@ -244,7 +258,7 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
         switch (target) {
             case SURFACE -> {
                 // the item first; then what goes into it, on top (a different one there is swapped into the hand)
-                int slot = slot(0).isEmpty() ? 0 : 1;
+                int slot = layoutSlot >= 0 && layoutSlot < 2 ? layoutSlot : slot(0).isEmpty() ? 0 : 1;
                 slotClick(slot, button, false);
                 Scene.sound(SoundEvents.CHAIN_PLACE, 0.6f, slot == 0 ? 0.9f : 1.2f);
             }
@@ -256,7 +270,7 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
                         deny();
                     }
                 } else {
-                    slotClick(slot(1).isEmpty() ? 0 : 1, 0, shift);
+                    slotClick(layoutSlot >= 0 && layoutSlot < 2 ? layoutSlot : slot(1).isEmpty() ? 0 : 1, 0, shift);
                 }
             }
             case NAME -> {
@@ -445,7 +459,8 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
         }
         // the other hand steadies the work at its left end
         double hold = Anim.inOutCubic(Anim.window(t, 0.05, 0.4)) * (1 - Anim.inOutCubic(Anim.window(t, BLOWS[2] + 0.1, BLOWS[2] + 0.4)));
-        Vec3 steady = mainPoint(top, side).add(right().scale(-0.2)).add(side().scale(0.05)).add(0, HAND_Y + 0.015, 0);
+        Vec3 steady = mainPoint(top, side).add(layoutAxis(0, true).scale(-0.2 * geometryScale(0)))
+                .add(layoutAxis(0, false).scale(0.05)).add(0, HAND_Y + 0.015, 0);
         return new Vec3[]{right, Anim.lerp(rest(false), steady, hold)};
     }
 
@@ -572,10 +587,11 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     /** The new item off the anvil, at {@code at}: turned over as it rises, glowing as it cools. */
     static void drawForged(PoseStack pose, MultiBufferSource buffers, Camera camera, Direction side, ItemStack after, Vec3 at, double t, float size,
             int light) {
+        size *= geometryScale(0);
         double turn = 200 * Anim.inOutCubic(Anim.window(t, BLOWS[2] + 0.1, PUT_AWAY + 0.1));
         float tilt = (float) (35 * Anim.hump(Anim.window(t, BLOWS[2] + 0.1, FORGE_LENGTH)));
         ItemPlacer.drawOriented(pose, buffers, camera.getPosition(), after, at.add(0, 0.004, 0),
-                ItemPlacer.lying((float) (ItemPlacer.awayYaw(side) + MAIN_TURN + turn), tilt), size, light);
+                ItemPlacer.lying((float) (ItemPlacer.awayYaw(side) + MAIN_TURN + RemainingLayouts.rotation(StationKind.ANVIL, 0) + turn), tilt), size, light);
         double glow = 1 - Anim.window(t, BLOWS[2], PUT_AWAY + 0.2);
         if (glow > 0.01) {
             float g = (float) (0.4 * glow);
@@ -587,25 +603,29 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     static void drawPile(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 top, Direction side, ItemStack main, ItemStack addition,
             double shake, double additionScale, int light) {
         Vec3 shift = rightOf(side).scale(shake);
-        float yaw = ItemPlacer.awayYaw(side) + MAIN_TURN;
+        float yaw = ItemPlacer.awayYaw(side) + MAIN_TURN + RemainingLayouts.rotation(StationKind.ANVIL, 0);
         if (!main.isEmpty()) {
             boolean block = ItemPlacer.isBlock(main);
-            float size = block ? 0.2f : MAIN_SIZE;
+            float size = (block ? 0.2f : MAIN_SIZE) * geometryScale(0);
             Vec3 at = mainPoint(top, side).add(shift).add(0, block ? size / 2 : 0.004, 0);
             ItemPlacer.drawOriented(pose, buffers, cam, main, at, ItemPlacer.lying(yaw, 0), size, light);
         }
         if (!addition.isEmpty() && additionScale > 0.01) {
             boolean block = ItemPlacer.isBlock(addition);
-            float size = (float) ((block ? 0.16 : ADDITION_SIZE) * (0.35 + 0.65 * additionScale));
-            Vec3 at = (main.isEmpty() ? mainPoint(top, side) : additionPoint(top, side)).add(shift)
+            float size = (float) ((block ? 0.16 : ADDITION_SIZE) * (0.35 + 0.65 * additionScale) * geometryScale(1));
+            Vec3 home = main.isEmpty() && SpatialLayouts.current(StationKind.ANVIL).equals(SpatialAppearance.VANILLA)
+                    ? mainPoint(top, side) : additionPoint(top, side);
+            Vec3 at = Anim.lerp(mainPoint(top, side), home, additionScale).add(shift)
                     .add(0, (block ? size / 2 : 0.006) - 0.01 * (1 - additionScale), 0);
-            ItemPlacer.drawOriented(pose, buffers, cam, addition, at, ItemPlacer.lying(yaw + 70, 0), size, light);
+            ItemPlacer.drawOriented(pose, buffers, cam, addition, at, ItemPlacer.lying(yaw + 70 + RemainingLayouts.rotation(StationKind.ANVIL, 1) - RemainingLayouts.rotation(StationKind.ANVIL, 0), 0), size, light);
             if (addition.getCount() > 1) {
                 ItemPlacer.drawOriented(pose, buffers, cam, addition, at.add(rightOf(side).scale(0.03)).add(0, 0.008, 0),
-                        ItemPlacer.lying(yaw + 95, 0), size, light);
+                        ItemPlacer.lying(yaw + 95 + RemainingLayouts.rotation(StationKind.ANVIL, 1) - RemainingLayouts.rotation(StationKind.ANVIL, 0), 0), size, light);
             }
         }
     }
+
+    private static float geometryScale(int slot) { return RemainingLayouts.scale(StationKind.ANVIL, slot); }
 
     private Vec3 headAxis(double angle) {
         double a = Math.toRadians(angle);
@@ -619,6 +639,7 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         Minecraft mc = Minecraft.getInstance();
         Camera cam = mc.gameRenderer.getMainCamera();
         double clock = Scene.clock();
@@ -658,6 +679,8 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
         pose.mulPose(camera.rotation());
+        pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees((float) SpatialLayouts.current(StationKind.ANVIL).rotation(2)));
+        scale *= geometryScale(2);
         pose.scale(scale, -scale, scale);
         int background = backdrop > 0 ? (int) (backdrop * 255) << 24 : 0;
         font.drawInBatch(text, -font.width(text) / 2f, -4f, color, false, pose.last().pose(), buffers, Font.DisplayMode.NORMAL, background,
@@ -744,6 +767,9 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] pointer = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(pointer[0], pointer[1]);
+        if (editorTip != null) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         switch (target) {
             case NAME -> {
@@ -780,4 +806,12 @@ public final class AnvilStation extends MenuStation<AnvilMenu> {
     public Component hint() {
         return Component.translatable("cinematic.hint.anvil");
     }
+
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
+    @Override public float layoutHeldScale() { return layoutSlot >= 0 && layoutSlot < 2 ? geometry().scale(layoutSlot) : geometry().scale(0); }
 }

@@ -30,6 +30,7 @@ public final class Settings {
     static final ModConfigSpec.BooleanValue LIVING_CAMERA;
     static final ModConfigSpec.BooleanValue CAMERA_SHAKE;
     static final ModConfigSpec.BooleanValue SCREEN_FLASH;
+    static final ModConfigSpec.BooleanValue DEVELOPER_MODE;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -74,6 +75,10 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        b.pop();
+        b.translation("cinematic.configuration.developer").push("developer");
+        DEVELOPER_MODE = b.comment("Show the local station layout editors and enable their G shortcut. Saved layouts apply even when this is false.")
+                .translation("cinematic.configuration.developerMode").define("developerMode", false);
         b.pop();
         SPEC = b.build();
     }
@@ -125,6 +130,8 @@ public final class Settings {
     public static boolean controlHints() {
         return get(CONTROL_HINTS);
     }
+
+    public static boolean developerMode() { return get(DEVELOPER_MODE); }
 
     public static boolean campfireInvite() {
         return get(CAMPFIRE_INVITE);

@@ -19,11 +19,9 @@
 set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT" || exit 1
-if [ -n "${JAVA_HOME:-}" ] && [ ! -d "$JAVA_HOME" ]; then
-    echo "JAVA_HOME must point to your JDK 21 installation." >&2
-    exit 1
+if [ -z "${JAVA_HOME:-}" ] || [ ! -d "$JAVA_HOME" ]; then
+    export JAVA_HOME="/c/Users/evgen/AppData/Local/Programs/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
 fi
-mkdir -p run-showcase run-showcase-iris
 if [ "${1:-}" = "iris" ]; then RUN=runShowcaseIris; DIR=run-showcase-iris; else RUN=runShowcase; DIR=run-showcase; fi
 
 ./gradlew build --console=plain -q 2>&1 | grep -E "error|\.java:[0-9]+" | head -40

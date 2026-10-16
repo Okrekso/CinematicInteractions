@@ -1,14 +1,11 @@
-# 📝 Changelog
+# Changelog
 
-## 0.1 — Initial public release · 2026-10-12
+## Beta — October 16, 2026
 
-- First public downloads for Fabric Minecraft 1.21–1.21.11 and NeoForge Minecraft 1.21.1.
-- Cinematic first-person workstation interactions, animated hands, and smooth camera transitions.
-- In-world crafting with a recipe guide, ingredient previews, and animated material layout.
-- Dedicated scenes for smelting, tools, enchanting, brewing, banners, maps, books, music, campfires, and beacons.
-- Nearby-station transitions, quick return, orbit view, and player configuration.
-- Multiplayer synchronization and English/Russian translations.
+- **NeoForge 1.21.1 · 0.18.1:** Developer Mode, in-world layout editors and local station profiles; campfire cooking progress; improved Punchy compatibility.
+- **Fabric 26.2 and 26.3 · 0.18.1:** Full ports of the current station scenes, editors and profiles, campfire cooking progress, and Punchy compatibility fix.
+- **Fabric 1.21.11 · 0.12.4:** Punchy hand-rendering and camera-state compatibility fix. This port does not include the layout editors.
 
-These are the existing verified game JARs, published without changing their contents. Embedded versions are NeoForge 0.11.2, Fabric 1.21–1.21.9 0.12.2, and Fabric 1.21.10/1.21.11 0.12.3. Each download targets one exact Minecraft version and loader.
+These builds are beta releases. Install Cinematic Interactions on both client and server. Fabric builds require Fabric API. Report visual or compatibility issues through [GitHub Issues](https://github.com/dcvke/CinematicInteractions/issues). Earlier 0.1 releases remain available.
 
-Earlier local development revisions are not promoted as additional public releases. The latest prepared build for every supported game/loader target is available in GitHub Releases.
+Compatibility with Inventory Particles and Inventory Interactions is planned for a later update and is not included here.

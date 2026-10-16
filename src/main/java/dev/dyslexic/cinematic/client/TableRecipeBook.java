@@ -83,6 +83,8 @@ final class TableRecipeBook {
 
     boolean over(double mx, double my) { return inPanel(mx, my) || inToggle(mx, my); }
 
+    void fold() { open = false; search.setFocused(false); }
+
     private int entryAt(double mx, double my) {
         double lx = localX(mx) - GRID_X, ly = localY(my) - GRID_Y;
         if (lx < 0 || lx >= COLS * CELL || ly < 0 || ly >= ROWS * CELL) return -1;
@@ -282,15 +284,18 @@ final class TableRecipeBook {
             boolean wrong = guide.wrong(logical);
             if (guide.grid[logical].isEmpty() && !wrong) continue;
             int world = TableGrid.worldIndex(station.side, logical / 3, logical % 3);
-            Vec3 base = new Vec3(station.pos.getX() + TableGrid.cellX(world), station.top.y + 0.002,
-                    station.pos.getZ() + TableGrid.cellZ(world));
+            TableLayout layout = TableLayouts.current();
+            Vec3 base = layout.cell(station.pos, world).add(0, 0.002, 0);
             boolean red = guide.missing[logical] || wrong;
             int r = red ? 255 : guide.placed[logical] ? 143 : 166;
             int g = red ? 106 : guide.placed[logical] ? 211 : 211;
             int b = red ? 98 : guide.placed[logical] ? 176 : 235;
-            drawRim(pose, buffers, base.subtract(cam), r, g, b, appear * (guide.placed[logical] ? 0.3f : 0.7f));
+            pose.pushPose();
+            layout.cellPose(pose, station.pos, world, cam);
+            drawRim(pose, buffers, Vec3.ZERO, r, g, b, appear * (guide.placed[logical] ? 0.3f : 0.7f));
+            pose.popPose();
             if (!guide.placed[logical] && !wrong) {
-                ItemPlacer.render(pose, buffers, cam, guide.ghost(logical), base, station.side, world, 1, 0, light, appear * 0.28f);
+                layout.renderItem(pose, buffers, cam, guide.ghost(logical), base, station.side, world, 1, 0, light, appear * 0.28f, false);
             }
         }
         if (buffers instanceof MultiBufferSource.BufferSource source) source.endBatch();

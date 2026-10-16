@@ -42,6 +42,12 @@ Place ingredients on the crafting table, load a furnace by hand, and forge equip
 
 Chests, barrels, and shulker boxes keep their normal interfaces. [Station guide →](docs/wiki/Stations.md)
 
+## 🧪 New beta: Developer Mode & layout profiles
+
+The latest beta builds let you open an in-world editor for supported stations, tune where items and interaction areas appear, and save three local profiles per station. A compact campfire cooking indicator and improved compatibility with Punchy are also included. The editors are in the **NeoForge 1.21.1** and **Fabric 26.2/26.3** beta builds. The **Fabric 1.21.11** beta contains the Punchy fix but not the editors.
+
+These are preview builds; please [report visual or compatibility issues](https://github.com/dcvke/CinematicInteractions/issues/new/choose). The earlier releases remain available below.
+
 ## 📦 Get the right build
 
 **Install the mod on both the client and the server.** In singleplayer, the integrated server is handled automatically. Each Minecraft version has its own JAR: install one matching your game version and loader.
@@ -61,7 +67,9 @@ Chests, barrels, and shulker boxes keep their normal interfaces. [Station guide 
 | 1.21.8 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.8) |
 | 1.21.9 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.9) |
 | 1.21.10 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.10) |
-| 1.21.11 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.11) |
+| 1.21.11 | [**0.12.4 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.11) |
+| 26.2 | [**0.18.1 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) |
+| 26.3 | [**0.18.1 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) |
 
 Fabric API is required. Mod Menu and Cloth Config are optional settings integrations.
 
@@ -69,7 +77,7 @@ Fabric API is required. Mod Menu and Cloth Config are optional settings integrat
 
 | Minecraft | Release |
 | --- | --- |
-| 1.21.1 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
+| 1.21.1 | [**0.18.1 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
 
 Cloth Config is optional. See [installation and dependencies](docs/wiki/Installation.md) for loader requirements.
 
@@ -85,14 +93,17 @@ Press **H** while looking at a campfire to sit down. Hold **Left Alt** during a 
 
 ## 🛠️ Build & explore
 
-The root project targets **NeoForge 1.21.1**. The [`fabric/`](fabric/) project contains the Fabric ports for **1.21–1.21.11**, using version-specific source layers and shared resources. Both require **JDK 21**; the Gradle wrappers are included.
+The root project targets **NeoForge 1.21.1**. The [`fabric/`](fabric/) project contains the Fabric ports for **1.21–1.21.11**, using version-specific source layers and shared resources. The separate [`fabric/26.2/`](fabric/26.2/) and [`fabric/26.3/`](fabric/26.3/) projects contain the current feature set for those versions. The root project and 1.21.x ports require **JDK 21**; the 26.x ports require **JDK 25**. Gradle wrappers are included.
 
 ```sh
 # NeoForge, from the repository root
 ./gradlew build
 
-# Fabric, from fabric/
+# Fabric 1.21.11, from fabric/
 ./gradlew -Pmc_version=1.21.11 build
+
+# Fabric 26.2 or 26.3, from its own directory
+./gradlew build
 ```
 
 On Windows, use `gradlew.bat`. Read the [developer guide](docs/wiki/Development.md), [Fabric build guide](fabric/README.md), and [test coverage](fabric/TESTING.md) before changing version-specific code.

@@ -110,7 +110,7 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
                 continue;
             }
             float grow = mine && scene.hoverSlot == i ? 1.08f : 1f;
-            draw(pose, buffers, origin, cam, stack, BrewingStation.slotPoint(pos, i), grow, light);
+            draw(pose, buffers, origin, cam, stack, BrewingStation.slotPoint(pos, i), grow, BrewingStation.itemScale(i), BrewingStation.itemRotation(i), light);
         }
         if (!mine) {
             // the ingredient in the bowl and the blaze powder at the foot stay where they were put (the scene at this
@@ -128,12 +128,12 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
     }
 
     /** One bottle standing on a foot ({@code at} is the middle of the bottle), turned to the camera. */
-    static void draw(PoseStack pose, MultiBufferSource buffers, Vec3 origin, Vec3 cam, ItemStack stack, Vec3 at, float grow, int light) {
+    static void draw(PoseStack pose, MultiBufferSource buffers, Vec3 origin, Vec3 cam, ItemStack stack, Vec3 at, float grow, float scale, float rotation, int light) {
         Vec3 toEye = new Vec3(cam.x - at.x, 0, cam.z - at.z);
         float yaw = (float) (180 - Math.toDegrees(Math.atan2(-toEye.x, toEye.z)));
         // standing on its foot: grown from the bottom, not the middle
-        Vec3 center = at.add(0, 7 / 16.0 * SIZE * (grow - 1), 0);
-        ItemPlacer.drawOriented(pose, buffers, origin, stack, center, ItemPlacer.lying(yaw, 90), SIZE * grow, light);
+        Vec3 center = at.add(0, 7 / 16.0 * SIZE * scale * (grow - 1), 0);
+        ItemPlacer.drawOriented(pose, buffers, origin, stack, center, ItemPlacer.lying(yaw + rotation, 90), SIZE * grow * scale, light);
     }
 
     @Override

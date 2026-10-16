@@ -2,6 +2,7 @@ package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mojang.math.Axis;
 import dev.dyslexic.cinematic.Cinematic;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +57,14 @@ public final class EnchantFx {
 
     /** A small empty-socket crystal made of added light, rather than an opaque placeholder item. */
     public static void lapisGhost(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 at, float brightness) {
+        lapisGhost(pose, buffers, camera, at, brightness, 1, 0);
+    }
+
+    public static void lapisGhost(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 at, float brightness, float scale, float rotation) {
+        Vec3 pivot = at.subtract(camera.getPosition());
+        pose.pushPose(); pose.translate(pivot.x, pivot.y, pivot.z);
+        pose.mulPose(Axis.YP.rotationDegrees(rotation)); pose.scale(scale, scale, scale);
+        pose.translate(-pivot.x, -pivot.y, -pivot.z);
         double[][] gem = {{0, 0.052}, {0.035, 0.018}, {0.023, -0.032}, {-0.023, -0.032}, {-0.035, 0.018}};
         VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
         for (int i = 0; i < gem.length; i++) {
@@ -66,6 +75,7 @@ public final class EnchantFx {
         crystalLine(vc, pose.last(), camera, at, -0.035, 0.018, 0.035, 0.018, brightness * 0.65f);
         crystalLine(vc, pose.last(), camera, at, 0, 0.052, -0.023, -0.032, brightness * 0.65f);
         crystalLine(vc, pose.last(), camera, at, 0, 0.052, 0.023, -0.032, brightness * 0.65f);
+        pose.popPose();
     }
 
     private static void crystalLine(VertexConsumer vc, PoseStack.Pose pose, Camera camera, Vec3 at,

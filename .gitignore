@@ -1,43 +1,62 @@
-# Build output, caches, and local IDE state
-**/.gradle/
-**/build/
-**/out/
-**/bin/
-.idea/
-.vscode/
-*.iml
-*.iws
-*.ipr
-.classpath
-.project
-.settings/
-.DS_Store
-Thumbs.db
-
-# Game instances, local downloads, reference sources, and release binaries
-**/run/
-run-showcase*/
-refs/
-release/
-fabric/test-mods/
-.codex-remote-attachments/
-*.jar
+### Gradle ###
+.gradle
+build/
 !gradle/wrapper/gradle-wrapper.jar
-!fabric/gradle/wrapper/gradle-wrapper.jar
-*.log
-*.hprof
-*.jfr
-hs_err_pid*
+!**/src/**/build/
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/**/out/
+
+.run/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.eclipse/
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/**/bin/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+
+### Minecraft Modding ###
+run/
+!**/src/**/run/
 **/src/generated/**/.cache/
+repo/
+!**/src/**/repo/
 
-# Credentials and machine-specific settings
-.env
-.env.*
-!.env.example
-local.properties
-*.pem
-*.key
+### Cinematic Interactions ###
+# reference material unpacked by tools/extract_refs.sh
+refs/
+# everything the showcase clients generate; their options.txt, Iris config, mods and shader pack stay
+run-showcase*/saves/
+run-showcase*/logs/
+run-showcase*/crash-reports/
+run-showcase*/screenshots/
+run-showcase*/sheets/
+run-showcase*/downloads/
+run-showcase*/defaultconfigs/
+run-showcase*/resourcepacks/
+run-showcase*/showcase.log
+run-showcase*/usercache.json
+run-showcase*/usernamecache.json
+run-showcase*/config/*
+!run-showcase-iris/config/iris.properties
 
-# Python helper caches
+# Python helper cache
 __pycache__/
-*.py[cod]
+*.pyc

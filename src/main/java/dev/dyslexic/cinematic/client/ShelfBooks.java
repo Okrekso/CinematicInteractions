@@ -135,18 +135,22 @@ public final class ShelfBooks {
 
     /** The middle of the spine of the book in a slot, as it stands in it. */
     static Vec3 spine(BlockPos pos, Direction facing, int slot) {
-        int[] r = SPINES[slot];
-        return face(pos, facing, (r[0] + r[2]) / 2.0, (r[1] + r[3]) / 2.0, PROUD);
+        return SpatialLayouts.current(dev.dyslexic.cinematic.station.StationKind.CHISELED_BOOKSHELF).point(
+                SpatialAppearance.Frame.of(dev.dyslexic.cinematic.station.StationKind.CHISELED_BOOKSHELF, pos, facing, facing), slot);
     }
 
     /** The book in a slot, standing in it shut, its spine out, {@code out} drawn out of it. */
     static Pose inSlot(BlockPos pos, Direction facing, int slot, double out) {
         int[] r = SPINES[slot];
         Vec3 size = new Vec3(DEPTH / OpenBook.DEEP, (r[3] - r[1]) / 16.0 / OpenBook.TALL, (r[2] - r[0]) / 16.0 / OpenBook.THICK);
-        Vec3 side = out(facing), right = right(facing);
+        SpatialAppearance layout = SpatialLayouts.current(dev.dyslexic.cinematic.station.StationKind.CHISELED_BOOKSHELF);
+        var frame = SpatialAppearance.Frame.of(dev.dyslexic.cinematic.station.StationKind.CHISELED_BOOKSHELF, pos, facing, facing);
+        size = size.scale(layout.scale(slot));
+        Vec3 side = out(facing), right = layout.axis(frame, slot, true), up = layout.axis(frame, slot, false);
+        out *= layout.scale(slot);
         // the frame's origin lies on the back board, half the pages' thickness from the middle of the spine
         Vec3 origin = spine(pos, facing, slot).add(side.scale(out)).subtract(right.scale(OpenBook.STACK / 2 * size.z));
-        return new Pose(origin, basis(side.scale(-1), UP, right), size, 1);
+        return new Pose(origin, basis(side.scale(-1), up, right), size, 1);
     }
 
     /**
@@ -430,10 +434,12 @@ public final class ShelfBooks {
     }
 
     static void unloadChunk(ChunkPos chunk) {
+        ShelfLayoutBooks.unloadChunk(chunk);
         FLIGHTS.removeIf(f -> f.pos.getX() >> 4 == chunk.x && f.pos.getZ() >> 4 == chunk.z);
     }
 
     static void clear() {
+        ShelfLayoutBooks.clear();
         FLIGHTS.clear();
         LOCAL.clear();
         HIDDEN.clear();
@@ -465,6 +471,7 @@ public final class ShelfBooks {
         public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
             ModelData own = originalModel.getModelData(level, pos, state, data);
             Integer mask = HIDDEN.get(pos);
+            if (SpatialLayouts.customShelf()) mask = 63;
             return mask == null ? own : own.derive().with(EMPTIED, mask).build();
         }
 

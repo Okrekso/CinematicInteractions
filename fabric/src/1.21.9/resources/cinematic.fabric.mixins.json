@@ -28,7 +28,8 @@
     "PlayerRendererMixin",
     "ClientLevelMixin",
     "LevelRendererMixin",
-    "FeatureRenderDispatcherMixin"
+    "FeatureRenderDispatcherMixin",
+    "compat.PunchyCameraStateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

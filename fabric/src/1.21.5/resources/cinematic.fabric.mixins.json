@@ -7,7 +7,8 @@
     "AbstractFurnaceBlockEntityMixin",
     "BrewingStandBlockEntityMixin",
     "EnchantmentMenuMixin",
-    "PlayerChunkSenderMixin", "ServerLevelMixin"
+    "PlayerChunkSenderMixin",
+    "ServerLevelMixin"
   ],
   "client": [
     "CameraMixin",
@@ -26,7 +27,8 @@
     "BossHealthOverlayMixin",
     "PlayerRendererMixin",
     "ClientLevelMixin",
-    "RenderOutputMixin"
+    "RenderOutputMixin",
+    "compat.PunchyCameraStateMixin"
   ],
   "injectors": {
     "defaultRequire": 1

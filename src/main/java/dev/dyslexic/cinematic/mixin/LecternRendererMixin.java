@@ -2,6 +2,7 @@ package dev.dyslexic.cinematic.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.dyslexic.cinematic.client.LecternStation;
+import dev.dyslexic.cinematic.client.StationDisplayLayouts;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.blockentity.LecternRenderer;
 import net.minecraft.world.level.block.entity.LecternBlockEntity;
@@ -19,6 +20,14 @@ public abstract class LecternRendererMixin {
             CallbackInfo ci) {
         if (LecternStation.drawsBookAt(lectern.getBlockPos())) {
             ci.cancel();
+        } else if (StationDisplayLayouts.customLectern()) {
+            pose.pushPose();
+            StationDisplayLayouts.lectern(lectern, pose);
         }
+    }
+
+    @Inject(method = "render(Lnet/minecraft/world/level/block/entity/LecternBlockEntity;FLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;II)V", at = @At("TAIL"))
+    private void cinematic$restoreLayout(LecternBlockEntity lectern, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay, CallbackInfo ci) {
+        if (StationDisplayLayouts.customLectern()) pose.popPose();
     }
 }

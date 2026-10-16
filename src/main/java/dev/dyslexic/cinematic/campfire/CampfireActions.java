@@ -1,5 +1,6 @@
 package dev.dyslexic.cinematic.campfire;
 
+import dev.dyslexic.cinematic.net.CampfireProgressPayload;
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.Sessions.Session;
 import java.util.Optional;
@@ -11,8 +12,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CampfireCookingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.block.entity.CampfireBlockEntity;
+import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * Sitting by a campfire: food is put on a chosen spot of the fire, or taken off it. Putting on follows the
@@ -56,5 +59,21 @@ public final class CampfireActions {
         BlockState state = fire.getBlockState();
         level.sendBlockUpdated(session.pos(), state, state, 3);
         menu.broadcastChanges();
+        sendProgress(player, session);
+    }
+
+    /** Vanilla's campfire update packet contains the food but omits its four cooking timers. */
+    public static void sendProgress(ServerPlayer player, Session session) {
+        if (!(player.serverLevel().getBlockEntity(session.pos()) instanceof CampfireBlockEntity fire)) {
+            return;
+        }
+        int[] progress = new int[SPOTS], total = new int[SPOTS];
+        for (int i = 0; i < SPOTS; i++) {
+            if (!fire.getItems().get(i).isEmpty()) {
+                progress[i] = fire.cookingProgress[i];
+                total[i] = fire.cookingTime[i];
+            }
+        }
+        PacketDistributor.sendToPlayer(player, new CampfireProgressPayload(session.pos(), fire.getBlockState().getValue(CampfireBlock.LIT), progress, total));
     }
 }

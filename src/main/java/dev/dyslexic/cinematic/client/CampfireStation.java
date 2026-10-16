@@ -1,8 +1,11 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
 import com.mojang.math.Axis;
 import dev.dyslexic.cinematic.campfire.CampfireActions;
+import dev.dyslexic.cinematic.net.CampfireProgressPayload;
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
@@ -34,7 +37,9 @@ import org.joml.Vector3f;
  * the knee. Food from the inventory is put on a chosen spot of the fire and taken off it by hand; the campfire
  * cooks it as usual.
  */
-public final class CampfireStation extends ClientStation {
+public final class CampfireStation extends ClientStation implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
     /** From the middle of the fire to where the player sits. */
     static final double SEAT = 1.6;
     /** Eye height while sitting on the ground. */
@@ -58,6 +63,11 @@ public final class CampfireStation extends ClientStation {
     /** The cursor in the last frame, to tell the mouse moving from the camera moving. */
     @Nullable
     private double[] lastMouse;
+    private final int[] cookingProgress = new int[CampfireActions.SPOTS];
+    private final int[] cookingTime = new int[CampfireActions.SPOTS];
+    private final double[] shownProgress = new double[CampfireActions.SPOTS];
+    private boolean cookingLit;
+    private double progressReceivedAt;
 
     public CampfireStation(BlockPos pos, LocalPlayer player) {
         super(pos, sideOf(pos, player));
@@ -121,12 +131,16 @@ public final class CampfireStation extends ClientStation {
     }
 
     /** Where food lies on spot {@code j} of the fire: the same transform the campfire renderer uses. */
-    static Vec3 spot(BlockPos pos, Direction facing, int j) {
+    static Vec3 vanillaSpot(BlockPos pos, Direction facing, int j) {
         Vector3f v = new Vector3f(-0.3125f, -0.3125f, 0f);
         Axis.XP.rotationDegrees(90f).transform(v);
         Direction d = Direction.from2DDataValue((j + facing.get2DDataValue()) % 4);
         Axis.YP.rotationDegrees(-d.toYRot()).transform(v);
         return new Vec3(pos.getX() + 0.5 + v.x, pos.getY() + 0.44921875 + v.y, pos.getZ() + 0.5 + v.z);
+    }
+
+    static Vec3 spot(BlockPos pos, Direction facing, int j) {
+        return SpatialLayouts.current(StationKind.CAMPFIRE).point(RemainingLayouts.frame(StationKind.CAMPFIRE, pos, facing), j);
     }
 
     Vec3 spot(int j) {
@@ -137,6 +151,34 @@ public final class CampfireStation extends ClientStation {
         Minecraft mc = Minecraft.getInstance();
         return mc.level != null && mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire ? campfire.getItems() : List.of();
     }
+
+    void applyProgress(CampfireProgressPayload payload) {
+        cookingLit = payload.lit();
+        progressReceivedAt = Scene.clock();
+        for (int i = 0; i < CampfireActions.SPOTS; i++) {
+            int nextTotal = Math.max(0, payload.total()[i]);
+            int nextProgress = Math.max(0, payload.progress()[i]);
+            // A new piece on a reused spot should start at zero instead of animating down from the old one.
+            if (nextTotal == 0 || nextTotal != cookingTime[i] || cookingLit && nextProgress + 2 < cookingProgress[i]) {
+                shownProgress[i] = 0;
+            }
+            cookingTime[i] = nextTotal;
+            cookingProgress[i] = nextProgress;
+        }
+    }
+
+    private double cookingFraction(int slot) {
+        int total = cookingTime[slot];
+        if (total <= 0) return 0;
+        // Samples arrive every four ticks; follow the real timer between them and stop short of completion.
+        double elapsed = Math.max(0, Math.min(0.25, Scene.clock() - progressReceivedAt));
+        double progress = cookingProgress[slot] + elapsed * (cookingLit ? 20 : -40);
+        return Math.max(0, Math.min(total - 1, progress)) / total;
+    }
+
+    int syncedProgress(int slot) { return cookingProgress[slot]; }
+    int syncedCookingTime(int slot) { return cookingTime[slot]; }
+    boolean syncedLit() { return cookingLit; }
 
     // ---- staging -------------------------------------------------------------------------------------
 
@@ -281,6 +323,7 @@ public final class CampfireStation extends ClientStation {
     @Override
     public void updateCursor(boolean overPanel) {
         int was = hoverSpot;
+        int previousPlace = placeSpot;
         clearCursor();
         double[] mouse = Picking.mouseGui();
         boolean still = lastMouse != null && lastMouse[0] == mouse[0] && lastMouse[1] == mouse[1];
@@ -293,6 +336,23 @@ public final class CampfireStation extends ClientStation {
             return;
         }
         ItemStack carried = Hands.carried();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            int picked = layoutPick();
+            if (carried.isEmpty() && was >= 0 && !food.get(was).isEmpty()
+                    && (still || GrindstoneStation.under(mouse, spot(was), 0.25 * geometry().scale(was)))) picked = was;
+            else if (!carried.isEmpty() && previousPlace >= 0 && still) picked = previousPlace;
+            if (picked >= 0) {
+                if (carried.isEmpty() && !food.get(picked).isEmpty()) { target = Target.FOOD; hoverSpot = picked; aim = spot(picked); }
+                else if (!carried.isEmpty()) {
+                    target = Target.PLACE;
+                    Minecraft mc = Minecraft.getInstance();
+                    boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
+                    placeSpot = cookable && food.get(picked).isEmpty() ? picked : -1;
+                    aim = spot(picked);
+                }
+            }
+            return;
+        }
         if (carried.isEmpty()) {
             for (int k = -1; k < CampfireActions.SPOTS; k++) {
                 // first the food already under the cursor: leaning in or back moves it across the frame, so it stays
@@ -363,6 +423,7 @@ public final class CampfireStation extends ClientStation {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         if (aim == null || target == Target.NONE) {
             return;
         }
@@ -376,8 +437,18 @@ public final class CampfireStation extends ClientStation {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] pointer = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(pointer[0], pointer[1]);
+        if (editorTip != null) return editorTip;
         if (target == Target.FOOD) {
             List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), food().get(hoverSpot)));
+            if (cookingTime[hoverSpot] > 0) {
+                int percent = (int) Math.round(cookingFraction(hoverSpot) * 100);
+                int seconds = (int) Math.ceil((cookingTime[hoverSpot] - cookingFraction(hoverSpot) * cookingTime[hoverSpot]) / 20);
+                var status = cookingLit ? Component.translatable("cinematic.campfire.cooking", percent, seconds)
+                        : Component.translatable("cinematic.campfire.cooling", percent);
+                lines.add(status.withStyle(ChatFormatting.GRAY));
+            }
             lines.add(Component.translatable("cinematic.campfire.take").withStyle(ChatFormatting.GRAY));
             return lines;
         }
@@ -398,4 +469,45 @@ public final class CampfireStation extends ClientStation {
     public boolean stillThere(Level level) {
         return kind().matches(level.getBlockState(pos));
     }
+
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void renderScreen(GuiGraphics g, Font font, float alpha) {
+        renderCookingProgress(g, alpha);
+        gridEditor.render(g, font, alpha);
+    }
+
+    private void renderCookingProgress(GuiGraphics g, float alpha) {
+        if (Scene.phase != Scene.Phase.ACTIVE || gridEditor.visible()) return;
+        List<ItemStack> items = food();
+        if (items.size() < CampfireActions.SPOTS) return;
+        boolean soul = soul();
+        for (int i = 0; i < CampfireActions.SPOTS; i++) {
+            if (items.get(i).isEmpty() || cookingTime[i] <= 0) continue;
+            shownProgress[i] = Anim.approach(shownProgress[i], cookingFraction(i), 14, Scene.frameDt);
+            double[] at = Picking.toGui(spot(i).add(0, 0.02, 0));
+            if (at == null) continue;
+            int x = (int) Math.round(at[0]) - 15, y = (int) Math.round(at[1]) - 8;
+            // Vanilla tooltips start just above the cursor; keep the selected rail above their top edge.
+            if (hoverSpot == i) y = Math.min(y, (int) Math.floor(Picking.mouseGui()[1]) - 24);
+            if (x < 2 || x + 30 >= g.guiWidth() - 2 || y < 18 || y > g.guiHeight() - 26) continue;
+            float a = alpha * (hoverSpot == i ? 1 : 0.82f);
+            g.fill(x - 2, y - 2, x + 32, y + 7, color(a * 0.55f, 12, 16, 19));
+            g.fill(x, y, x + 30, y + 4, color(a * 0.5f, 75, 80, 82));
+            int filled = (int) Math.round(30 * shownProgress[i]);
+            if (filled > 0) {
+                int fill = cookingLit ? soul ? color(a, 103, 211, 231) : color(a, 255, 188, 99)
+                        : color(a, 155, 176, 183);
+                g.fill(x, y, x + filled, y + 4, fill);
+            }
+        }
+    }
+
+    private static int color(float alpha, int red, int green, int blue) {
+        return Math.max(0, Math.min(255, Math.round(alpha * 255))) << 24 | red << 16 | green << 8 | blue;
+    }
+    @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
+    @Override public float layoutHeldScale() { int slot = target == Target.FOOD ? hoverSpot : target == Target.PLACE ? placeSpot : -1; return slot < 0 ? 1 : geometry().scale(slot); }
 }

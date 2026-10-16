@@ -18,7 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * The settings screen when Cloth Config is installed: three tabs (scenes, interface, camera), each opening with a line
+ * The settings screen when Cloth Config is installed: scenes, interface, camera and developer tabs, each with a line
  * on what it is for, every switch with a tooltip and a value that says what it does rather than just yes or no.
  * Only loaded when Cloth Config is present ({@link CinematicClient}).
  */
@@ -92,6 +92,18 @@ final class ClothScreen {
         effects.add(toggle(entries, "cameraShake", Settings.CAMERA_SHAKE, onOff));
         effects.add(toggle(entries, "screenFlash", Settings.SCREEN_FLASH, onOff));
         camera.addEntry(effects.build());
+        ConfigCategory developer = builder.getOrCreateCategory(Component.translatable("cinematic.configuration.developer"));
+        developer.addEntry(note(entries, "cinematic.settings.developer.note"));
+        developer.addEntry(toggle(entries, "developerMode", Settings.DEVELOPER_MODE, onOff));
+        developer.addEntry(note(entries, "cinematic.settings.profiles.note"));
+        for (StationKind kind : StationKind.values()) {
+            developer.addEntry(entries.startIntSlider(LayoutProfiles.name(kind), LayoutProfiles.selected(kind) + 1, 1, 3)
+                    .setDefaultValue(1)
+                    .setTextGetter(v -> LayoutProfiles.value(v - 1))
+                    .setTooltip(Component.translatable("cinematic.settings.profiles.tooltip"))
+                    .setSaveConsumer(v -> LayoutProfiles.select(kind, v - 1))
+                    .build());
+        }
         return builder.build();
     }
 

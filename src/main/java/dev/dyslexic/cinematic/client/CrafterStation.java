@@ -37,9 +37,11 @@ import net.minecraft.world.phys.Vec3;
  * empty hand is shut, red, as in the crafter's window. What it would make hangs over the grid; the crafter only
  * makes it on a redstone signal, exactly as in vanilla. Underneath is the vanilla crafter menu.
  */
-public final class CrafterStation extends MenuStation<CrafterMenu> {
+public final class CrafterStation extends MenuStation<CrafterMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
     static final double HAND_Y = 0.062;
     static final double ITEM_REACH = 0.075;
+    private static final double UPRIGHT_REST_OUT = 0.18, UPRIGHT_REST_SPREAD = 0.38, UPRIGHT_REST_DROP = 0.28;
     /** Distance between the windows: 2 px each with a 1 px bar between (crafter_top.png). */
     static final double PITCH = 3 / 16.0;
     /** Index of the menu's result slot: after the 9 grid slots and the 36 of the inventory. */
@@ -61,6 +63,19 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
         grid = state.getValue(BlockStateProperties.ORIENTATION).top();
         face = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(grid.getNormal()).scale(0.5));
     }
+
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
+    @Override public ItemStack layoutItem(int slot) { return slot(slot); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public void renderScreen(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.gui.Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public SpatialAppearance.Frame layoutFrame() {
+        return SpatialAppearance.Frame.of(kind(), pos, side, grid);
+    }
+    @Override public float layoutHeldScale() { return hoverCell < 0 ? 1f : geometry().scale(hoverCell); }
+    @Override public List<Vec3> workSamples() { return layoutSamples(super.workSamples()); }
 
     @Override
     public StationKind kind() {
@@ -97,8 +112,7 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
 
     /** Middle of window {@code i} (the crafting grid's order: rows from the top as the player reads it). */
     public Vec3 cell(int i) {
-        int col = i % 3, row = i / 3;
-        return face.add(right().scale((col - 1) * PITCH)).add(rows().scale((1 - row) * PITCH));
+        return layoutPoint(i);
     }
 
     @Override
@@ -152,6 +166,9 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
 
     @Override
     public Vec3 rest(boolean right) {
+        // On an upright grid the lid is above the eyes; resting on it would cover the upper windows with both arms.
+        if (!flat()) return face.add(normal().scale(UPRIGHT_REST_OUT)).add(right().scale(right ? UPRIGHT_REST_SPREAD : -UPRIGHT_REST_SPREAD))
+                .add(0, -UPRIGHT_REST_DROP, 0);
         Vec3 top = Vec3.atCenterOf(pos).add(0, 0.5, 0);
         return top.add(side().scale(0.36)).add(right().scale(right ? 0.25 : -0.25)).add(0, HAND_Y, 0);
     }
@@ -169,6 +186,11 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
         if (!slot(RESULT).isEmpty() && Hands.carried().isEmpty() && GrindstoneStation.under(mouse, resultPoint(), 0.12)) {
             target = Target.RESULT;
             aim = resultPoint().add(0, -0.12, 0).add(side().scale(0.12));
+            return;
+        }
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            hoverCell = layoutPick();
+            if (hoverCell >= 0) { target = Target.CELL; aim = cell(hoverCell); }
             return;
         }
         Vec3 hit = Picking.cursorOnPlane(face, normal());
@@ -279,30 +301,37 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
     /** The same, each item at {@code scale} of its size (settling back into the windows). */
     static void drawGrid(PoseStack pose, MultiBufferSource buffers, Vec3 cam, BlockPos pos, Direction grid, Direction side, List<ItemStack> items,
             int hover, int light, float scale) {
-        Vec3 normal = Vec3.atLowerCornerOf(grid.getNormal());
-        Vec3 face = Vec3.atCenterOf(pos).add(normal.scale(0.5));
-        Vec3 right = Vec3.atLowerCornerOf(side.getOpposite().getClockWise().getNormal());
-        Vec3 rows = grid == Direction.UP ? Vec3.atLowerCornerOf(side.getOpposite().getNormal()) : new Vec3(0, 1, 0);
+        SpatialAppearance layout = SpatialLayouts.current(StationKind.CRAFTER);
+        SpatialAppearance.Frame frame = SpatialAppearance.Frame.of(StationKind.CRAFTER, pos, side, grid);
+        Vec3 normal = frame.normal();
         for (int i = 0; i < Math.min(9, items.size()); i++) {
             ItemStack stack = items.get(i);
             if (stack.isEmpty()) {
                 continue;
             }
-            Vec3 at = face.add(right.scale((i % 3 - 1) * PITCH)).add(rows.scale((1 - i / 3) * PITCH));
-            float grow = (i == hover ? 1.1f : 1f) * scale;
+            Vec3 at = layout.point(frame, i);
+            float grow = (i == hover ? 1.1f : 1f) * scale * layout.scale(i);
             if (grid == Direction.UP) {
+                pose.pushPose();
+                Vec3 pivot = at.subtract(cam);
+                pose.translate(pivot.x, pivot.y, pivot.z);
+                pose.mulPose(Axis.YP.rotationDegrees((float) layout.rotation(i)));
+                pose.translate(-pivot.x, -pivot.y, -pivot.z);
                 ItemPlacer.render(pose, buffers, cam, stack, at.add(0, 0.001, 0), side, 4242L + i, 0.55f * grow, 0f, light);
+                pose.popPose();
             } else {
                 boolean block = ItemPlacer.isBlock(stack);
                 float size = (block ? 0.085f : 0.12f) * grow;
                 ItemPlacer.drawOriented(pose, buffers, cam, stack, at.add(normal.scale(block ? size / 2 : 0.006)),
-                        ItemPlacer.lying(ItemPlacer.awayYaw(side), 90), size, light);
+                        new org.joml.Quaternionf().rotationAxis((float) Math.toRadians(layout.rotation(i)),
+                                (float) normal.x, (float) normal.y, (float) normal.z).mul(ItemPlacer.lying(ItemPlacer.awayYaw(side), 90)), size, light);
             }
         }
     }
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         CrafterMenu menu = menu();
         if (menu == null) {
             return;
@@ -320,10 +349,10 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
             float p = (float) (0.22 + 0.06 * Math.sin(clock * 5));
             if (disabled) {
                 // a shut window shows the crafter window's own mark for it
-                drawShut(pose, buffers, camera, at, hovered ? 1.1 : 1.0);
+                drawShut(pose, buffers, camera, at, i, hovered ? 1.1 : 1.0);
             } else {
                 boolean ok = Hands.carried().isEmpty() || slot(i).isEmpty() || ItemStack.isSameItemSameComponents(Hands.carried(), slot(i));
-                Fx.facePatch(pose, buffers, camera, at, right(), rows(), 0.075, p, ok ? p * 0.85f : p * 0.25f, ok ? p * 0.6f : p * 0.2f);
+                Fx.facePatch(pose, buffers, camera, at, geometry().axis(layoutFrame(), i, true), geometry().axis(layoutFrame(), i, false), 0.075 * geometry().scale(i), p, ok ? p * 0.85f : p * 0.25f, ok ? p * 0.6f : p * 0.2f);
             }
         }
         ItemStack result = slot(RESULT);
@@ -346,11 +375,12 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
     }
 
     /** The crafter window's mark for a disabled slot, laid into the window. */
-    private void drawShut(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 at, double scale) {
+    private void drawShut(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 at, int slot, double scale) {
         TextureAtlasSprite sprite = Minecraft.getInstance().getGuiSprites().getSprite(DISABLED_SLOT);
         VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(sprite.atlasLocation()));
-        double half = PITCH / 2 * 0.95 * scale;
-        Vec3 u = right().scale(half), v = rows().scale(half), n = normal();
+        double[] half = geometry().half(layoutFrame(), slot);
+        Vec3 u = geometry().axis(layoutFrame(), slot, true).scale(half[0] * 0.95 * scale);
+        Vec3 v = geometry().axis(layoutFrame(), slot, false).scale(half[1] * 0.95 * scale), n = normal();
         Vec3[] corners = {at.subtract(u).add(v), at.subtract(u).subtract(v), at.add(u).subtract(v), at.add(u).add(v)};
         float[][] uv = {{sprite.getU0(), sprite.getV0()}, {sprite.getU0(), sprite.getV1()}, {sprite.getU1(), sprite.getV1()}, {sprite.getU1(), sprite.getV0()}};
         for (int i = 0; i < 4; i++) {
@@ -375,6 +405,9 @@ public final class CrafterStation extends MenuStation<CrafterMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] editorMouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(editorMouse[0], editorMouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         CrafterMenu menu = menu();
         if (menu == null) {

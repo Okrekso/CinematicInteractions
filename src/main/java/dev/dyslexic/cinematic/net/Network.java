@@ -10,7 +10,7 @@ public final class Network {
 
     /** Client handlers are routed through lambdas so a dedicated server never loads client classes. */
     public static void register(RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("7");
+        PayloadRegistrar registrar = event.registrar("8");
         registrar.playToServer(StationActionPayload.TYPE, StationActionPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 Sessions.handle(player, payload);
@@ -22,6 +22,8 @@ public final class Network {
                 (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.furnaceContents(payload));
         registrar.playToClient(FurnaceStatePayload.TYPE, FurnaceStatePayload.CODEC,
                 (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.furnaceState(payload));
+        registrar.playToClient(CampfireProgressPayload.TYPE, CampfireProgressPayload.CODEC,
+                (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.campfireProgress(payload));
         registrar.playToClient(EnchantDisplayPayload.TYPE, EnchantDisplayPayload.CODEC,
                 (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.enchantDisplay(payload));
         registrar.playToClient(EnchantFxPayload.TYPE, EnchantFxPayload.CODEC,

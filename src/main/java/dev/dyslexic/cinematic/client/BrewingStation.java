@@ -30,9 +30,12 @@ import net.minecraft.world.phys.Vec3;
  * is done each bottle flares up in its new colour. Underneath is the vanilla brewing stand menu; the stand keeps
  * brewing after the player steps away.
  */
-public final class BrewingStation extends MenuStation<BrewingStandMenu> {
+public final class BrewingStation extends MenuStation<BrewingStandMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
     static final double HAND_Y = 0.055;
     static final double ITEM_REACH = 0.07;
+    /** Vertical tolerance makes the bowl selectable even when its contact plane is level with the eyes. */
+    static final double BOTTLE_TOUCH_HALF_HEIGHT = 0.12, LOOSE_TOUCH_HALF_HEIGHT = 0.065;
     /**
      * The stand's three stone feet, in block pixels (x, z): east, north-west and south-west, the order of its bottle
      * slots (brewing_stand.json, brewing_stand_bottle0..2.json). The potions stand on them.
@@ -57,6 +60,22 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> {
         base = Vec3.atBottomCenterOf(pos);
     }
 
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
+    @Override public ItemStack layoutItem(int slot) { return slot(slot); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public void renderScreen(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.gui.Font font, float alpha) { gridEditor.render(g, font, alpha); }
+    @Override public SpatialAppearance.Frame layoutFrame() {
+        return SpatialAppearance.Frame.of(kind(), pos, side, Direction.UP);
+    }
+    @Override public float layoutHeldScale() {
+        int slot = placeSlot >= 0 ? placeSlot : hoverSlot;
+        return slot < 0 ? 1f : geometry().scale(slot);
+    }
+    @Override public List<Vec3> workSamples() { return layoutSamples(super.workSamples()); }
+
     @Override
     public StationKind kind() {
         return StationKind.BREWING;
@@ -74,19 +93,16 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> {
 
     /** The middle of a bottle standing on its foot. */
     static Vec3 slotPoint(BlockPos pos, int slot) {
-        return new Vec3(pos.getX() + FEET[slot][0] / 16, pos.getY() + BELLY, pos.getZ() + FEET[slot][1] / 16);
+        return slotPoint(pos, Direction.SOUTH, slot);
     }
 
     static Vec3 slotPoint(BlockPos pos, Direction side, int slot) {
-        if (slot < BOTTLES) {
-            return slotPoint(pos, slot);
-        }
-        if (slot == INGREDIENT) {
-            return new Vec3(pos.getX() + 0.5, pos.getY() + 14 / 16.0 + 0.01, pos.getZ() + 0.5);
-        }
-        Vec3 out = Vec3.atLowerCornerOf(side.getNormal());
-        return Vec3.atBottomCenterOf(pos).add(out.scale(0.1)).add(0, 0.16, 0);
+        return SpatialLayouts.current(StationKind.BREWING).point(
+                SpatialAppearance.Frame.of(StationKind.BREWING, pos, side, Direction.UP), slot);
     }
+
+    static float itemScale(int slot) { return SpatialLayouts.current(StationKind.BREWING).scale(slot); }
+    static float itemRotation(int slot) { return (float) -SpatialLayouts.current(StationKind.BREWING).rotation(slot); }
 
     @Override
     protected Vec3 restPoint(int slot) {
@@ -153,13 +169,15 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> {
         ItemStack carried = Hands.carried();
         int nearest = -1;
         double best = Double.MAX_VALUE;
+        int editedHit = geometry().equals(SpatialAppearance.VANILLA) ? -1 : layoutPick();
         for (int i = 0; i < 5; i++) {
             double[] at = Picking.toGui(handle(i));
             if (at == null) {
                 continue;
             }
             double d = Math.hypot(mouse[0] - at[0], mouse[1] - at[1]);
-            boolean near = GrindstoneStation.under(mouse, handle(i), i < BOTTLES ? 0.1 : 0.09);
+            boolean near = geometry().equals(SpatialAppearance.VANILLA)
+                    ? GrindstoneStation.under(mouse, handle(i), i < BOTTLES ? 0.1 : 0.09) : editedHit == i;
             // empty-handed only what lies there can be picked; carrying, the nearest spot anywhere over the stand
             boolean candidate = carried.isEmpty() ? near && !slot(i).isEmpty() : near || nearStand(mouse);
             if (candidate && d < best) {
@@ -350,20 +368,21 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> {
             if (i == INGREDIENT) {
                 float melt = progress >= 0 ? (float) (1 - 0.65 * progress) : 1f;
                 boolean block = ItemPlacer.isBlock(stack);
-                float size = (block ? 0.1f : 0.17f) * melt * grow;
+                float size = (block ? 0.1f : 0.17f) * melt * grow * itemScale(i);
                 ItemPlacer.drawOriented(pose, buffers, cam, stack, at.add(0, block ? size / 2 : 0.004, 0),
-                        ItemPlacer.lying(ItemPlacer.awayYaw(side) + 20, 0), size, light);
+                        ItemPlacer.lying(ItemPlacer.awayYaw(side) + 20 + itemRotation(INGREDIENT), 0), size, light);
             } else {
                 // blaze powder standing at the foot of the rod, turned to whoever looks at it
                 Vec3 toEye = new Vec3(cam.x - at.x, 0, cam.z - at.z);
                 float yaw = (float) (180 - Math.toDegrees(Math.atan2(-toEye.x, toEye.z)));
-                ItemPlacer.drawOriented(pose, buffers, cam, stack, at, ItemPlacer.lying(yaw, 90), 0.17f * grow, light);
+                ItemPlacer.drawOriented(pose, buffers, cam, stack, at, ItemPlacer.lying(yaw + itemRotation(FUEL), 90), 0.17f * grow * itemScale(FUEL), light);
             }
         }
     }
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         if (target == Target.PLACE && aim != null) {
             float p = (float) (0.2 + 0.07 * Math.sin(Scene.clock() * 5));
             boolean ok = placeSlot >= 0;
@@ -385,15 +404,15 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> {
         if (!ingredient.isEmpty()) {
             Vec3 at = slotPoint(pos, side, INGREDIENT);
             boolean block = ItemPlacer.isBlock(ingredient);
-            float size = block ? 0.1f : 0.17f;
+            float size = (block ? 0.1f : 0.17f) * itemScale(INGREDIENT);
             ItemPlacer.drawOriented(pose, buffers, cam, ingredient, at.add(0, block ? size / 2 : 0.004, 0),
-                    ItemPlacer.lying(ItemPlacer.awayYaw(side) + 20, 0), size, light);
+                    ItemPlacer.lying(ItemPlacer.awayYaw(side) + 20 + itemRotation(INGREDIENT), 0), size, light);
         }
         if (!fuel.isEmpty()) {
             Vec3 at = slotPoint(pos, side, FUEL);
             Vec3 toEye = new Vec3(cam.x - at.x, 0, cam.z - at.z);
             float yaw = (float) (180 - Math.toDegrees(Math.atan2(-toEye.x, toEye.z)));
-            ItemPlacer.drawOriented(pose, buffers, cam, fuel, at, ItemPlacer.lying(yaw, 90), 0.17f, light);
+            ItemPlacer.drawOriented(pose, buffers, cam, fuel, at, ItemPlacer.lying(yaw + itemRotation(FUEL), 90), 0.17f * itemScale(FUEL), light);
         }
     }
 
@@ -404,6 +423,9 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] editorMouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(editorMouse[0], editorMouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         if (target == Target.PLACE) {
             return placeSlot < 0 ? List.of(Component.translatable("cinematic.brewing.refuse").withStyle(ChatFormatting.RED))

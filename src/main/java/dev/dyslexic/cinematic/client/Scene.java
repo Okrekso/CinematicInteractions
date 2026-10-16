@@ -523,6 +523,10 @@ public final class Scene {
         }
         frameDt = dt;
         clock += dt;
+        TableLayouts.frame(dt);
+        FurnaceLayouts.frame(dt);
+        SurfaceLayouts.frame(dt);
+        SpatialLayouts.frame(dt);
         if (phase == Phase.NONE) {
             return;
         }
