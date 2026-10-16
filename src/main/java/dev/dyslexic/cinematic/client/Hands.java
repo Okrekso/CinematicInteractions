@@ -185,6 +185,13 @@ public final class Hands {
         return Scene.phase == Scene.Phase.ACTIVE && station != null && station.aim != null && station.handsOverride() == null;
     }
 
+    /** The same anchor used to draw the carried world item, for screen-space inventory effects. */
+    static Vec3 heldPoint() {
+        var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        return Scene.station.heldItemPoint(leftWorks ? LEFT.pos() : RIGHT.pos(),
+                shoulder(!leftWorks, camera.getPosition(), camera.getYRot()));
+    }
+
     // ---- drawing ------------------------------------------------------------------------------------
 
     static void render(PoseStack pose, MultiBufferSource buffers, Vec3 camera, float cameraYaw, int light) {

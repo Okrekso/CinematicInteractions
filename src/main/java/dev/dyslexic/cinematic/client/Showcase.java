@@ -173,6 +173,7 @@ public final class Showcase {
             shot("00_before");
         } else if (t == 75) {
             switch (FROM) {
+                case "ip" -> nextAct("ip", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
                 case "3" -> nextAct("3", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "4" -> nextAct("4", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "5" -> nextAct("5", new Vec3(4.5, -60, 5.4), 180f, BLAST, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
@@ -286,6 +287,7 @@ public final class Showcase {
     /** The script of the act whose scene has just begun. */
     private static void runScript() {
         switch (act) {
+            case "ip" -> inventoryEffectsScript();
             case "0" -> tableScript();
             case "d" -> {
                 tableGridEditorScript();
@@ -496,6 +498,155 @@ public final class Showcase {
     }
 
     // ---- the crafting table -------------------------------------------------------------------------
+
+    /** Real mouse clicks through SceneScreen, compared with the optional mods' own live renderer state. */
+    private static void inventoryEffectsScript() {
+        if (Scene.station instanceof TableStation) {
+            float[] angle = new float[1];
+            int[] scale = new int[1];
+            step(3, InventoryEffectsProbe::defaults);
+            step(3, () -> { drawerPoint(3); screenClick(0); });
+            step(12, () -> { pointAside(); });
+            step(30, () -> {
+                check("inventory effects carried stack", Hands.carried().is(Items.REDSTONE) && InventoryEffectsProbe.cursor() == Items.REDSTONE,
+                        "actual=" + Hands.carried() + " native=" + InventoryEffectsProbe.cursor());
+                check("inventory effects native cursor particles", InventoryEffectsProbe.particles() > 0, "count=" + InventoryEffectsProbe.particles());
+                check("inventory effects native physics", !InventoryEffectsProbe.hasInteractions() || InventoryEffectsProbe.physicsItem() == Items.REDSTONE,
+                        "installed=" + InventoryEffectsProbe.hasInteractions() + " native=" + InventoryEffectsProbe.physicsItem());
+                angle[0] = InventoryEffectsProbe.angle();
+                shot("ip1_cursor");
+                pointGui(40, 120);
+            });
+            step(4, () -> pointGui(Minecraft.getInstance().screen.width - 40, 120));
+            step(4, () -> {
+                check("inventory effects physics follows motion", !InventoryEffectsProbe.hasInteractions() || Float.isFinite(InventoryEffectsProbe.angle())
+                        && Math.abs(InventoryEffectsProbe.angle() - angle[0]) > 0.1, "installed=" + InventoryEffectsProbe.hasInteractions() + " angle=" + InventoryEffectsProbe.angle());
+                point(1, 1);
+                InventoryEffectsProbe.clear();
+            });
+            step(25, () -> {
+                check("inventory effects world hand hides GUI copy", Hands.itemInHand() && InventoryEffectsProbe.cursor() == Items.AIR,
+                        "inHand=" + Hands.itemInHand() + " cursor=" + InventoryEffectsProbe.cursor());
+                double[] at = Picking.toGui(Hands.heldPoint());
+                check("inventory effects follow world hand", at != null && InventoryEffectsProbe.near(at[0], at[1]), "particles=" + InventoryEffectsProbe.particles());
+                shot("ip2_hand");
+                InventoryEffectsProbe.actionOnly();
+                clickCell(1, 1, 1);
+            });
+            step(7, () -> {
+                double[] at = Picking.toGui(table().cellPoint(4));
+                check("inventory effects placement uses projected cell", InventoryEffectsProbe.particles() > 0 && at != null && InventoryEffectsProbe.near(at[0], at[1]),
+                        "particles=" + InventoryEffectsProbe.particles());
+                server(p -> check("inventory effects real table placement", TableStore.get(p.serverLevel()).get(TABLE) != null
+                        && TableStore.get(p.serverLevel()).get(TABLE).items.get(4).is(Items.REDSTONE), "server table"));
+                shot("ip3_placed");
+                drawerPoint(3); screenClick(0);
+            });
+            step(8, () -> { InventoryEffectsProbe.clear(); point(1, 1); });
+            step(5, () -> clickCell(1, 1, 0));
+            step(7, () -> {
+                check("inventory effects taking from world cell", Hands.carried().is(Items.REDSTONE) && Hands.carried().getCount() == 1 && InventoryEffectsProbe.particles() > 0,
+                        "carried=" + Hands.carried() + " particles=" + InventoryEffectsProbe.particles());
+                drawerPoint(3); screenClick(0);
+            });
+            step(10, InventoryEffectsProbe::disable);
+            step(2, () -> { drawerPoint(3); screenClick(0); pointAside(); });
+            step(18, () -> {
+                check("inventory effects respect particle toggles", InventoryEffectsProbe.particles() == 0 && Hands.carried().is(Items.REDSTONE), "no particles, normal transfer");
+                scale[0] = Minecraft.getInstance().options.guiScale().get();
+                Minecraft.getInstance().options.guiScale().set(3); Minecraft.getInstance().resizeDisplay();
+                InventoryEffectsProbe.defaults();
+                pointGui(40, 100);
+            });
+            step(14, () -> {
+                check("inventory effects GUI scale coordinates", Math.abs(InventoryEffectsProbe.x() - 40) < 1 && Math.abs(InventoryEffectsProbe.y() - 100) < 1,
+                        "native=" + InventoryEffectsProbe.x() + "," + InventoryEffectsProbe.y());
+                shot("ip4_scale3");
+                Minecraft.getInstance().options.guiScale().set(scale[0]); Minecraft.getInstance().resizeDisplay();
+            });
+            step(10, () -> { Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+            step(15, () -> {
+                check("inventory effects editor hides carried effects", table().gridEditor.visible() && InventoryEffectsProbe.cursor() == Items.AIR
+                        && InventoryEffectsProbe.particles() == 0, "editor remains usable");
+                shot("ip5_editor");
+                Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                Settings.DEVELOPER_MODE.set(false);
+            });
+            step(8, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_LEFT_ALT, 0, 0));
+            step(16, () -> {
+                check("inventory effects free look hides carried effects", FreeLook.looking() && InventoryEffectsProbe.cursor() == Items.AIR
+                        && InventoryEffectsProbe.particles() == 0, "no GUI trail over third-person view");
+                Minecraft.getInstance().screen.keyReleased(GLFW.GLFW_KEY_LEFT_ALT, 0, 0);
+            });
+            step(16, Showcase::pointAside);
+            step(8, () -> { drawerPoint(3); screenClick(0); Scene.leave(); });
+            step(45, () -> check("inventory effects scene exits", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase));
+            nextAct("ip", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
+        } else if (Scene.station instanceof FurnaceStation) {
+            step(3, InventoryEffectsProbe::actionOnly);
+            step(3, () -> { drawerPoint(5); screenClick(0); });
+            step(10, () -> { InventoryEffectsProbe.clear(); pointZone(FURNACE, FurnaceZones.FUEL); });
+            step(5, () -> screenClick(1));
+            step(7, () -> {
+                check("inventory effects furnace server transfer", ClientFurnaces.item(FURNACE, 1).is(Items.COAL), "fuel=" + ClientFurnaces.item(FURNACE, 1));
+                check("inventory effects furnace action particles", InventoryEffectsProbe.particles() > 0, "particles=" + InventoryEffectsProbe.particles());
+                shot("ip6_furnace"); drawerPoint(5); screenClick(0);
+            });
+            step(8, Scene::leave);
+            step(45, () -> {});
+            nextAct("ip", new Vec3(8.5, -60, 8.4), 180f, ANVIL, new Vec3(0.5, 1, 0.7), Direction.UP);
+        } else {
+            int[] ambientParticles = {0};
+            step(3, () -> server(p -> p.getInventory().setItem(3, p.getInventory().getItem(17).copy())));
+            step(10, InventoryEffectsProbe::actionOnly);
+            step(3, () -> { drawerPoint(3); screenClick(0); });
+            step(10, () -> { InventoryEffectsProbe.clear(); pointAt(((AnvilStation) Scene.station).layoutPoint(0)); });
+            step(5, () -> screenClick(0));
+            step(7, () -> {
+                check("inventory effects vanilla menu transfer", ((AnvilStation) Scene.station).slot(0).is(Items.IRON_PICKAXE), "real anvil menu input");
+                check("inventory effects vanilla menu particles", InventoryEffectsProbe.particles() > 0, "particles=" + InventoryEffectsProbe.particles());
+                shot("ip7_anvil");
+                InventoryEffectsProbe.allSlots(); pointAside();
+                server(p -> p.getInventory().setItem(8, new ItemStack(Items.TORCH, 16)));
+            });
+            for (int i = 0; i < 12; i++) step(8, () -> ambientParticles[0] = Math.max(ambientParticles[0], InventoryEffectsProbe.particles()));
+            step(1, () -> {
+                check("inventory effects stationary slot particles", ambientParticles[0] > 0, "peak=" + ambientParticles[0]);
+                shot("ip8_slots"); InventoryEffectsProbe.defaults();
+                server(p -> p.getInventory().setItem(4, p.getInventory().getItem(19).copy()));
+            });
+            step(8, () -> { drawerPoint(4); screenClick(0); });
+            step(8, () -> pointAt(((AnvilStation) Scene.station).layoutPoint(1)));
+            step(5, () -> screenClick(0));
+            step(7, () -> {
+                check("inventory effects real forge recipe", !((AnvilStation) Scene.station).slot(2).isEmpty(), "enchantment output available");
+                pointAt(((AnvilStation) Scene.station).restPoint(0));
+            });
+            step(5, () -> { InventoryEffectsProbe.actionOnly(); screenClick(0); });
+            step(4, () -> check("inventory effects special move hides GUI copy", ((AnvilStation) Scene.station).moving()
+                    && InventoryEffectsProbe.cursor() == Items.AIR, "hammer animation owns the carried item"));
+            step(13, () -> {
+                check("inventory effects animation beat particles", InventoryEffectsProbe.particles() > 0
+                        && ((AnvilStation) Scene.station).moving(), "particles=" + InventoryEffectsProbe.particles());
+                shot("ip9_forge_beat");
+            });
+            step(27, Showcase::pointAside);
+            step(8, () -> {
+                check("inventory effects restore cursor after forging", Hands.carried().is(Items.IRON_PICKAXE)
+                        && Hands.carried().isEnchanted() && InventoryEffectsProbe.cursor() == Items.IRON_PICKAXE,
+                        "real output=" + Hands.carried() + " enchanted=" + Hands.carried().isEnchanted()
+                                + " inHand=" + Hands.itemInHand() + " cursor=" + InventoryEffectsProbe.cursor());
+                shot("ipa_forged"); Scene.leave();
+            });
+            step(50, () -> finish(Minecraft.getInstance()));
+        }
+    }
+
+    private static void drawerPoint(int inventorySlot) {
+        Minecraft mc = Minecraft.getInstance();
+        double scale = net.minecraft.util.Mth.clamp(mc.screen.height * 0.068 / 18, 0.6, 1.25);
+        pointGui(mc.screen.width / 2.0 + (inventorySlot - 4) * 18 * scale, 6 + 14 * scale);
+    }
 
     private static void tableScript() {
         shot("05_active");

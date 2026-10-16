@@ -174,6 +174,13 @@ public final class Hands {
         return (right ? RIGHT : LEFT).pos();
     }
 
+    /** Position of the visible held item, shared with optional inventory effects. */
+    static Vec3 heldPoint() {
+        var camera = Minecraft.getInstance().gameRenderer.mainCamera();
+        return Scene.station.heldItemPoint(leftWorks ? LEFT.pos() : RIGHT.pos(),
+                shoulder(!leftWorks, camera.position(), camera.yRot()));
+    }
+
     static ItemStack carried() {
         LocalPlayer player = Minecraft.getInstance().player;
         return player == null ? ItemStack.EMPTY : player.containerMenu.getCarried();

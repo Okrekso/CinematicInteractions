@@ -51,9 +51,11 @@ import net.minecraft.world.phys.Vec3;
  * new pattern grows behind it; then the banner comes off the loom into the hand. Underneath is the vanilla loom
  * menu: the board is its pattern buttons, the banner its result slot.
  */
-public final class LoomStation extends MenuStation<LoomMenu> {
+public final class LoomStation extends MenuStation<LoomMenu> implements SpatialTarget {
+    final SpatialEditor gridEditor = new SpatialEditor(this);
     static final double HAND_Y = 0.062;
     static final double ITEM_REACH = 0.075;
+    private static final double EDIT_HAND_DROP = 0.24, EDIT_HAND_OUT = 0.12;
     /** The cloth: the banner's 20 x 40 px flag, lying along the warp with its top at the far end. */
     static final double CLOTH_WIDTH = 0.42;
     static final double CLOTH_LENGTH = 0.84;
@@ -123,14 +125,34 @@ public final class LoomStation extends MenuStation<LoomMenu> {
     }
 
     static Vec3 slotPoint(Vec3 top, Direction side, int slot) {
-        Vec3 out = Vec3.atLowerCornerOf(side.getUnitVec3i());
-        Vec3 right = Vec3.atLowerCornerOf(side.getOpposite().getClockWise().getUnitVec3i());
-        return top.add(right.scale(CORNERS[slot][0])).add(out.scale(CORNERS[slot][1]));
+        BlockPos pos = BlockPos.containing(top.x, top.y - 1, top.z);
+        return SpatialLayouts.current(StationKind.LOOM).point(SpatialAppearance.Frame.of(StationKind.LOOM, pos, side, Direction.UP), slot);
     }
 
     @Override
     protected Vec3 restPoint(int slot) {
         return slotPoint(top, side, slot).add(right().scale(denyShake()));
+    }
+
+    @Override public SpatialEditor layoutEditor() { return gridEditor; }
+    @Override public SpatialAppearance.Frame layoutFrame() { return SpatialAppearance.Frame.of(kind(), pos, side, Direction.UP); }
+    @Override public ItemStack layoutItem(int slot) { return slot(slot); }
+    @Override public boolean busy() { return super.busy() || gridEditor.editing(); }
+    @Override public boolean showsInventory() { return !gridEditor.visible(); }
+    @Override public void beforeFrame() { gridEditor.frame(); }
+    @Override public void onEnd() { gridEditor.cancel(); super.onEnd(); }
+    @Override public List<Vec3> workSamples() { return layoutSamples(super.workSamples()); }
+    @Override public float layoutHeldScale() { int slot = hoverSlot >= 0 ? hoverSlot : placeSlot; return slot < 0 ? 1 : geometry().scale(slot); }
+    private Vec3 clothAcross() { return geometry().axis(layoutFrame(), 0, true); }
+    private Vec3 clothNear() { return geometry().axis(layoutFrame(), 0, false); }
+    private double clothWidth() { return CLOTH_WIDTH * geometry().scale(0); }
+    private double clothLength() { return CLOTH_LENGTH * geometry().scale(0); }
+    private float itemRotation(int slot) { return (float) -geometry().rotation(slot); }
+    @Override public void layoutGhost(PoseStack pose, MultiBufferSource buffers, Vec3 cam, int slot, int light) {
+        if (slot == 0) drawCloth(pose, buffers, cam, layoutPoint(0).add(0, 0.003, 0), clothNear().scale(-1), clothAcross(),
+                new Vec3(0, 1, 0), clothWidth(), clothLength(), DyeColor.WHITE, List.of(), null, 1, light);
+        else SmithingStation.drawLaid(pose, buffers, cam, new ItemStack(slot == 1 ? net.minecraft.world.item.Items.RED_DYE
+                : net.minecraft.world.item.Items.FLOWER_BANNER_PATTERN), layoutPoint(slot), side, 2, 0.95f * geometry().scale(slot), light, itemRotation(slot));
     }
 
     // ---- staging -------------------------------------------------------------------------------------
@@ -153,7 +175,9 @@ public final class LoomStation extends MenuStation<LoomMenu> {
 
     @Override
     public Vec3 rest(boolean right) {
-        return top.add(side().scale(0.4)).add(right().scale(right ? 0.25 : -0.25)).add(0, HAND_Y, 0);
+        double editing = gridEditor.presence();
+        return top.add(side().scale(0.4 + EDIT_HAND_OUT * editing)).add(right().scale(right ? 0.25 : -0.25))
+                .add(0, HAND_Y - EDIT_HAND_DROP * editing, 0);
     }
 
     // ---- what the loom offers ------------------------------------------------------------------------
@@ -191,7 +215,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
     @Override
     public void updateCursor(boolean overPanel) {
         clearCursor();
-        if (overPanel || menu() == null || moving()) {
+        if (overPanel || gridEditor.visible() || menu() == null || moving()) {
             return;
         }
         double[] mouse = Picking.mouseGui();
@@ -208,6 +232,18 @@ public final class LoomStation extends MenuStation<LoomMenu> {
             return;
         }
         ItemStack carried = Hands.carried();
+        if (!geometry().equals(SpatialAppearance.VANILLA)) {
+            int picked = layoutPick();
+            if (picked >= 0) {
+                if (carried.isEmpty() && !slot(picked).isEmpty()) {
+                    target = Target.ITEM; hoverSlot = picked; aim = restPoint(picked);
+                } else if (!carried.isEmpty()) {
+                    target = Target.PLACE; placeSlot = slotFor(carried, picked);
+                    aim = restPoint(placeSlot < 0 ? picked : placeSlot);
+                }
+            }
+            return;
+        }
         if (carried.isEmpty()) {
             for (int i = 0; i < 3; i++) {
                 if (!slot(i).isEmpty() && GrindstoneStation.under(mouse, restPoint(i), i == 0 ? 0.24 : 0.09)) {
@@ -260,6 +296,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
 
     @Override
     protected void act(int button, boolean shift) {
+        if (gridEditor.visible()) return;
         switch (target) {
             case PLACE -> {
                 if (placeSlot < 0) {
@@ -325,7 +362,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
 
     /** Where the weaving has got to along the cloth (the far end is the flag's top). */
     private Vec3 weaveLine(double t) {
-        return top.add(side().scale(-CLOTH_LENGTH / 2 + CLOTH_LENGTH * woven(t))).add(0, 0.01, 0);
+        return layoutPoint(0).add(clothNear().scale(-clothLength() / 2 + clothLength() * woven(t))).add(0, 0.01, 0);
     }
 
     @Nullable
@@ -336,17 +373,17 @@ public final class LoomStation extends MenuStation<LoomMenu> {
             return null;
         }
         double in = Anim.inOutCubic(Anim.window(t, 0, WEAVE_FROM)) * (1 - Anim.inOutCubic(Anim.window(t, WEAVE_TO - 0.05, BEAT)));
-        Vec3 line = weaveLine(Math.min(t, WEAVE_TO)).add(side().scale(0.06)).add(0, HAND_Y + 0.03, 0);
+        Vec3 line = weaveLine(Math.min(t, WEAVE_TO)).add(clothNear().scale(0.06)).add(0, HAND_Y + 0.03, 0);
         double across = shuttleAcross(t);
         // each hand reaches in a little to catch the shuttle as it arrives, then beats the row tight
         double beat = Anim.hump(Anim.window((woven(t) * PASSES) % 1.0, 0.8, 1.0)) * 0.02;
-        Vec3 r = line.add(right().scale(CLOTH_WIDTH / 2 + 0.06 - 0.05 * Math.max(0, across))).add(side().scale(-beat));
-        Vec3 l = line.add(right().scale(-CLOTH_WIDTH / 2 - 0.06 + 0.05 * Math.max(0, -across))).add(side().scale(-beat));
+        Vec3 r = line.add(clothAcross().scale(clothWidth() / 2 + 0.06 - 0.05 * Math.max(0, across))).add(clothNear().scale(-beat));
+        Vec3 l = line.add(clothAcross().scale(-clothWidth() / 2 - 0.06 + 0.05 * Math.max(0, -across))).add(clothNear().scale(-beat));
         Vec3 right = Anim.lerp(rest(true), r, in);
         Vec3 left = Anim.lerp(rest(false), l, in);
         if (t > BEAT - 0.1) {
             // the right hand takes the banner off the loom
-            Vec3 grab = top.add(side().scale(0.2)).add(0, HAND_Y + 0.04, 0);
+            Vec3 grab = layoutPoint(0).add(clothNear().scale(0.2)).add(0, HAND_Y + 0.04, 0);
             right = Anim.lerp(Anim.lerp(right, grab, Anim.inOutCubic(Anim.window(t, BEAT - 0.1, BEAT + 0.05))),
                     rest(true).add(0, toInventory ? 0 : 0.05, 0), Anim.inOutCubic(Anim.window(t, BEAT + 0.05, WEAVE_LENGTH)));
         }
@@ -368,7 +405,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
             passesDone = passes;
             Scene.sound(SoundEvents.UI_LOOM_SELECT_PATTERN, 0.35f, 1.3f + passes % 2 * 0.15f);
             float[] c = rgb(weaveNew == null ? DyeColor.WHITE : weaveNew.color());
-            Fx.motes(weaveLine(t).add(right().scale(shuttleAcross(t) * CLOTH_WIDTH / 2)), 0.05, 4, c[0], c[1], c[2], 0.12);
+            Fx.motes(weaveLine(t).add(clothAcross().scale(shuttleAcross(t) * clothWidth() / 2)), 0.05, 4, c[0], c[1], c[2], 0.12);
         }
     }
 
@@ -395,7 +432,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
             return;
         }
         double t = moveTime();
-        Vec3 far = side().scale(-1);
+        Vec3 far = clothNear().scale(-1);
         Vec3 up = new Vec3(0, 1, 0);
         if (t >= 0) {
             drawWeaving(pose, buffers, camera, t, light);
@@ -406,7 +443,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
             if (hoverPattern >= 0 && hoverPattern < patterns().size()) {
                 preview = new BannerPatternLayers.Layer(patterns().get(hoverPattern), dye());
             }
-            drawCloth(pose, buffers, cam, top.add(0, 0.003, 0).add(right().scale(denyShake())), far, right(), up, CLOTH_WIDTH, CLOTH_LENGTH,
+            drawCloth(pose, buffers, cam, layoutPoint(0).add(0, 0.003, 0).add(right().scale(denyShake())), far, clothAcross(), up, clothWidth(), clothLength(),
                     baseOf(banner), layers, preview, 1, light);
         }
         for (int i = 1; i < 3; i++) {
@@ -415,41 +452,41 @@ public final class LoomStation extends MenuStation<LoomMenu> {
                 // the dye is out, flying as the shuttle
                 stack = stack.copyWithCount(Math.max(0, stack.getCount() - 1));
             }
-            SmithingStation.drawLaid(pose, buffers, cam, stack, restPoint(i), side, 2, i == hoverSlot ? 1.08f : 0.95f, light);
+            SmithingStation.drawLaid(pose, buffers, cam, stack, restPoint(i), side, 2, (i == hoverSlot ? 1.08f : 0.95f) * geometry().scale(i), light, itemRotation(i));
         }
     }
 
     private void drawWeaving(PoseStack pose, MultiBufferSource buffers, Camera camera, double t, int light) {
         Vec3 cam = camera.getPosition();
-        Vec3 far = side().scale(-1);
+        Vec3 far = clothNear().scale(-1);
         Vec3 up = new Vec3(0, 1, 0);
         if (t < BEAT) {
-            drawCloth(pose, buffers, cam, top.add(0, 0.003, 0), far, right(), up, CLOTH_WIDTH, CLOTH_LENGTH, weaveBase, weaveLayers, weaveNew,
+            drawCloth(pose, buffers, cam, layoutPoint(0).add(0, 0.003, 0), far, clothAcross(), up, clothWidth(), clothLength(), weaveBase, weaveLayers, weaveNew,
                     woven(t), light);
             if (t >= WEAVE_FROM && t < WEAVE_TO) {
                 // the shuttle, carrying the dye's thread across
                 Vec3 line = weaveLine(t);
-                Vec3 at = line.add(right().scale(shuttleAcross(t) * (CLOTH_WIDTH / 2 + 0.04))).add(0, 0.03, 0);
-                ItemPlacer.drawOriented(pose, buffers, cam, shuttle, at, ItemPlacer.lying(ItemPlacer.awayYaw(side) + 90, 15), 0.13f, light);
+                Vec3 at = line.add(clothAcross().scale(shuttleAcross(t) * (clothWidth() / 2 + 0.04))).add(0, 0.03, 0);
+                ItemPlacer.drawOriented(pose, buffers, cam, shuttle, at, ItemPlacer.lying(ItemPlacer.awayYaw(side) + itemRotation(0) + 90, 15), 0.13f * geometry().scale(1), light);
                 float[] c = rgb(weaveNew.color());
                 float g = 0.35f;
-                EnchantFx.billboard(pose, buffers, camera, line.add(right().scale(shuttleAcross(t) * CLOTH_WIDTH / 2)), 0.05, 0, EnchantFx.GLOW,
+                EnchantFx.billboard(pose, buffers, camera, line.add(clothAcross().scale(shuttleAcross(t) * clothWidth() / 2)), 0.05, 0, EnchantFx.GLOW,
                         c[0] * g + 0.1f, c[1] * g + 0.1f, c[2] * g + 0.1f);
             }
             return;
         }
         // off the loom: the new banner rises, stands up and goes to the hand (or the bag)
         double k = Anim.inOutCubic(Anim.window(t, BEAT, WEAVE_LENGTH));
-        Vec3 lift = top.add(0, 0.003 + 0.25 * k, 0).add(side().scale(0.15 * k));
+        Vec3 lift = layoutPoint(0).add(0, 0.003 + 0.25 * k, 0).add(clothNear().scale(0.15 * k));
         Vec3 destination = toInventory ? cam.add(0, 0.5, 0).add(Scene.yawForward(camera.getYRot()).scale(0.6))
                 : heldItemPoint(Hands.position(true), Hands.shoulder(true, cam, camera.getYRot()));
         Vec3 center = Anim.lerp(lift, destination, Anim.inCubic(Anim.window(t, BEAT + 0.15, WEAVE_LENGTH)));
         double stand = Anim.smoother(k * 1.4);
         Vec3 vAxis = Anim.lerp(far, up, stand).normalize();
-        Vec3 normal = Anim.lerp(up, side(), stand).normalize();
+        Vec3 normal = Anim.lerp(up, clothNear(), stand).normalize();
         double size = 1 - 0.75 * Anim.inCubic(Anim.window(t, BEAT + 0.1, WEAVE_LENGTH));
         List<BannerPatternLayers.Layer> after = woven.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers();
-        drawCloth(pose, buffers, cam, center, vAxis, right(), normal, CLOTH_WIDTH * size, CLOTH_LENGTH * size, baseOf(woven), after, null, 1, light);
+        drawCloth(pose, buffers, cam, center, vAxis, clothAcross(), normal, clothWidth() * size, clothLength() * size, baseOf(woven), after, null, 1, light);
     }
 
     /**
@@ -466,8 +503,8 @@ public final class LoomStation extends MenuStation<LoomMenu> {
         // translucent layers are sorted by depth and write none: a partial layer only stays on top of quads of the
         // same shape, so every layer is cut at the woven line too
         double[][] pieces = partly ? new double[][]{{0, reveal}, {reveal, 1}} : new double[][]{{0, 1}};
-        // Request a consumer only when writing its layer: switching render types can close the previous builder.
         for (double[] piece : pieces) {
+            // Ghost opacity can move solid layers into the shared translucent buffer; fetch only when writing.
             layer(pose, buffers.getBuffer(RenderType.entitySolid(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, ModelBakery.BANNER_BASE, 0xFFFFFFFF, piece, 0, light);
             layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.BANNER_BASE, base.getTextureDiffuseColor(), piece, 1, light);
             int i = 2;
@@ -504,6 +541,7 @@ public final class LoomStation extends MenuStation<LoomMenu> {
 
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        gridEditor.renderWorld(pose, buffers, camera, light);
         if (target == Target.PLACE && aim != null) {
             float p = (float) (0.18 + 0.06 * Math.sin(Scene.clock() * 5));
             boolean ok = placeSlot >= 0;
@@ -516,8 +554,13 @@ public final class LoomStation extends MenuStation<LoomMenu> {
 
     @Override
     public void renderScreen(GuiGraphics g, Font font, float alpha) {
+        renderBoard(g, font, alpha);
+        gridEditor.render(g, font, alpha);
+    }
+
+    private void renderBoard(GuiGraphics g, Font font, float alpha) {
         List<Holder<BannerPattern>> patterns = patterns();
-        boardShown = !patterns.isEmpty() && !moving() && Scene.phase == Scene.Phase.ACTIVE;
+        boardShown = !gridEditor.visible() && !patterns.isEmpty() && !moving() && Scene.phase == Scene.Phase.ACTIVE;
         if (board < 0.02 || patterns.isEmpty()) {
             return;
         }
@@ -528,8 +571,10 @@ public final class LoomStation extends MenuStation<LoomMenu> {
         int width = g.guiWidth(), height = g.guiHeight();
         double ax = anchor == null ? width * 0.7 : anchor[0];
         double ay = anchor == null ? height * 0.45 : anchor[1];
-        float appear = (float) Anim.smoother(board) * alpha;
-        boardX = (int) Mth.clamp(ax + 6 + (1 - board) * 18, 8, width - boardW - 8);
+        float appear = (float) Anim.smoother(board) * alpha * (1 - gridEditor.presence());
+        // Font treats very small alpha as opaque; stop the whole board before its header reaches that range.
+        if (Math.round(0.75f * appear * 255) < 8) return;
+        boardX = (int) Mth.clamp(ax + 6 + (1 - board) * 18, 8, width - boardW - (Settings.developerMode() ? 48 : 8));
         boardY = (int) Mth.clamp(ay - boardH / 2.0, height * 0.14, height * 0.86 - boardH);
         g.fill(boardX, boardY, boardX + boardW, boardY + boardH, argb(0.5f * appear, 12, 12, 16));
         g.fill(boardX, boardY + boardH - 1, boardX + boardW, boardY + boardH, argb(0.22f * appear, 255, 255, 255));
@@ -622,17 +667,19 @@ public final class LoomStation extends MenuStation<LoomMenu> {
     // ---- what others see -----------------------------------------------------------------------------
 
     static void drawContents(PoseStack pose, MultiBufferSource buffers, Vec3 cam, BlockPos pos, Direction side, List<ItemStack> items, int light) {
-        Vec3 top = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
-        Vec3 far = Vec3.atLowerCornerOf(side.getOpposite().getUnitVec3i());
-        Vec3 right = Vec3.atLowerCornerOf(side.getOpposite().getClockWise().getUnitVec3i());
+        var frame = SpatialAppearance.Frame.of(StationKind.LOOM, pos, side, Direction.UP);
+        var layout = SpatialLayouts.current(StationKind.LOOM);
+        Vec3 far = layout.axis(frame, 0, false).scale(-1), right = layout.axis(frame, 0, true);
+        float size = layout.scale(0);
         if (!items.isEmpty() && !items.get(0).isEmpty()) {
             ItemStack banner = items.get(0);
-            drawCloth(pose, buffers, cam, top.add(0, 0.003, 0), far, right, new Vec3(0, 1, 0), CLOTH_WIDTH, CLOTH_LENGTH, baseOf(banner),
+            drawCloth(pose, buffers, cam, layout.point(frame, 0).add(0, 0.003, 0), far, right, new Vec3(0, 1, 0),
+                    CLOTH_WIDTH * size, CLOTH_LENGTH * size, baseOf(banner),
                     banner.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers(), null, 1, light);
         }
-        for (int i = 1; i < Math.min(3, items.size()); i++) {
-            SmithingStation.drawLaid(pose, buffers, cam, items.get(i), slotPoint(top, side, i), side, 2, 0.95f, light);
-        }
+        for (int i = 1; i < Math.min(3, items.size()); i++)
+            SmithingStation.drawLaid(pose, buffers, cam, items.get(i), layout.point(frame, i), side, 2,
+                    0.95f * layout.scale(i), light, (float) -layout.rotation(i));
     }
 
     // ---- words ---------------------------------------------------------------------------------------
@@ -640,6 +687,9 @@ public final class LoomStation extends MenuStation<LoomMenu> {
     @Nullable
     @Override
     public List<Component> tooltip(ItemStack carried) {
+        double[] mouse = Picking.mouseGui();
+        List<Component> editorTip = gridEditor.tooltip(mouse[0], mouse[1]);
+        if (editorTip != null || gridEditor.editing()) return editorTip;
         Minecraft mc = Minecraft.getInstance();
         switch (target) {
             case PATTERN -> {

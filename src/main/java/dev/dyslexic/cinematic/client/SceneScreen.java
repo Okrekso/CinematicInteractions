@@ -32,6 +32,7 @@ public final class SceneScreen extends Screen {
     private double expand;
     private float scale = 1f;
     private int panelX, panelY, panelW, panelH;
+    private final InventoryEffects inventoryEffects = new InventoryEffects();
 
     @Nullable
     private EditBox field;
@@ -45,6 +46,12 @@ public final class SceneScreen extends Screen {
     @Override
     public boolean isPauseScreen() {
         return false;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        inventoryEffects.tick();
     }
 
     @Override
@@ -210,6 +217,8 @@ public final class SceneScreen extends Screen {
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
         int hovered = over ? slotAt(mouseX, mouseY) : -1;
+        inventoryEffects.beginFrame(working() && !FreeLook.looking() && field == null
+                && !(editor() != null && editor().visible()));
 
         if (alpha > 0.01f) {
             station.renderScreen(graphics, font, alpha);
@@ -236,13 +245,16 @@ public final class SceneScreen extends Screen {
         }
 
         ItemStack carried = player.containerMenu.getCarried();
+        inventoryEffects.endFrame(Scene.overPanel);
         // during a special move the station draws what is in hand itself
         if (working() && !carried.isEmpty() && !Hands.itemInHand() && station.handsOverride() == null
                 && !(editor() != null && editor().visible())) {
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 300);
-            graphics.renderItem(carried, mouseX - 8, mouseY - 8);
-            graphics.renderItemDecorations(font, carried, mouseX - 8, mouseY - 8);
+            inventoryEffects.carried(graphics, carried, mouseX, mouseY, (x, y) -> {
+                graphics.renderItem(carried, x, y);
+                graphics.renderItemDecorations(font, carried, x, y);
+            });
             graphics.pose().popPose();
         }
     }
@@ -295,6 +307,10 @@ public final class SceneScreen extends Screen {
         }
         if (alpha > 0.35f) {
             ItemStack stack = player.getInventory().getItem(inventoryIndex(menuSlot));
+            double cx = panelX + (x + 9) * scale, cy = panelY + (y + 9) * scale;
+            if (cy >= Math.max(0, panelY) && cy < panelY + panelH) {
+                inventoryEffects.drawer(inventoryIndex(menuSlot), stack, cx, cy, menuSlot == hovered);
+            }
             g.renderItem(stack, x + 1, y + 1);
             g.renderItemDecorations(font, stack, x + 1, y + 1);
         }
@@ -395,6 +411,7 @@ public final class SceneScreen extends Screen {
             }
             return true;
         }
+        inventoryEffects.action(hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP);
         if (Scene.station instanceof TableStation table && table.recipeBook.click(mx, my, button)) {
             table.release(button);
             return true;
@@ -448,6 +465,7 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (working()) {
+            inventoryEffects.action(hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP);
             Scene.station.drag(button);
         }
         return true;
@@ -496,6 +514,7 @@ public final class SceneScreen extends Screen {
             }
             return true;
         }
+        inventoryEffects.action(hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP);
         if (Scene.station instanceof TableStation table && table.recipeBook.keyPressed(key, scanCode, modifiers)) return true;
         if (editor() != null && editor().keyPressed(key)) return true;
         if (Scene.station.keyPressed(key)) {
@@ -513,11 +532,13 @@ public final class SceneScreen extends Screen {
             if (slot >= 0) {
                 for (int i = 0; i < 9; i++) {
                     if (options.keyHotbarSlots[i].matches(key, scanCode)) {
+                        inventoryEffects.action(ClickType.SWAP);
                         mc.gameMode.handleInventoryMouseClick(player.containerMenu.containerId, slot, i, ClickType.SWAP, player);
                         return true;
                     }
                 }
                 if (options.keyDrop.matches(key, scanCode)) {
+                    inventoryEffects.action(ClickType.THROW);
                     mc.gameMode.handleInventoryMouseClick(player.containerMenu.containerId, slot, hasControlDown() ? 1 : 0,
                             ClickType.THROW, player);
                     return true;

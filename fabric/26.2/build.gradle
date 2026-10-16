@@ -16,6 +16,14 @@ dependencies {
     compileOnly 'maven.modrinth:cloth-config:Nv3xnWXd'
     compileOnly 'maven.modrinth:modmenu:iRo7AZXf'
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    // Optional native APIs; none of these mods are packaged in the release JAR.
+    compileOnly 'maven.modrinth:inventory-particles:6fZZmxDU'
+    compileOnly 'maven.modrinth:inventory-interactions:RcfsXprg'
+    if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {
+        runtimeOnly 'maven.modrinth:inventory-particles:6fZZmxDU'
+        runtimeOnly 'maven.modrinth:mossylib:sL8KZEzW'
+    }
+    if (project.hasProperty('withInventoryEffects')) runtimeOnly 'maven.modrinth:inventory-interactions:RcfsXprg'
     if (project.hasProperty('withSettings')) {
         runtimeOnly 'maven.modrinth:cloth-config:Nv3xnWXd'
         runtimeOnly 'maven.modrinth:modmenu:iRo7AZXf'

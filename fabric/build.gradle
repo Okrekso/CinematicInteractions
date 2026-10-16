@@ -23,7 +23,7 @@ if (target == null) throw new GradleException("Unsupported Minecraft version: ${
 def order = targets.keySet().toList()
 def atLeast = { String version -> order.indexOf(mc_version) >= order.indexOf(version) }
 
-version = mod_version
+version = project.findProperty("mod_version_${mc_version.replace('.', '_')}") ?: mod_version
 group = 'dev.dyslexic.cinematic'
 base.archivesName = "Cinematic Interaction-Fabric-${mc_version}"
 layout.buildDirectory = file("build/${mc_version}")
@@ -61,6 +61,16 @@ dependencies {
         runtimeOnly files(fileTree("test-mods/${mc_version}/libraries") { include '*.jar' })
     }
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    // Only the 1.21.11 layer uses these optional visual APIs; older targets keep their own classpaths.
+    if (mc_version == '1.21.11') {
+        modCompileOnly 'maven.modrinth:inventory-particles:g8u9pJD7'
+        modCompileOnly 'maven.modrinth:inventory-interactions:HCeV4fPP'
+        if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {
+            modRuntimeOnly 'maven.modrinth:inventory-particles:g8u9pJD7'
+            modRuntimeOnly 'maven.modrinth:mossylib:qmnlT27V'
+        }
+        if (project.hasProperty('withInventoryEffects')) modRuntimeOnly 'maven.modrinth:inventory-interactions:HCeV4fPP'
+    }
 }
 
 // Later game versions replace only the files whose Minecraft API changed: a layer applies from its version on, and the
@@ -82,6 +92,7 @@ loom {
             vmArg "-Dcinematic.showcase.world=cinematic-showcase-${project.findProperty('from') ?: '0'}-${System.currentTimeMillis()}"
             vmArg "-Dcinematic.showcase.from=${project.findProperty('from') ?: '0'}"
             vmArg "-Dcinematic.showcase.only=${project.findProperty('only') ?: 'false'}"
+            if (mc_version == '1.21.11') vmArg "-Dcinematic.showcase.editorBatch=${project.findProperty('editorBatch') ?: 'false'}"
             programArgs '--width', "${project.findProperty('showcaseWidth') ?: '1600'}", '--height', "${project.findProperty('showcaseHeight') ?: '900'}"
         }
     }

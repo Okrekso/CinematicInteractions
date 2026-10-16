@@ -24,6 +24,7 @@ Place ingredients on the crafting table, load a furnace by hand, and forge equip
 - **Stay in the workshop.** Switch to a neighboring station without a full exit; return quickly to a station you just used.
 - **Take a quiet moment.** Read books with animated page turns, insert music discs, or sit beside a campfire.
 - **Make it comfortable.** Choose scenes per block and adjust camera lean, zoom, transition speed, hints, shake, flashes, and cinematic bars.
+- **Shape your own workshop.** Developer Mode lets you adjust item positions and interaction areas in supported workstation scenes, then save local layout profiles.
 
 ![Anvil forging, enchanting, and reading at a lectern](https://raw.githubusercontent.com/dcvke/cinematic-media/main/showcase-three-scenes.gif)
 
@@ -41,12 +42,6 @@ Place ingredients on the crafting table, load a furnace by hand, and forge equip
 | Rest & effects | Campfire, soul campfire, beacon |
 
 Chests, barrels, and shulker boxes keep their normal interfaces. [Station guide →](docs/wiki/Stations.md)
-
-## 🧪 New beta: Developer Mode & layout profiles
-
-The latest beta builds let you open an in-world editor for supported stations, tune where items and interaction areas appear, and save three local profiles per station. A compact campfire cooking indicator and improved compatibility with Punchy are also included. The editors are in the **NeoForge 1.21.1** and **Fabric 26.2/26.3** beta builds. The **Fabric 1.21.11** beta contains the Punchy fix but not the editors.
-
-These are preview builds; please [report visual or compatibility issues](https://github.com/dcvke/CinematicInteractions/issues/new/choose). The earlier releases remain available below.
 
 ## 📦 Get the right build
 
@@ -67,9 +62,9 @@ These are preview builds; please [report visual or compatibility issues](https:/
 | 1.21.8 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.8) |
 | 1.21.9 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.9) |
 | 1.21.10 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.10) |
-| 1.21.11 | [**0.12.4 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.11) |
-| 26.2 | [**0.18.1 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) |
-| 26.3 | [**0.18.1 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) |
+| 1.21.11 | [**0.18.3**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.11) |
+| 26.2 | [**0.18.2**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) |
+| 26.3 | [**0.18.2**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) |
 
 Fabric API is required. Mod Menu and Cloth Config are optional settings integrations.
 
@@ -77,7 +72,7 @@ Fabric API is required. Mod Menu and Cloth Config are optional settings integrat
 
 | Minecraft | Release |
 | --- | --- |
-| 1.21.1 | [**0.18.1 Beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-16) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
+| 1.21.1 | [**0.18.2**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
 
 Cloth Config is optional. See [installation and dependencies](docs/wiki/Installation.md) for loader requirements.
 

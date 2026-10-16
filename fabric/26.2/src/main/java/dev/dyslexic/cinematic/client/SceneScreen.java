@@ -32,6 +32,7 @@ public final class SceneScreen extends Screen {
 
     private static final int FIELD_W = 170;
 
+    private final InventoryEffects inventoryEffects = new InventoryEffects();
     private double expand;
     private float scale = 1f;
     private int panelX, panelY, panelW, panelH;
@@ -43,6 +44,12 @@ public final class SceneScreen extends Screen {
 
     public SceneScreen() {
         super(Component.translatable("cinematic.scene"));
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        inventoryEffects.tick();
     }
 
     @Override
@@ -214,6 +221,8 @@ public final class SceneScreen extends Screen {
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
         int hovered = over ? slotAt(mouseX, mouseY) : -1;
+        inventoryEffects.beginFrame(working() && !FreeLook.looking() && field == null
+                && !(editor() != null && editor().visible()));
 
         if (alpha > 0.01f) {
             station.renderScreen(graphics, font, alpha);
@@ -240,13 +249,15 @@ public final class SceneScreen extends Screen {
         }
 
         ItemStack carried = player.containerMenu.getCarried();
+        inventoryEffects.endFrame(Scene.overPanel);
         // during a special move the station draws what is in hand itself
         if (working() && !carried.isEmpty() && !Hands.itemInHand() && station.handsOverride() == null
                 && !(editor() != null && editor().visible())) {
-            graphics.pose().pushMatrix();
-            graphics.pose().translate((float) (0), (float) (0));
-            graphics.item(carried, mouseX - 8, mouseY - 8);
-            graphics.itemDecorations(font, carried, mouseX - 8, mouseY - 8);
+            graphics.nextStratum();
+            inventoryEffects.carried(graphics, carried, mouseX, mouseY, (x, y) -> {
+                graphics.item(carried, x, y);
+                graphics.itemDecorations(font, carried, x, y);
+            });
         }
     }
 
@@ -298,6 +309,10 @@ public final class SceneScreen extends Screen {
         }
         if (alpha > 0.35f) {
             ItemStack stack = player.getInventory().getItem(inventoryIndex(menuSlot));
+            double cx = panelX + (x + 9) * scale, cy = panelY + (y + 9) * scale;
+            if (cy >= Math.max(0, panelY) && cy < panelY + panelH) {
+                inventoryEffects.drawer(inventoryIndex(menuSlot), stack, cx, cy, menuSlot == hovered);
+            }
             g.item(stack, x + 1, y + 1);
             g.itemDecorations(font, stack, x + 1, y + 1);
         }
@@ -434,6 +449,7 @@ public final class SceneScreen extends Screen {
             }
             return true;
         }
+        inventoryEffects.action(mc.hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP);
         if (Scene.station instanceof TableStation table && table.recipeBook.click(mx, my, button)) {
             table.release(button);
             return true;
@@ -485,6 +501,7 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (working()) {
+            inventoryEffects.action(Minecraft.getInstance().hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP);
             Scene.station.drag(button);
         }
         return true;
@@ -531,6 +548,7 @@ public final class SceneScreen extends Screen {
             }
             return true;
         }
+        inventoryEffects.action(mc.hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP);
         if (Scene.station instanceof TableStation table && table.recipeBook.keyPressed(key, scanCode, modifiers)) return true;
         if (editor() != null && editor().keyPressed(key)) return true;
         if (Scene.station.keyPressed(key)) {
@@ -548,11 +566,13 @@ public final class SceneScreen extends Screen {
             if (slot >= 0) {
                 for (int i = 0; i < 9; i++) {
                     if (options.keyHotbarSlots[i].matches(new net.minecraft.client.input.KeyEvent(key, scanCode, 0))) {
+                        inventoryEffects.action(ContainerInput.SWAP);
                         mc.gameMode.handleContainerInput(player.containerMenu.containerId, slot, i, ContainerInput.SWAP, player);
                         return true;
                     }
                 }
                 if (options.keyDrop.matches(new net.minecraft.client.input.KeyEvent(key, scanCode, 0))) {
+                    inventoryEffects.action(ContainerInput.THROW);
                     mc.gameMode.handleContainerInput(player.containerMenu.containerId, slot, net.minecraft.client.Minecraft.getInstance().hasControlDown() ? 1 : 0,
                             ContainerInput.THROW, player);
                     return true;

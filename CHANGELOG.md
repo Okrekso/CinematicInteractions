@@ -1,5 +1,13 @@
 # Changelog
 
+## Stable workstation update — October 17, 2026
+
+- **NeoForge 1.21.1 · 0.18.2:** Optional Inventory Particles and Inventory Interactions support now follows visible slots and items in workstation scenes, including items held by animated hands. Developer Mode, layout profiles, campfire progress and the Punchy fix remain included.
+- **Fabric 26.2 and 26.3 · 0.18.2:** The same optional inventory effects support, alongside station editors, campfire cooking progress and the Punchy fix.
+- **Fabric 1.21.11 · 0.18.3:** Added Developer Mode, in-world layout editors and three local profiles per station, plus optional inventory effects support. Fixed chiseled bookshelf rendering in the editor port. The Punchy fix remains included; campfire cooking progress is not yet available in this build.
+
+Choose the JAR for your exact Minecraft version and loader. Cinematic Interactions is required on both client and server; Fabric API is required on Fabric. Inventory Particles and Inventory Interactions are optional, separate client mods and are not bundled. Previous beta and 0.1 downloads remain available.
+
 ## Beta — October 16, 2026
 
 - **NeoForge 1.21.1 · 0.18.1:** Developer Mode, in-world layout editors and local station profiles; campfire cooking progress; improved Punchy compatibility.

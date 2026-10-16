@@ -67,21 +67,7 @@ public final class ItemPlacer {
         if (stack.isEmpty() || scale <= 0.001f) {
             return;
         }
-        if (opacity < 0.999f) {
-            MultiBufferSource source = buffers;
-            float alpha = (float) Anim.clamp01(opacity);
-            // Glint must keep its fixed buffer: the item renderer writes to it and the model buffer together.
-            // Iris extends entity formats, so compare their required attributes instead of format identity.
-            buffers = type -> new VertexConsumerWrapper(source.getBuffer(type.format().contains(VertexFormatElement.COLOR)
-                    && type.format().contains(VertexFormatElement.NORMAL) && type.format().contains(VertexFormatElement.UV2)
-                    ? FADING_TYPES.computeIfAbsent(type, ItemPlacer::fadingType) : type)) {
-                @Override
-                public VertexConsumer setColor(int r, int g, int b, int a) {
-                    parent.setColor(r, g, b, Math.round(a * alpha));
-                    return this;
-                }
-            };
-        }
+        buffers = opacity(buffers, opacity);
         Minecraft mc = Minecraft.getInstance();
         ItemRenderer renderer = mc.getItemRenderer();
         ItemStackRenderState model = model(stack, (int) seed);
@@ -114,6 +100,21 @@ public final class ItemPlacer {
             ItemModels.draw(model, pose, buffers, light, OverlayTexture.NO_OVERLAY);
             pose.popPose();
         }
+    }
+
+    static MultiBufferSource opacity(MultiBufferSource buffers, float opacity) {
+        if (opacity >= 0.999f) return buffers;
+        float alpha = (float) Anim.clamp01(opacity);
+        // Glint must keep its fixed buffer: the item renderer writes to it and the model buffer together.
+        return type -> new VertexConsumerWrapper(buffers.getBuffer(type.format().contains(VertexFormatElement.COLOR)
+                && type.format().contains(VertexFormatElement.NORMAL) && type.format().contains(VertexFormatElement.UV2)
+                ? FADING_TYPES.computeIfAbsent(type, ItemPlacer::fadingType) : type)) {
+            @Override
+            public VertexConsumer setColor(int r, int g, int b, int a) {
+                parent.setColor(r, g, b, Math.round(a * alpha));
+                return this;
+            }
+        };
     }
 
     /** Keep each model's texture (including special block items), but allow its vertex alpha to blend. */

@@ -39,7 +39,7 @@ neoForge {
         // Development-only scripted walkthrough of every station (tools/showcase.sh); screenshots go to run-showcase/screenshots.
         showcase {
             client()
-            gameDirectory = project.file('run-showcase')
+            gameDirectory = project.file(project.findProperty('showcaseDir') ?: 'run-showcase')
             systemProperty 'cinematic.showcase', 'true'
             systemProperty 'cinematic.showcase.world', (project.findProperty('showcaseWorld') ?: 'cinematic-showcase').toString()
             systemProperty 'cinematic.showcase.from', (project.findProperty('from') ?: '0').toString()
@@ -51,7 +51,7 @@ neoForge {
         // Same walkthrough with Sodium + Iris and a shader pack (jars dropped into run-showcase-iris/mods).
         showcaseIris {
             client()
-            gameDirectory = project.file('run-showcase-iris')
+            gameDirectory = project.file(project.findProperty('showcaseIrisDir') ?: 'run-showcase-iris')
             systemProperty 'cinematic.showcase', 'true'
             systemProperty 'cinematic.showcase.world', (project.findProperty('showcaseWorld') ?: 'cinematic-showcase').toString()
             systemProperty 'cinematic.showcase.from', (project.findProperty('from') ?: '0').toString()
@@ -76,10 +76,14 @@ neoForge {
 repositories {
     // Cloth Config: the settings screen when it is installed (optional; without it NeoForge's own screen is used)
     maven { url = 'https://maven.shedaniel.me/' }
+    maven { url = 'https://api.modrinth.com/maven' }
 }
 
 dependencies {
     compileOnly "me.shedaniel.cloth:cloth-config-neoforge:${cloth_config_version}"
+    // Optional integrations: these jars are never bundled or required to run Cinematic Interactions.
+    compileOnly 'maven.modrinth:inventory-particles:tIeIGFCs'
+    compileOnly 'maven.modrinth:inventory-interactions:U3SO7tDA'
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
