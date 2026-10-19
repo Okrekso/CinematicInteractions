@@ -60,6 +60,7 @@ loom {
     accessWidenerPath = file('src/main/resources/cinematic.accesswidener')
     runs {
         client { client(); runDir 'run/client' }
+        clientOnlySmoke { client(); runDir 'run/client-only-smoke'; vmArg '-Dcinematic.clientOnlySmoke=true' }
         server { server(); runDir 'run/server'; programArg '--nogui' }
         showcase {
             client()

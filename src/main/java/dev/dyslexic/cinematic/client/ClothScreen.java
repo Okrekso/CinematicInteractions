@@ -11,6 +11,7 @@ import me.shedaniel.clothconfig2.gui.entries.BooleanListEntry;
 import me.shedaniel.clothconfig2.impl.builders.BooleanToggleBuilder;
 import me.shedaniel.clothconfig2.impl.builders.SubCategoryBuilder;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -92,6 +93,17 @@ final class ClothScreen {
         effects.add(toggle(entries, "cameraShake", Settings.CAMERA_SHAKE, onOff));
         effects.add(toggle(entries, "screenFlash", Settings.SCREEN_FLASH, onOff));
         camera.addEntry(effects.build());
+
+        ConfigCategory multiplayer = builder.getOrCreateCategory(Component.translatable("cinematic.configuration.multiplayer"));
+        multiplayer.addEntry(note(entries, "cinematic.settings.multiplayer.note"));
+        boolean inWorld = Minecraft.getInstance().level != null;
+        BooleanListEntry clientOnlySwitch = toggle(entries, "clientOnlyMode", Settings.CLIENT_ONLY_MODE, onOff);
+        clientOnlySwitch.setEditable(!inWorld);
+        multiplayer.addEntry(clientOnlySwitch);
+        if (inWorld) {
+            multiplayer.addEntry(note(entries, "cinematic.settings.clientOnlyMode.locked"));
+        }
+
         ConfigCategory developer = builder.getOrCreateCategory(Component.translatable("cinematic.configuration.developer"));
         developer.addEntry(note(entries, "cinematic.settings.developer.note"));
         developer.addEntry(toggle(entries, "developerMode", Settings.DEVELOPER_MODE, onOff));

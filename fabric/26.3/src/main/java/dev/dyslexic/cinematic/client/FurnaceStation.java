@@ -22,6 +22,8 @@ import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.AbstractFurnaceMenu;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
@@ -313,7 +315,14 @@ public final class FurnaceStation extends ClientStation {
             return;
         }
         Hands.tap();
-        PacketDistributor.sendToServer(new StationActionPayload(pos, kind, StationActionPayload.Action.CLICK, hoverZone, button, shift, 0));
+        if (Scene.clientOnly()) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null && mc.player.containerMenu instanceof AbstractFurnaceMenu menu && mc.gameMode != null)
+                mc.gameMode.handleContainerInput(menu.containerId, hoverZone, button,
+                        shift ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP, mc.player);
+        } else {
+            PacketDistributor.sendToServer(new StationActionPayload(pos, kind, StationActionPayload.Action.CLICK, hoverZone, button, shift, 0));
+        }
     }
 
     /** Would the furnace take what is in hand at this zone? */
@@ -346,6 +355,7 @@ public final class FurnaceStation extends ClientStation {
 
     @Override
     public void tick() {
+        if (Scene.clientOnly()) return;
         if (litTime > 0) {
             litTime--;
             if (!ClientFurnaces.item(pos, FurnaceZones.INPUT).isEmpty() && cookingTotalTime > 0) {
@@ -355,10 +365,14 @@ public final class FurnaceStation extends ClientStation {
     }
 
     public double burn() {
+        if (Scene.clientOnly() && Minecraft.getInstance().player != null
+                && Minecraft.getInstance().player.containerMenu instanceof AbstractFurnaceMenu menu) return menu.getLitProgress();
         return litTime <= 0 || litDuration <= 0 ? 0 : Mth.clamp(litTime / (double) litDuration, 0, 1);
     }
 
     public double cook() {
+        if (Scene.clientOnly() && Minecraft.getInstance().player != null
+                && Minecraft.getInstance().player.containerMenu instanceof AbstractFurnaceMenu menu) return menu.getBurnProgress();
         return cookingTotalTime <= 0 ? 0 : Mth.clamp(cookingProgress / (double) cookingTotalTime, 0, 1);
     }
 

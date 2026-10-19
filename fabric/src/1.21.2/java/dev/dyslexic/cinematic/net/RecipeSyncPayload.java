@@ -2,6 +2,7 @@ package dev.dyslexic.cinematic.net;
 
 import dev.dyslexic.cinematic.Cinematic;
 import java.util.List;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
@@ -17,10 +18,24 @@ public record RecipeSyncPayload(boolean reset, List<RecipeHolder<?>> recipes) im
             RecipeHolder.STREAM_CODEC.apply(ByteBufCodecs.list()), RecipeSyncPayload::recipes, RecipeSyncPayload::new);
     @Override public Type<? extends CustomPacketPayload> type() { return TYPE; }
 
+    private static boolean vanillaSerializer(Recipe<?> recipe) {
+        var key = BuiltInRegistries.RECIPE_SERIALIZER.getKey(recipe.getSerializer());
+        return key != null && "minecraft".equals(key.getNamespace());
+    }
+
+    /**
+     * The table's preview and reference book read these on the client. Vanilla serializers encode any loaded
+     * recipe; another mod's dynamic recipe may accept only its registered singleton and disconnect the player
+     * when given a loaded copy (Simple Locks, issue #5), so mod serializers stay server-side.
+     */
+    public static List<RecipeHolder<?>> reference(ServerPlayer player) {
+        return player.serverLevel().recipeAccess().getRecipes().stream()
+                .filter(h -> h.value() instanceof CraftingRecipe recipe && vanillaSerializer(recipe)).toList();
+    }
+
     public static void send(ServerPlayer player) {
         if (!net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(player, TYPE)) return;
-        var recipes = player.serverLevel().recipeAccess().getRecipes().stream()
-                .filter(h -> h.value() instanceof CraftingRecipe).toList();
+        var recipes = reference(player);
         PacketDistributor.sendToPlayer(player, new RecipeSyncPayload(true, List.of()));
         // Bound each packet even for large modpacks; a fresh batch replaces the cache after /reload.
         for (int first = 0; first < recipes.size(); first += 32)

@@ -56,7 +56,7 @@ public final class JukeboxActions {
     public static void show(ServerPlayer player, Session session) {
         ServerLevel level = player.serverLevel();
         ItemStack record = level.getBlockEntity(session.pos()) instanceof JukeboxBlockEntity jukebox ? jukebox.getTheItem().copy() : ItemStack.EMPTY;
-        PacketDistributor.sendToPlayersTrackingChunk(level, new ChunkPos(session.pos()),
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(session.pos()),
                 new MenuDisplayPayload(session.pos(), StationKind.JUKEBOX, session.side().get2DDataValue(), List.of(record)));
     }
 

@@ -55,7 +55,7 @@ public final class Sessions {
         Session session = get(player);
         if (session == null || !session.pos().equals(action.pos()) || session.kind() != action.kind()) {
             if (action.action() != StationActionPayload.Action.LEAVE) {
-                PacketDistributor.sendToPlayer(player, new SessionClosePayload());
+                dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
             }
             return;
         }
@@ -86,7 +86,7 @@ public final class Sessions {
         BlockState state = player.level().getBlockState(pos);
         List<Direction> sides = kind.sides(state);
         if (sides.isEmpty()) {
-            PacketDistributor.sendToPlayer(player, new SessionClosePayload());
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
             return;
         }
         if (!sides.contains(side)) {
@@ -94,18 +94,18 @@ public final class Sessions {
         }
         Session session = new Session(player.level().dimension(), pos.immutable(), side, kind);
         if (!valid(player, session, false) || !kind.usable(player.level(), pos, state)) {
-            PacketDistributor.sendToPlayer(player, new SessionClosePayload());
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
             return;
         }
         if (get(player) != null) {
             end(player, false);
         }
         if (kind.usesMenu() && !MenuActions.open(player, session)) {
-            PacketDistributor.sendToPlayer(player, new SessionClosePayload());
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
             return;
         }
         SESSIONS.put(player.getUUID(), session);
-        PacketDistributor.sendToPlayersTrackingEntityAndSelf(player, new AtStationPayload(player.getId(), Optional.of(session.pos()), kind));
+        dev.dyslexic.cinematic.net.Network.sendToTrackingEntityAndSelf(player, new AtStationPayload(player.getId(), Optional.of(session.pos()), kind));
         if (kind.isFurnace()) {
             FurnaceActions.sendState(player, session);
         }
@@ -170,9 +170,9 @@ public final class Sessions {
         }
         menu.broadcastChanges();
         if (notifyClient) {
-            PacketDistributor.sendToPlayer(player, new SessionClosePayload());
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
         }
-        PacketDistributor.sendToPlayersTrackingEntityAndSelf(player, new AtStationPayload(player.getId(), Optional.empty(), session.kind()));
+        dev.dyslexic.cinematic.net.Network.sendToTrackingEntityAndSelf(player, new AtStationPayload(player.getId(), Optional.empty(), session.kind()));
     }
 
     public static void tick(ServerPlayer player) {
@@ -216,7 +216,7 @@ public final class Sessions {
     public static void sendAtStation(ServerPlayer target, ServerPlayer watcher) {
         Session session = get(target);
         if (session != null) {
-            PacketDistributor.sendToPlayer(watcher, new AtStationPayload(target.getId(), Optional.of(session.pos()), session.kind()));
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(watcher, new AtStationPayload(target.getId(), Optional.of(session.pos()), session.kind()));
         }
     }
 

@@ -49,7 +49,7 @@ public final class EnchantActions {
     }
 
     private static void show(ServerPlayer player, Session session, ItemStack item, int lapis) {
-        PacketDistributor.sendToPlayersTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()),
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()),
                 new EnchantDisplayPayload(session.pos(), item.copy(), lapis, session.side().get2DDataValue()));
     }
 
@@ -63,7 +63,7 @@ public final class EnchantActions {
             return;
         }
         ServerLevel level = player.serverLevel();
-        PacketDistributor.sendToPlayersTrackingChunk(level, new ChunkPos(session.pos()), new EnchantFxPayload(session.pos(), player.getId()));
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(session.pos()), new EnchantFxPayload(session.pos(), player.getId()));
         double x = session.pos().getX() + 0.5;
         double y = session.pos().getY() + 1.1;
         double z = session.pos().getZ() + 0.5;

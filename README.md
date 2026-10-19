@@ -45,7 +45,7 @@ Chests, barrels, and shulker boxes keep their normal interfaces. [Station guide 
 
 ## 📦 Get the right build
 
-**Install the mod on both the client and the server.** In singleplayer, the integrated server is handled automatically. Each Minecraft version has its own JAR: install one matching your game version and loader.
+For the complete shared experience, **install the mod on both the client and the server**. The latest beta also has an optional client-only preview for selected stations on servers without the mod; enable it in the main-menu settings. In singleplayer, the integrated server is handled automatically. Each Minecraft version has its own JAR: install one matching your game version and loader.
 
 ### Fabric
 
@@ -62,9 +62,11 @@ Chests, barrels, and shulker boxes keep their normal interfaces. [Station guide 
 | 1.21.8 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.8) |
 | 1.21.9 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.9) |
 | 1.21.10 | [Download](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.10) |
-| 1.21.11 | [**0.18.3**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.11) |
-| 26.2 | [**0.18.2**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) |
-| 26.3 | [**0.18.2**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) |
+| 1.21.11 | [**0.18.6 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-fabric-1.21.11) |
+| 26.1.1 | [**0.18.7 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) |
+| 26.1.2 | [**0.18.7 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) |
+| 26.2 | [**0.18.7 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) |
+| 26.3 | [**0.18.7 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) |
 
 Fabric API is required. Mod Menu and Cloth Config are optional settings integrations.
 
@@ -72,7 +74,7 @@ Fabric API is required. Mod Menu and Cloth Config are optional settings integrat
 
 | Minecraft | Release |
 | --- | --- |
-| 1.21.1 | [**0.18.2**](https://github.com/dcvke/CinematicInteractions/releases/tag/stable-2026-10-17) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
+| 1.21.1 | [**0.18.6 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
 
 Cloth Config is optional. See [installation and dependencies](docs/wiki/Installation.md) for loader requirements.
 
@@ -88,7 +90,7 @@ Press **H** while looking at a campfire to sit down. Hold **Left Alt** during a 
 
 ## 🛠️ Build & explore
 
-The root project targets **NeoForge 1.21.1**. The [`fabric/`](fabric/) project contains the Fabric ports for **1.21–1.21.11**, using version-specific source layers and shared resources. The separate [`fabric/26.2/`](fabric/26.2/) and [`fabric/26.3/`](fabric/26.3/) projects contain the current feature set for those versions. The root project and 1.21.x ports require **JDK 21**; the 26.x ports require **JDK 25**. Gradle wrappers are included.
+The root project targets **NeoForge 1.21.1**. The [`fabric/`](fabric/) project contains the Fabric ports for **1.21–1.21.11**, using version-specific source layers and shared resources. Separate projects for [`26.1.1`](fabric/26.1.1/), [`26.1.2`](fabric/26.1.2/), [`26.2`](fabric/26.2/), and [`26.3`](fabric/26.3/) contain the current feature set. The root project and 1.21.x ports require **JDK 21**; the 26.x ports require **JDK 25**. Gradle wrappers are included.
 
 ```sh
 # NeoForge, from the repository root

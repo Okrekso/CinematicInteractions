@@ -655,8 +655,55 @@ public final class Showcase {
         pointGui(mc.screen.width / 2.0 + (inventorySlot - 4) * 18 * scale, 6 + 14 * scale);
     }
 
+    /** The reference packet keeps vanilla's own crafting recipes, transmute ones included, and no mod codecs. */
+    private static void recipeSyncChecks() {
+        var level = Minecraft.getInstance().level;
+        var synced = ClientRecipes.crafting();
+        boolean vanillaOnly = !synced.isEmpty() && synced.stream().allMatch(h -> {
+            var key = net.minecraft.core.registries.BuiltInRegistries.RECIPE_SERIALIZER.getKey(h.value().getSerializer());
+            return key != null && "minecraft".equals(key.getNamespace());
+        });
+        long transmute = synced.stream().filter(h -> h.value() instanceof net.minecraft.world.item.crafting.TransmuteRecipe).count();
+        check("reference recipes use vanilla serializers only", vanillaOnly && transmute > 0,
+                "recipes=" + synced.size() + " transmute=" + transmute);
+        List<ItemStack> grid = new ArrayList<>(java.util.Collections.nCopies(9, ItemStack.EMPTY));
+        grid.set(4, new ItemStack(Items.SHULKER_BOX));
+        grid.set(5, new ItemStack(Items.RED_DYE));
+        ItemStack dyed = dev.dyslexic.cinematic.table.TableCrafting.match(level, grid, net.minecraft.core.Direction.NORTH)
+                .map(dev.dyslexic.cinematic.table.TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+        check("table previews a vanilla transmute recipe", dyed.is(Items.RED_SHULKER_BOX), "result=" + dyed);
+        grid = new ArrayList<>(java.util.Collections.nCopies(9, ItemStack.EMPTY));
+        for (int cell : new int[] {0, 1, 3, 4}) grid.set(cell, new ItemStack(Items.OAK_PLANKS));
+        ItemStack bench = dev.dyslexic.cinematic.table.TableCrafting.match(level, grid, net.minecraft.core.Direction.NORTH)
+                .map(dev.dyslexic.cinematic.table.TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+        check("table previews a shaped recipe", bench.is(Items.CRAFTING_TABLE), "result=" + bench);
+        // A singleplayer connection passes packets as objects, so encode the reference batch here as a
+        // dedicated server would; the unfiltered list shows whether a loaded mod would have dropped the player.
+        server(p -> {
+            var sent = dev.dyslexic.cinematic.net.RecipeSyncPayload.reference(p);
+            String result = encodeRecipes(p, sent);
+            check("reference packet encodes and decodes", result.equals("ok " + sent.size()), result);
+            var all = p.serverLevel().getServer().getRecipeManager().getRecipes().stream()
+                    .filter(h -> h.value() instanceof net.minecraft.world.item.crafting.CraftingRecipe).toList();
+            Cinematic.LOGGER.info("[Showcase] unfiltered crafting recipes ({}): {}", all.size(), encodeRecipes(p, all));
+        });
+    }
+
+    private static String encodeRecipes(ServerPlayer p, List<net.minecraft.world.item.crafting.RecipeHolder<?>> recipes) {
+        var buf = new net.minecraft.network.RegistryFriendlyByteBuf(io.netty.buffer.Unpooled.buffer(), p.serverLevel().registryAccess());
+        try {
+            dev.dyslexic.cinematic.net.RecipeSyncPayload.CODEC.encode(buf, new dev.dyslexic.cinematic.net.RecipeSyncPayload(false, recipes));
+            return "ok " + dev.dyslexic.cinematic.net.RecipeSyncPayload.CODEC.decode(buf).recipes().size();
+        } catch (RuntimeException e) {
+            return "failed: " + e;
+        } finally {
+            buf.release();
+        }
+    }
+
     private static void tableScript() {
         shot("05_active");
+        step(2, Showcase::recipeSyncChecks);
         tableGridAlignmentScript();
         tableGridEditorScript();
         tableRecipeBookScript();
@@ -2397,7 +2444,7 @@ public final class Showcase {
             ItemStack[] stock = {new ItemStack(Items.WHITE_BANNER, 2), new ItemStack(Items.RED_DYE, 4), map, new ItemStack(Items.PAPER, 2),
                     new ItemStack(Items.GLASS_PANE), water.copy(), water.copy(), water.copy(), new ItemStack(Items.NETHER_WART, 2),
                     new ItemStack(Items.BLAZE_POWDER, 2), new ItemStack(Items.CHICKEN, 3), new ItemStack(Items.MUTTON, 2),
-                    new ItemStack(Items.OAK_PLANKS, 8), new ItemStack(Items.GOLD_INGOT, 2)};
+                    new ItemStack(Items.OAK_PLANKS, 8), new ItemStack(Items.GOLD_INGOT, 2), new ItemStack(Items.BEEF, 3)};
             for (int i = 0; i < stock.length; i++) {
                 p.getInventory().setItem(9 + i, stock[i]);
             }
@@ -2726,6 +2773,23 @@ public final class Showcase {
         else campfireAct();
     }
 
+    private static final long[] beefPace = new long[3];
+
+    /** Cooked beef dropped round the campfire or already picked up by the player. */
+    private static long cookedBeef(ServerPlayer p, BlockPos fire) {
+        long count = 0;
+        var box = new net.minecraft.world.phys.AABB(fire.getX() - 4, fire.getY() - 2, fire.getZ() - 4,
+                fire.getX() + 5, fire.getY() + 3, fire.getZ() + 5);
+        for (var item : p.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, box)) {
+            if (item.getItem().is(Items.COOKED_BEEF)) count += item.getItem().getCount();
+        }
+        for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+            if (p.getInventory().getItem(i).is(Items.COOKED_BEEF)) count += p.getInventory().getItem(i).getCount();
+        }
+        ItemStack carried = p.containerMenu.getCarried();
+        return carried.is(Items.COOKED_BEEF) ? count + carried.getCount() : count;
+    }
+
     private static CampfireStation campfire() {
         return Scene.station(CampfireStation.class);
     }
@@ -2811,6 +2875,59 @@ public final class Showcase {
         step(2, () -> pointAt(campfire().spot(0)));
         step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 0));
         step(60, () -> shot("f9_resting"));
+        // Reproduce a report about raw beef staying visible at 0% when placed from the seated scene.
+        step(4, () -> invClickItem(Items.BEEF));
+        step(3, () -> pointAt(campfire().spot(3)));
+        step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 1));
+        step(4, Showcase::stash);
+        step(24, () -> {
+            server(p -> {
+                if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                    check("seated beef cooks on the server", fire.getItems().get(3).is(Items.BEEF)
+                                    && fire.cookingTime[3] > 0 && fire.cookingProgress[3] > 0,
+                            "timer=" + fire.cookingProgress[3] + "/" + fire.cookingTime[3]);
+                    beefPace[0] = p.level().getGameTime();
+                    beefPace[1] = fire.cookingProgress[3];
+                }
+            });
+        });
+        // The repair must leave a healthy fire alone: one step of progress per game tick, as in vanilla.
+        step(20, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long ticks = p.level().getGameTime() - beefPace[0], cooked = fire.cookingProgress[3] - beefPace[1];
+                check("seated beef cooks at the vanilla pace", ticks > 0 && cooked > 0 && cooked <= ticks,
+                        "progress +" + cooked + " in " + ticks + " ticks");
+            }
+        }));
+        step(2, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.cookingTime[3] = 0; // Simulate a timer lost after another block-entity update.
+                fire.cookingProgress[3] = 0;
+                fire.setChanged();
+            }
+        }));
+        // This port has no cooking-progress packet, so the timers are read on the server.
+        step(12, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                check("seated beef recovers a missing timer", fire.cookingTime[3] > 0 && fire.cookingProgress[3] > 0,
+                        "timer=" + fire.cookingProgress[3] + "/" + fire.cookingTime[3]);
+            }
+        }));
+        // Finish the piece: exactly one cooked beef pops off, as from the vanilla ticker.
+        step(2, () -> server(p -> {
+            beefPace[2] = cookedBeef(p, CAMPFIRE);
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.cookingProgress[3] = Math.max(0, fire.cookingTime[3] - 4);
+                fire.setChanged();
+            }
+        }));
+        step(16, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long cooked = cookedBeef(p, CAMPFIRE) - beefPace[2];
+                check("seated beef pops off cooked once", fire.getItems().get(3).isEmpty() && cooked == 1,
+                        "spot=" + fire.getItems().get(3) + " cooked=" + cooked);
+            }
+        }));
         step(4, () -> report("campfire before standing up"));
         step(2, Scene::leave);
         step(50, () -> shot("f9_after"));
@@ -2840,6 +2957,39 @@ public final class Showcase {
     private static void soulCampfireScript() {
         Runnable restoreLayout = spatialEditorScript();
         shot("u5_active");
+        // Raw beef from the seated scene, on its own spot of the soul fire.
+        step(4, () -> invClickItem(Items.BEEF));
+        step(3, () -> pointAt(campfire().spot(1)));
+        step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 1));
+        step(4, Showcase::stash);
+        step(24, () -> {
+            server(p -> {
+                if (p.level().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                    check("soul campfire beef cooks on the server", fire.getItems().get(1).is(Items.BEEF)
+                                    && fire.cookingTime[1] > 0 && fire.cookingProgress[1] > 0,
+                            "timer=" + fire.cookingProgress[1] + "/" + fire.cookingTime[1]);
+                    beefPace[0] = p.level().getGameTime();
+                    beefPace[1] = fire.cookingProgress[1];
+                }
+            });
+        });
+        step(20, () -> server(p -> {
+            if (p.level().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long ticks = p.level().getGameTime() - beefPace[0], cooked = fire.cookingProgress[1] - beefPace[1];
+                check("soul campfire beef cooks at the vanilla pace", ticks > 0 && cooked > 0 && cooked <= ticks,
+                        "progress +" + cooked + " in " + ticks + " ticks");
+                beefPace[2] = cookedBeef(p, SOUL_CAMPFIRE);
+                fire.cookingProgress[1] = Math.max(0, fire.cookingTime[1] - 4);
+                fire.setChanged();
+            }
+        }));
+        step(16, () -> server(p -> {
+            if (p.level().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long cooked = cookedBeef(p, SOUL_CAMPFIRE) - beefPace[2];
+                check("soul campfire beef pops off cooked once", fire.getItems().get(1).isEmpty() && cooked == 1,
+                        "spot=" + fire.getItems().get(1) + " cooked=" + cooked);
+            }
+        }));
         step(40, () -> shot("u6_resting"));
         step(2, Scene::leave);
         step(50, () -> shot("u9_after"));

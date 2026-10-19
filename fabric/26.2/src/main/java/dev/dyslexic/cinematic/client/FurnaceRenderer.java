@@ -67,6 +67,26 @@ public final class FurnaceRenderer {
                 drawGlow(pose, buffers, cam, pos, facing, layout, appearance, heat, frontSeen, topSeen);
             }
         }
+        if (mine != null && Scene.clientOnly()) {
+            ClientFurnaces.Entry entry = ClientFurnaces.get(mine.pos);
+            if (entry != null) {
+                BlockState state = level.getBlockState(mine.pos);
+                Direction facing = state.getValue(AbstractFurnaceBlock.FACING);
+                FurnaceLayout layout = mine.layout;
+                FurnaceAppearance appearance = FurnaceLayouts.current(mine.kind());
+                Vec3 toCamera = cam.subtract(FurnaceZones.point(mine.pos, facing, 0.5, 0.5, 0));
+                boolean frontSeen = toCamera.dot(Vec3.atLowerCornerOf(facing.getUnitVec3i())) > 0;
+                boolean topSeen = cam.y > mine.pos.getY() + 1;
+                int light = LightCoordsUtil.getLightCoords(level, mine.pos.relative(facing));
+                int inside = state.getValue(AbstractFurnaceBlock.LIT) ? LightCoordsUtil.pack(15, LightCoordsUtil.sky(light)) : light;
+                for (FurnaceLayout.Bed bed : layout.beds)
+                    if (bed.face() == Face.FRONT ? frontSeen : topSeen)
+                        drawBed(pose, buffers, cam, mine.pos, facing, entry, layout, appearance, bed,
+                                bed.slot() == FurnaceZones.RESULT ? light : inside);
+                if (state.getValue(AbstractFurnaceBlock.LIT))
+                    drawGlow(pose, buffers, cam, mine.pos, facing, layout, appearance, mine.cook(), frontSeen, topSeen);
+            }
+        }
     }
 
     private static void drawBed(PoseStack pose, SceneBuffers buffers, Vec3 cam, BlockPos pos, Direction facing,

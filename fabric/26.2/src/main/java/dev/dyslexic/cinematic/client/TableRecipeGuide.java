@@ -12,16 +12,23 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
+import net.minecraft.world.item.crafting.display.RecipeDisplayEntry;
+import net.minecraft.world.item.crafting.display.ShapedCraftingRecipeDisplay;
+import net.minecraft.world.item.crafting.display.ShapelessCraftingRecipeDisplay;
+import net.minecraft.world.item.crafting.display.SlotDisplay;
+import net.minecraft.world.item.crafting.display.SlotDisplayContext;
 
 /** Local recipe reference: never places items or asks the server to unlock/craft a recipe. */
 final class TableRecipeGuide {
     static final class Entry {
-        final RecipeHolder<CraftingRecipe> holder;
+        @Nullable final RecipeHolder<CraftingRecipe> holder;
         final ItemStack result;
         final List<Ingredient> ingredients;
+        final List<Ingredient> pattern;
+        final int width, height;
+        final String idText;
         final String search;
         boolean craftable;
 
@@ -29,8 +36,40 @@ final class TableRecipeGuide {
             this.holder = holder;
             this.result = result;
             ingredients = holder.value().placementInfo().ingredients();
-            search = (result.getHoverName().getString() + " " + holder.id()).toLowerCase(Locale.ROOT);
+            if (holder.value() instanceof ShapedRecipe shaped) {
+                width = shaped.getWidth();
+                height = shaped.getHeight();
+                pattern = shaped.getIngredients().stream().map(optional -> optional.orElse(null)).toList();
+            } else {
+                width = height = 0;
+                pattern = List.of();
+            }
+            idText = holder.id().toString();
+            search = (result.getHoverName().getString() + " " + idText).toLowerCase(Locale.ROOT);
         }
+
+        Entry(RecipeDisplayEntry vanilla, ItemStack result, net.minecraft.util.context.ContextMap context) {
+            holder = null;
+            this.result = result;
+            if (vanilla.display() instanceof ShapedCraftingRecipeDisplay shaped) {
+                width = shaped.width();
+                height = shaped.height();
+                pattern = shaped.ingredients().stream().map(slot -> ingredient(slot, context)).toList();
+                ingredients = pattern.stream().filter(i -> i != null).toList();
+            } else if (vanilla.display() instanceof ShapelessCraftingRecipeDisplay shapeless) {
+                width = height = 0;
+                pattern = List.of();
+                ingredients = shapeless.ingredients().stream().map(slot -> ingredient(slot, context))
+                        .filter(i -> i != null).toList();
+            } else throw new IllegalArgumentException("Not a crafting display");
+            idText = "#" + vanilla.id().index();
+            search = (result.getHoverName().getString() + " " + idText).toLowerCase(Locale.ROOT);
+        }
+    }
+
+    @Nullable private static Ingredient ingredient(SlotDisplay slot, net.minecraft.util.context.ContextMap context) {
+        var items = slot.resolveForStacks(context).stream().filter(stack -> !stack.isEmpty()).map(ItemStack::getItem).distinct().toList();
+        return items.isEmpty() ? null : Ingredient.of(items.stream());
     }
 
     final List<Entry> entries = new ArrayList<>();
@@ -55,26 +94,46 @@ final class TableRecipeGuide {
     void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
-        if (indexed != ClientRecipes.revision) {
+        List<RecipeDisplayEntry> vanilla = Scene.clientOnly() ? mc.player.getRecipeBook().getCollections().stream()
+                .flatMap(collection -> collection.getRecipes().stream()).toList() : List.of();
+        int source = Scene.clientOnly() ? vanilla.stream().mapToInt(entry -> entry.id().index()).reduce(1, (hash, id) -> 31 * hash + id)
+                : ClientRecipes.revision;
+        boolean reindexed = indexed != source;
+        if (reindexed) {
             entries.clear();
-            for (var holder : ClientRecipes.crafting()) {
-                var recipe = holder.value();
-                // Dynamic special recipes have no fixed ingredient diagram; their vanilla GUI remains available.
-                if (recipe.isSpecial() || !(recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe)
-                        || recipe instanceof ShapedRecipe shaped && (shaped.getWidth() > 3 || shaped.getHeight() > 3) || recipe.placementInfo().isImpossibleToPlace()) continue;
-                ItemStack result = recipe.display().getFirst().result().resolveForFirstStack(net.minecraft.world.item.crafting.display.SlotDisplayContext.fromLevel(mc.level));
-                if (!result.isEmpty()) entries.add(new Entry(holder, result.copy()));
+            var context = SlotDisplayContext.fromLevel(mc.level);
+            if (Scene.clientOnly()) {
+                for (RecipeDisplayEntry display : vanilla) {
+                    if (!(display.display() instanceof ShapedCraftingRecipeDisplay shaped
+                            && shaped.width() <= 3 && shaped.height() <= 3)
+                            && !(display.display() instanceof ShapelessCraftingRecipeDisplay)) continue;
+                    ItemStack result = display.display().result().resolveForFirstStack(context);
+                    if (!result.isEmpty()) {
+                        Entry entry = new Entry(display, result.copy(), context);
+                        if (!entry.ingredients.isEmpty()) entries.add(entry);
+                    }
+                }
+            } else {
+                for (var holder : ClientRecipes.crafting()) {
+                    var recipe = holder.value();
+                    // Dynamic special recipes have no fixed ingredient diagram; their vanilla GUI remains available.
+                    if (recipe.isSpecial() || !(recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe)
+                            || recipe instanceof ShapedRecipe shaped && (shaped.getWidth() > 3 || shaped.getHeight() > 3) || recipe.placementInfo().isImpossibleToPlace()) continue;
+                    ItemStack result = recipe.display().getFirst().result().resolveForFirstStack(context);
+                    if (!result.isEmpty()) entries.add(new Entry(holder, result.copy()));
+                }
             }
             entries.sort(Comparator.comparing((Entry e) -> e.result.getHoverName().getString())
-                    .thenComparing(e -> e.holder.id().toString()));
-            indexed = ClientRecipes.revision;
+                    .thenComparing(e -> e.idText));
+            selected = null;
+            indexed = source;
         }
         List<ItemStack> next = new ArrayList<>();
         for (int i = 0; i < 36; i++) next.add(mc.player.getInventory().getItem(i).copy());
         next.add(mc.player.containerMenu.getCarried().copy());
         ClientTables.Entry table = ClientTables.get(station.pos);
         for (int i = 0; i < 9; i++) next.add(table == null ? ItemStack.EMPTY : table.items[i].copy());
-        boolean changed = next.size() != snapshot.size();
+        boolean changed = reindexed || next.size() != snapshot.size();
         for (int i = 0; !changed && i < next.size(); i++) changed = !ItemStack.matches(next.get(i), snapshot.get(i));
         if (!changed) return;
         snapshot = next;
@@ -132,13 +191,13 @@ final class TableRecipeGuide {
     }
 
     private void layout() {
-        if (selected.holder.value() instanceof ShapedRecipe shaped) {
-            int w = shaped.getWidth(), h = shaped.getHeight();
-            Ingredient[] best = shapedLayout(shaped, w == 1 ? 1 : 0, h == 1 ? 1 : 0, false);
+        if (selected.width > 0) {
+            int w = selected.width, h = selected.height;
+            Ingredient[] best = shapedLayout(selected, w == 1 ? 1 : 0, h == 1 ? 1 : 0, false);
             int score = score(best);
             if (!gridEmpty() && score(grid) >= score) { best = grid.clone(); score = score(best); }
             for (int y = 0; y <= 3 - h; y++) for (int x = 0; x <= 3 - w; x++) for (int m = 0; m < 2; m++) {
-                Ingredient[] candidate = shapedLayout(shaped, x, y, m == 1);
+                Ingredient[] candidate = shapedLayout(selected, x, y, m == 1);
                 int value = score(candidate);
                 if (value > score) { best = candidate; score = value; }
             }
@@ -162,12 +221,12 @@ final class TableRecipeGuide {
         return Arrays.stream(grid).allMatch(TableRecipeGuide::empty);
     }
 
-    private Ingredient[] shapedLayout(ShapedRecipe recipe, int x, int y, boolean mirror) {
+    private Ingredient[] shapedLayout(Entry recipe, int x, int y, boolean mirror) {
         Ingredient[] result = new Ingredient[9];
         Arrays.fill(result, null);
-        for (int row = 0; row < recipe.getHeight(); row++) for (int col = 0; col < recipe.getWidth(); col++) {
-            result[(row + y) * 3 + col + x] = recipe.getIngredients().get(row * recipe.getWidth()
-                    + (mirror ? recipe.getWidth() - col - 1 : col)).orElse(null);
+        for (int row = 0; row < recipe.height; row++) for (int col = 0; col < recipe.width; col++) {
+            result[(row + y) * 3 + col + x] = recipe.pattern.get(row * recipe.width
+                    + (mirror ? recipe.width - col - 1 : col));
         }
         return result;
     }

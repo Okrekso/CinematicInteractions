@@ -1,5 +1,18 @@
 # Changelog
 
+## Beta — October 19, 2026
+
+The latest beta adds an optional client-only preview for supported workstation scenes. It can be enabled from the main menu to use those scenes on servers without Cinematic Interactions installed. Shared items, other players' poses, campfire interactions, and the remaining stations still require the mod on the server.
+
+- **NeoForge 1.21.1 · 0.18.6:** Added the client-only preview and removed the brief hand swing before a local scene starts. Fixed campfire food occasionally staying at 0% while seated. Vanilla recipe synchronization remains unchanged.
+- **Fabric 1.21.11 · 0.18.6:** Added the client-only preview and the hand-swing fix. Fixed stalled campfire cooking and disconnections while syncing custom crafting recipes, including the Simple Locks case.
+- **Fabric 26.1.1 · 0.18.7:** New supported build with the current scenes, editors and client-only preview. Includes the campfire and custom-recipe fixes. Corrected shader depth for scene effects and the dark lectern book cover.
+- **Fabric 26.1.2 · 0.18.7:** New supported build with the same feature set and gameplay fixes. Corrected shader effect depth, the lectern book cover and translucent sleeves in scenes.
+- **Fabric 26.2 · 0.18.7:** Added the client-only preview and hand-swing fix; fixed stalled campfire cooking and custom-recipe syncing. Corrected the dark lectern book cover.
+- **Fabric 26.3 · 0.18.7:** Added the client-only preview and hand-swing fix; fixed stalled campfire cooking and custom-recipe syncing. Corrected the dark lectern book cover.
+
+All six downloads are **beta** builds. Choose the JAR matching your exact Minecraft version and loader. Previous releases remain available.
+
 ## Stable workstation update — October 17, 2026
 
 - **NeoForge 1.21.1 · 0.18.2:** Optional Inventory Particles and Inventory Interactions support now follows visible slots and items in workstation scenes, including items held by animated hands. Developer Mode, layout profiles, campfire progress and the Punchy fix remain included.

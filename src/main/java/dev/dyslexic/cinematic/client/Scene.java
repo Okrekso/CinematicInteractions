@@ -97,6 +97,9 @@ public final class Scene {
     private static final List<Vec3> path = new ArrayList<>();
     private static int waypoint;
     private static boolean leaveSent;
+    /** The local scene is backed by an ordinary server-owned menu, with no cinematic network channel. */
+    private static boolean clientOnly;
+    private static int clientMenuId = -1;
     @Nullable
     private static CameraType savedCamera;
     @Nullable
@@ -117,6 +120,8 @@ public final class Scene {
     public static boolean active() {
         return phase != Phase.NONE && station != null;
     }
+
+    public static boolean clientOnly() { return clientOnly && active(); }
 
     /** 0..1 through the intro: up to {@link #WALK_SHARE} while walking, then the lean; 1 once working. */
     public static double introProgress() {
@@ -184,6 +189,7 @@ public final class Scene {
             return;
         }
         station = choice.station();
+        clientOnly = false;
         transition = false;
         transitionFrom = null;
         // back at the station just stepped away from: the quick way in
@@ -197,6 +203,36 @@ public final class Scene {
         Hands.begin();
         startIntro(choice.plan(), player);
         sound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.35f, 1.1f);
+    }
+
+    /** Start only after the vanilla server has opened the menu. The body stays exactly where it is. */
+    public static boolean beginClientOnly(BlockPos pos, StationKind kind) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        if (phase != Phase.NONE || player == null || mc.level == null || mc.gameMode == null) return false;
+        ClientStation candidate = create(kind, pos, mc.level.getBlockState(pos), player,
+                ClientStation.freeSide(mc.level, pos, player, kind));
+        Reach.Plan here = Reach.planHere(candidate, player);
+        if (!here.scene()) {
+            refused = here.why();
+            Cinematic.LOGGER.info("[Cinematic] client-only {} at {}: vanilla window ({})", kind, pos.toShortString(), here.why());
+            return false;
+        }
+        station = candidate;
+        clientOnly = true;
+        refused = "";
+        clientMenuId = player.containerMenu.containerId;
+        transition = false;
+        transitionFrom = null;
+        quick = false;
+        leanLength = LEAN_LENGTH;
+        savedCamera = mc.options.getCameraType();
+        if (!savedCamera.isFirstPerson()) mc.options.setCameraType(CameraType.FIRST_PERSON);
+        CameraRig.reset();
+        Hands.begin();
+        startIntro(here, player);
+        sound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.35f, 1.1f);
+        return true;
     }
 
     /** A block's scene and the way into it: the nearest side, else another side, else standing beside one. */
@@ -248,16 +284,18 @@ public final class Scene {
         walkShare = path.isEmpty() ? 0 : 1;
         bestDistance = Double.MAX_VALUE;
         progressAt = 0;
-        crouch = station.crouchesFor(station.view().pos().y - plan.feet().y);
+        crouch = !clientOnly && station.crouchesFor(station.view().pos().y - plan.feet().y);
         phase = Phase.INTRO;
         time = 0;
         leaveSent = false;
         outroFrom = null;
         neighbor = null;
         lastHurtTime = player.hurtTime;
-        player.setSprinting(false);
-        PacketDistributor.sendToServer(new StationActionPayload(station.pos, station.kind(), StationActionPayload.Action.BEGIN, 0, 0, false,
-                station.sideDirection().get2DDataValue()));
+        if (!clientOnly) player.setSprinting(false);
+        if (!clientOnly) {
+            PacketDistributor.sendToServer(new StationActionPayload(station.pos, station.kind(), StationActionPayload.Action.BEGIN, 0, 0, false,
+                    station.sideDirection().get2DDataValue()));
+        }
     }
 
     // ---- moving over to a neighbouring station ---------------------------------------------------------
@@ -279,6 +317,7 @@ public final class Scene {
     private static void findNeighbor() {
         neighbor = null;
         neighborKind = null;
+        if (clientOnly) return;
         Minecraft mc = Minecraft.getInstance();
         if (station.aim != null || overPanel || station.busy() || mc.level == null || mc.player == null) {
             return;
@@ -310,6 +349,7 @@ public final class Scene {
      * from anywhere near, a notice says why and the work here goes on.
      */
     public static void moveOver() {
+        if (clientOnly) return;
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (phase != Phase.ACTIVE || neighbor == null || neighborKind == null || player == null || station.busy()) {
@@ -380,7 +420,7 @@ public final class Scene {
         outroWeight = CameraRig.weight();
         outroSeconds = 0;
         LocalPlayer player = Minecraft.getInstance().player;
-        stepBack = player != null && player.onGround()
+        stepBack = !clientOnly && player != null && player.onGround()
                 && Reach.walkable(player.level(), player, List.of(player.position().add(Vec3.directionFromRotation(0, player.getYRot()).scale(-STEP_BACK))));
         Hands.beginOutro();
         phase = Phase.OUTRO;
@@ -475,6 +515,8 @@ public final class Scene {
         }
         savedCamera = null;
         station = null;
+        clientOnly = false;
+        clientMenuId = -1;
         outroFrom = null;
         overPanel = false;
         path.clear();
@@ -489,6 +531,15 @@ public final class Scene {
     }
 
     private static void sendLeave() {
+        if (clientOnly) {
+            if (!leaveSent) {
+                leaveSent = true;
+                LocalPlayer player = Minecraft.getInstance().player;
+                if (player != null && player.containerMenu != player.inventoryMenu
+                        && player.containerMenu.containerId == clientMenuId) player.closeContainer();
+            }
+            return;
+        }
         if (!leaveSent && station != null && Minecraft.getInstance().getConnection() != null) {
             PacketDistributor.sendToServer(StationActionPayload.of(station.pos, station.kind(), StationActionPayload.Action.LEAVE));
         }
@@ -564,6 +615,11 @@ public final class Scene {
             abort();
             return;
         }
+        if (clientOnly && phase != Phase.OUTRO && (player.containerMenu == player.inventoryMenu
+                || player.containerMenu.containerId != clientMenuId)) {
+            drop();
+            return;
+        }
         if (phase != Phase.OUTRO) {
             boolean gone = !station.stillThere(mc.level) || player.distanceToSqr(station.pos.getCenter()) > 49;
             // the ground gave way, or something knocked the player off: hand control back
@@ -586,7 +642,7 @@ public final class Scene {
 
     /** Keeps the body turned to the station so other players see the pose (end of the player's tick). */
     public static void steer(LocalPlayer player) {
-        if (!active()) {
+        if (!active() || clientOnly) {
             return;
         }
         float yaw = station.sideDirection().getOpposite().toYRot() + (float) station.swing;

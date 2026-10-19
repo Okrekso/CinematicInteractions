@@ -5,7 +5,6 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.Component;
 import net.minecraft.network.codec.StreamCodec;
 
 public final class Network {
@@ -32,10 +31,6 @@ public final class Network {
         PayloadTypeRegistry.clientboundPlay().register(SessionClosePayload.TYPE, SessionClosePayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(AtStationPayload.TYPE, AtStationPayload.CODEC);
         ServerPlayNetworking.registerGlobalReceiver(StationActionPayload.TYPE, (payload, context) -> Sessions.handle(context.player(), payload));
-        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
-            if (!ServerPlayNetworking.canSend(handler.player, AtStationPayload.TYPE)) {
-                handler.disconnect(Component.literal("Cinematic Interactions must be installed on both the client and server."));
-            } else RecipeSyncPayload.send(handler.player);
-        });
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> RecipeSyncPayload.send(handler.player));
     }
 }

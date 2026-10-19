@@ -83,7 +83,13 @@ loom {
     accessWidenerPath = selectedAccessWidener
     runs {
         client { client(); runDir "run/${mc_version}/client" }
+        if (mc_version == '1.21.11') clientOnlySmoke { client(); runDir "run/${mc_version}/client-only-smoke"; vmArg '-Dcinematic.clientOnlySmoke=true' }
         server { server(); runDir "run/${mc_version}/server"; programArg '--nogui' }
+        if (project.hasProperty('joinTest')) {
+            // A real network join (packets are encoded, unlike singleplayer): run joinServer, then joinClient.
+            joinServer { server(); runDir "run/${mc_version}/join-server"; programArg '--nogui' }
+            joinClient { client(); runDir "run/${mc_version}/join-client"; programArgs '--quickPlayMultiplayer', '127.0.0.1:25589' }
+        }
         showcase {
             client()
             runDir "run/${mc_version}/${project.hasProperty('withShaders') ? 'showcase-iris' : 'showcase'}"

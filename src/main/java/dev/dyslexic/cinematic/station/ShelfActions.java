@@ -120,7 +120,7 @@ public final class ShelfActions {
 
     /** Tells the players nearby what happened to a book (the one who did it sees it in their scene already). */
     private static void cue(ServerPlayer player, Session session, MenuFxPayload.Cue cue, int slot, ItemStack book) {
-        PacketDistributor.sendToPlayersTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()),
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()),
                 new MenuFxPayload(session.pos(), StationKind.CHISELED_BOOKSHELF, player.getId(), cue, slot, List.of(), book.copy()));
     }
 
@@ -133,7 +133,7 @@ public final class ShelfActions {
             }
         }
         SHOWN.put(player.getUUID(), fingerprint(items));
-        PacketDistributor.sendToPlayer(player, new MenuDisplayPayload(session.pos(), StationKind.CHISELED_BOOKSHELF, session.side().get2DDataValue(), items));
+        dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new MenuDisplayPayload(session.pos(), StationKind.CHISELED_BOOKSHELF, session.side().get2DDataValue(), items));
     }
 
     /** Someone else (or a hopper) changed the shelf meanwhile: the player is told again. */

@@ -8,7 +8,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
  * The player's own settings (config/cinematic-client.toml). Without Cloth Config they are edited on NeoForge's own
- * settings screen; with it, on {@link ClothScreen}. Every value is read where it is used, so a change applies at once.
+ * settings screen; with it, on {@link ClothScreen}. The client-only choice is captured on connection; other values
+ * are read where they are used.
  */
 public final class Settings {
     private Settings() {}
@@ -30,6 +31,7 @@ public final class Settings {
     static final ModConfigSpec.BooleanValue LIVING_CAMERA;
     static final ModConfigSpec.BooleanValue CAMERA_SHAKE;
     static final ModConfigSpec.BooleanValue SCREEN_FLASH;
+    static final ModConfigSpec.BooleanValue CLIENT_ONLY_MODE;
     static final ModConfigSpec.BooleanValue DEVELOPER_MODE;
 
     static {
@@ -75,6 +77,11 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        b.pop();
+        b.translation("cinematic.configuration.multiplayer").push("multiplayer");
+        CLIENT_ONLY_MODE = b.comment("On a server without Cinematic Interactions, show local scenes over supported vanilla menus. "
+                        + "Set this from the main menu; it takes effect on the next connection. Other stations keep their vanilla behavior.")
+                .translation("cinematic.configuration.clientOnlyMode").define("clientOnlyMode", false);
         b.pop();
         b.translation("cinematic.configuration.developer").push("developer");
         DEVELOPER_MODE = b.comment("Show the local station layout editors and enable their G shortcut. Saved layouts apply even when this is false.")
@@ -130,6 +137,8 @@ public final class Settings {
     public static boolean controlHints() {
         return get(CONTROL_HINTS);
     }
+
+    public static boolean clientOnlyMode() { return get(CLIENT_ONLY_MODE); }
 
     public static boolean developerMode() { return get(DEVELOPER_MODE); }
 

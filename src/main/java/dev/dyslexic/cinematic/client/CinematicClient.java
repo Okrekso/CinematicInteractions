@@ -10,8 +10,10 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
@@ -48,6 +50,7 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 public final class CinematicClient {
     public CinematicClient(IEventBus modBus, ModContainer container) {
         ClientBridge.useStation = Scene::begin;
+        ClientBridge.vanillaUse = ClientOnly::onVanillaUse;
         modBus.addListener((ModelEvent.RegisterAdditional event) -> event.register(HammerModel.LOCATION));
         modBus.addListener((RegisterKeyMappingsEvent event) -> {
             event.register(CampfireHint.SIT);
@@ -83,6 +86,7 @@ public final class CinematicClient {
         @SubscribeEvent
         public static void onClientTick(ClientTickEvent.Post event) {
             Scene.tick();
+            ClientOnlySmoke.tick();
             CampfireHint.tick();
             Minecraft mc = Minecraft.getInstance();
             if (mc.level != null && mc.level.getGameTime() % 40 == 0) {
@@ -133,6 +137,9 @@ public final class CinematicClient {
         public static void onInteractKey(InputEvent.InteractionKeyMappingTriggered event) {
             if (Scene.active()) {
                 event.setCanceled(true);
+                event.setSwingHand(false);
+            } else if (event.isUseItem() && event.getHand() == InteractionHand.MAIN_HAND
+                    && Minecraft.getInstance().hitResult instanceof BlockHitResult hit && ClientOnly.suppressUseSwing(hit)) {
                 event.setSwingHand(false);
             }
         }
@@ -189,6 +196,10 @@ public final class CinematicClient {
         @SubscribeEvent(priority = EventPriority.LOWEST)
         public static void onScreenOpening(ScreenEvent.Opening event) {
             Screen next = event.getNewScreen();
+            if (!Scene.active() && ClientOnly.onScreenOpening(next)) {
+                event.setCanceled(true);
+                return;
+            }
             if (!Scene.active() || next instanceof SceneScreen) {
                 return;
             }
@@ -211,6 +222,7 @@ public final class CinematicClient {
         @SubscribeEvent
         public static void onScreenInit(ScreenEvent.Init.Post event) {
             Showcase.onScreen(event.getScreen());
+            ClientOnlySmoke.onScreen(event.getScreen());
         }
 
         @SubscribeEvent
@@ -253,8 +265,14 @@ public final class CinematicClient {
         }
 
         @SubscribeEvent
+        public static void onLogin(ClientPlayerNetworkEvent.LoggingIn event) {
+            ClientOnly.onLogin();
+        }
+
+        @SubscribeEvent
         public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
             Scene.drop();
+            ClientOnly.clear();
             ClientTables.clear();
             ClientFurnaces.clear();
             ClientEnchants.clear();

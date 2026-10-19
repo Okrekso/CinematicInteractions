@@ -24,6 +24,8 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
@@ -180,7 +182,8 @@ public final class TableStation extends ClientStation {
         if (!layDropped && t >= LAY_DROP) {
             layDropped = true;
             Hands.tap();
-            PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE, laying[0], laying[1], false, 0));
+            if (Scene.clientOnly()) placeOneVanilla(laying[0], laying[1]);
+            else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE, laying[0], laying[1], false, 0));
         }
         if (t >= 1) {
             nextLay();
@@ -408,7 +411,45 @@ public final class TableStation extends ClientStation {
 
     private void send(StationActionPayload.Action action, int cell, int button, boolean shift) {
         Hands.tap();
-        PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, action, cell, button, shift, 0));
+        if (Scene.clientOnly()) clickVanilla(cell, button, shift);
+        else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, action, cell, button, shift, 0));
+    }
+
+    @Nullable
+    private CraftingMenu vanillaMenu() {
+        var player = Minecraft.getInstance().player;
+        return player != null && player.containerMenu instanceof CraftingMenu menu ? menu : null;
+    }
+
+    private int menuCell(int world) {
+        for (int logical = 0; logical < TableGrid.CELLS; logical++)
+            if (TableGrid.worldIndex(side, logical / 3, logical % 3) == world) return logical + 1;
+        return -1;
+    }
+
+    private void clickVanilla(int world, int button, boolean shift) {
+        Minecraft mc = Minecraft.getInstance();
+        CraftingMenu menu = vanillaMenu();
+        int slot = menuCell(world);
+        if (menu != null && slot > 0 && mc.gameMode != null && mc.player != null)
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, slot, button,
+                    shift ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
+    }
+
+    private void placeOneVanilla(int world, int source) {
+        Minecraft mc = Minecraft.getInstance();
+        CraftingMenu menu = vanillaMenu();
+        if (menu == null || mc.gameMode == null || mc.player == null || menuCell(world) < 0) return;
+        if (source < 0) {
+            if (!menu.getCarried().isEmpty()) clickVanilla(world, 1, false);
+            return;
+        }
+        if (!menu.getCarried().isEmpty() || source >= 36) return;
+        int inventorySlot = source < 9 ? 37 + source : 10 + source - 9;
+        if (menu.getSlot(inventorySlot).getItem().isEmpty()) return;
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, inventorySlot, 0, ClickType.PICKUP, mc.player);
+        clickVanilla(world, 1, false);
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, inventorySlot, 0, ClickType.PICKUP, mc.player);
     }
 
     public void craft(boolean all) {
@@ -424,7 +465,15 @@ public final class TableStation extends ClientStation {
             craftFacing = entry.facing.clone();
         }
         craftAt = Scene.clock();
-        PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CRAFT, 0, 0, all, 0));
+        if (Scene.clientOnly()) {
+            Minecraft mc = Minecraft.getInstance();
+            CraftingMenu menu = vanillaMenu();
+            if (menu != null && mc.gameMode != null && mc.player != null)
+                mc.gameMode.handleInventoryMouseClick(menu.containerId, 0, 0,
+                        all ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
+        } else {
+            PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CRAFT, 0, 0, all, 0));
+        }
     }
 
     /** 0..1 progress of the craft flourish, or -1 when idle. */
@@ -439,11 +488,12 @@ public final class TableStation extends ClientStation {
         Minecraft mc = Minecraft.getInstance();
         ClientTables.Entry entry = ClientTables.get(pos);
         int version = entry == null ? -1 : entry.version;
-        if (version == resultVersion) {
+        if (version == resultVersion && !Scene.clientOnly()) {
             return;
         }
         resultVersion = version;
-        ItemStack next = entry == null || mc.level == null ? ItemStack.EMPTY
+        ItemStack next = Scene.clientOnly() ? vanillaMenu() == null ? ItemStack.EMPTY : vanillaMenu().getSlot(0).getItem()
+                : entry == null || mc.level == null ? ItemStack.EMPTY
                 : TableCrafting.match(mc.level, entry.list(), side).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
         if (!ItemStack.isSameItemSameComponents(next, result) || next.getCount() != result.getCount()) {
             resultChangedAt = Scene.clock();

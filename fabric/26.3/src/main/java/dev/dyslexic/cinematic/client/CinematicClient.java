@@ -16,7 +16,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 
@@ -25,6 +24,7 @@ public final class CinematicClient implements ClientModInitializer {
     public void onInitializeClient() {
         CinematicPipelines.initialize();
         ClientBridge.useStation = Scene::begin;
+        ClientBridge.vanillaUse = ClientOnly::onVanillaUse;
         Settings.SPEC.load();
         KeyMappingHelper.registerKeyMapping(CampfireHint.SIT);
         KeyMappingHelper.registerKeyMapping(FreeLook.LOOK);
@@ -50,6 +50,7 @@ public final class CinematicClient implements ClientModInitializer {
             CampfireHint.tick();
             if (mc.level != null && mc.level.getGameTime() % 40 == 0) ClientFurnaces.prune(mc.level);
             Showcase.tick();
+            ClientOnlySmoke.tick();
         });
         // World geometry joins the vanilla feature queue; overlay extraction follows the ordinary HUD layers.
         HudElementRegistry.addLast(dev.dyslexic.cinematic.Cinematic.id("overlay"), (g, ticks) -> Overlay.render(g));
@@ -69,14 +70,11 @@ public final class CinematicClient implements ClientModInitializer {
             }
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> clear());
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
-            if (!ClientPlayNetworking.canSend(StationActionPayload.TYPE)) {
-                handler.getConnection().disconnect(Component.literal("Cinematic Interactions must be installed on both the client and server."));
-            }
-        });
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> ClientOnly.onLogin());
     }
 
     public static boolean screenOpening(Screen next) {
+        if (!Scene.active() && ClientOnly.onScreenOpening(next)) return true;
         if (!Scene.active() || next instanceof SceneScreen) return false;
         var player = Minecraft.getInstance().player;
         if (next instanceof MenuAccess<?> window && Scene.station.kind().usesMenu() && player != null && window.getMenu() == player.containerMenu) return true;
@@ -87,6 +85,7 @@ public final class CinematicClient implements ClientModInitializer {
 
     public static void clear() {
         Scene.drop();
+        ClientOnly.clear();
         ClientRecipes.clear();
         ClientTables.clear();
         ClientFurnaces.clear();

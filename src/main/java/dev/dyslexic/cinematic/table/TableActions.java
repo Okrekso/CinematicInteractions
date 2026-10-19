@@ -236,7 +236,7 @@ public final class TableActions {
     }
 
     public static void sync(ServerLevel level, BlockPos pos) {
-        PacketDistributor.sendToPlayersTrackingChunk(level, new ChunkPos(pos), contents(pos, TableStore.get(level).get(pos)));
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(pos), contents(pos, TableStore.get(level).get(pos)));
     }
 
     /** Spills everything lying on a table that no longer exists. */

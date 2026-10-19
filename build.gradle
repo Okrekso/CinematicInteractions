@@ -60,6 +60,28 @@ neoForge {
             programArguments.addAll '--width', '1600', '--height', '900'
         }
 
+        // A real vanilla dedicated server on 127.0.0.1:25586, with no Cinematic Interactions installed.
+        clientOnlySmoke {
+            client()
+            gameDirectory = project.file('run-showcase')
+            systemProperty 'cinematic.clientOnlySmoke', 'true'
+            programArguments.addAll '--width', '1280', '--height', '720'
+        }
+
+        if (project.hasProperty('joinTest')) {
+            // A real network join (packets are encoded, unlike singleplayer): run joinServer, then joinClient.
+            joinServer {
+                server()
+                gameDirectory = project.file('run-join-server')
+                programArgument '--nogui'
+            }
+            joinClient {
+                client()
+                gameDirectory = project.file('run-join-client')
+                programArguments.addAll '--quickPlayMultiplayer', '127.0.0.1:25589'
+            }
+        }
+
         configureEach {
             logLevel = org.slf4j.event.Level.INFO
             if (project.hasProperty('traceMixins')) systemProperty 'mixin.debug.export', 'true'

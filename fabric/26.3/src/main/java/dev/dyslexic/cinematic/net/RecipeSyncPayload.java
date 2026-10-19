@@ -19,8 +19,14 @@ public record RecipeSyncPayload(boolean reset, List<RecipeHolder<?>> recipes) im
 
     public static void send(ServerPlayer player) {
         if (!net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.canSend(player, TYPE)) return;
+        // The reference book can draw only ordinary shaped and shapeless recipes. Sending every
+        // CraftingRecipe also serializes dynamic recipes from other mods; some of their codecs
+        // accept only a registered singleton and disconnect the player when given a loaded copy.
         var recipes = player.level().recipeAccess().getRecipes().stream()
-                .filter(h -> h.value() instanceof CraftingRecipe).toList();
+                .filter(h -> h.value() instanceof CraftingRecipe recipe && !recipe.isSpecial()
+                        && (recipe.getSerializer() == ShapedRecipe.SERIALIZER
+                        || recipe.getSerializer() == ShapelessRecipe.SERIALIZER))
+                .toList();
         PacketDistributor.sendToPlayer(player, new RecipeSyncPayload(true, List.of()));
         // Bound each packet even for large modpacks; a fresh batch replaces the cache after /reload.
         for (int first = 0; first < recipes.size(); first += 32)

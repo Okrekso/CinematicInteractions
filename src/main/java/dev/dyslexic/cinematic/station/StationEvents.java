@@ -2,6 +2,7 @@ package dev.dyslexic.cinematic.station;
 
 import dev.dyslexic.cinematic.ClientBridge;
 import dev.dyslexic.cinematic.enchant.EnchantActions;
+import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.furnace.FurnaceWatch;
 import dev.dyslexic.cinematic.table.TableActions;
 import dev.dyslexic.cinematic.table.TableGrid;
@@ -25,6 +26,7 @@ import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.network.registration.NetworkRegistry;
 
 public final class StationEvents {
     private StationEvents() {}
@@ -43,6 +45,14 @@ public final class StationEvents {
                 || !kind.usedOn(state, event.getHitVec().getDirection())) {
             return;
         }
+        if (event.getLevel().isClientSide()) {
+            if (ClientBridge.vanillaUse.test(event.getPos().immutable(), kind)) {
+                return;
+            }
+        } else if (player instanceof ServerPlayer serverPlayer
+                && !NetworkRegistry.hasChannel(serverPlayer.connection, StationActionPayload.TYPE.id())) {
+            return;
+        }
         event.setCanceled(true);
         event.setCancellationResult(InteractionResult.CONSUME);
         if (event.getLevel().isClientSide()) {
@@ -56,6 +66,20 @@ public final class StationEvents {
         if (event.getLevel() instanceof ServerLevel level && !TableGrid.isTable(event.getState())
                 && TableStore.get(level).get(event.getPos()) != null) {
             TableActions.spill(level, event.getPos());
+        }
+    }
+
+    /** Repairs a lost cooking timer before the vanilla campfire ticker can treat zero as "finished". */
+    @SubscribeEvent
+    public static void onLevelTickPre(LevelTickEvent.Pre event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) {
+            return;
+        }
+        for (ServerPlayer player : level.players()) {
+            Sessions.Session session = Sessions.get(player);
+            if (session != null && session.kind() == StationKind.CAMPFIRE && session.dimension().equals(level.dimension())) {
+                dev.dyslexic.cinematic.campfire.CampfireActions.tick(level, session);
+            }
         }
     }
 
@@ -77,7 +101,7 @@ public final class StationEvents {
     public static void onChunkSent(ChunkWatchEvent.Sent event) {
         TableStore store = TableStore.get(event.getLevel());
         for (BlockPos pos : store.inChunk(event.getPos())) {
-            PacketDistributor.sendToPlayer(event.getPlayer(), TableActions.contents(pos, store.get(pos)));
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(event.getPlayer(), TableActions.contents(pos, store.get(pos)));
         }
         FurnaceWatch.chunkSent(event.getPlayer(), event.getChunk());
     }

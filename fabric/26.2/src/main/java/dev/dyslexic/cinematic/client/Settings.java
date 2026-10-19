@@ -8,7 +8,8 @@ import dev.dyslexic.cinematic.client.ClientConfig;
 
 /**
  * The player's own settings (config/cinematic-client.json). Mod Menu opens {@link SettingsScreen}, or
- * {@link ClothScreen} when Cloth Config is present. Values are read where used, so changes apply at once.
+ * {@link ClothScreen} when Cloth Config is present. The client-only choice is captured on connection; other values
+ * are read where used.
  */
 public final class Settings {
     private Settings() {}
@@ -30,6 +31,7 @@ public final class Settings {
     static final ClientConfig.BooleanValue LIVING_CAMERA;
     static final ClientConfig.BooleanValue CAMERA_SHAKE;
     static final ClientConfig.BooleanValue SCREEN_FLASH;
+    static final ClientConfig.BooleanValue CLIENT_ONLY_MODE;
     static final ClientConfig.BooleanValue DEVELOPER_MODE;
 
     static {
@@ -75,6 +77,11 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        b.pop();
+        b.translation("cinematic.configuration.multiplayer").push("multiplayer");
+        CLIENT_ONLY_MODE = b.comment("Show local scenes over supported vanilla menus on a server without Cinematic Interactions. "
+                        + "Change from the main menu; the choice takes effect on the next connection.")
+                .translation("cinematic.configuration.clientOnlyMode").define("clientOnlyMode", false);
         b.pop();
         b.translation("cinematic.configuration.developer").push("developer");
         DEVELOPER_MODE = b.comment("Show the local station layout editors and enable their G shortcut. Saved layouts apply even when this is false.")
@@ -130,6 +137,8 @@ public final class Settings {
     public static boolean controlHints() {
         return get(CONTROL_HINTS);
     }
+
+    public static boolean clientOnlyMode() { return get(CLIENT_ONLY_MODE); }
 
     public static boolean developerMode() { return get(DEVELOPER_MODE); }
 

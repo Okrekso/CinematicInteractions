@@ -25,6 +25,7 @@ public final class PacketDistributor {
     }
 
     public static void sendToServer(CustomPacketPayload payload) {
-        net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(payload);
+        if (net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.canSend(payload.type()))
+            net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking.send(payload);
     }
 }

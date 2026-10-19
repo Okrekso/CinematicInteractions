@@ -18,6 +18,7 @@ import org.joml.Quaternionf;
 public final class StationDisplayLayouts {
     private StationDisplayLayouts() {}
     public static boolean campfire(CampfireBlockEntity fire, PoseStack pose, MultiBufferSource buffers, int light) {
+        if (!ClientOnly.serverHasMod()) return false;
         var layout = SpatialLayouts.current(StationKind.CAMPFIRE);
         if (layout.equals(SpatialAppearance.VANILLA)) return false;
         BlockPos pos = fire.getBlockPos();

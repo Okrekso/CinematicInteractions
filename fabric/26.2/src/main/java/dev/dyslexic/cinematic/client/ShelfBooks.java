@@ -440,5 +440,5 @@ public final class ShelfBooks {
     }
 
     /** Slot pictures hidden while their physical books are out, read by the Fabric model wrapper. */
-    public static int emptyMask(BlockPos pos) { return SpatialLayouts.customShelf() ? 63 : HIDDEN.getOrDefault(pos, 0); }
+    public static int emptyMask(BlockPos pos) { return ClientOnly.serverHasMod() ? SpatialLayouts.customShelf() ? 63 : HIDDEN.getOrDefault(pos, 0) : 0; }
 }

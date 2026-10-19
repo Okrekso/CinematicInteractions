@@ -31,6 +31,7 @@ public final class StationModels extends WrapperBlockStateModel {
     }
 
     private BlockState displayed(BlockState state, BlockPos pos) {
+        if (!ClientOnly.serverHasMod()) return state;
         if (state.is(Blocks.BREWING_STAND)) {
             for (var property : BrewingStandBlock.HAS_BOTTLE) state = state.setValue(property, false);
         } else {

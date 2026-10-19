@@ -61,6 +61,7 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
 
     /** The bottles of the stands in sight, the pose at the camera. */
     static void renderAll(PoseStack pose, SceneBuffers buffers, Vec3 cam, ClientLevel level) {
+        if (!ClientOnly.serverHasMod()) return;
         for (Shown shown : SHOWN) {
             if (level.getBlockEntity(shown.pos()) instanceof BrewingStandBlockEntity stand) {
                 pose.pushPose();

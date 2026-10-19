@@ -83,7 +83,7 @@ public final class FurnaceWatch {
         if (furnace instanceof Fingerprinted marked) {
             marked.cinematic$setFingerprint(fingerprint(furnace));
         }
-        PacketDistributor.sendToPlayersTrackingChunk(level, new ChunkPos(pos), contents(pos, furnace));
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(pos), contents(pos, furnace));
     }
 
     /** A chunk reached a player: tell them what lies in its furnaces. */
@@ -92,7 +92,7 @@ public final class FurnaceWatch {
             if (entity instanceof AbstractFurnaceBlockEntity furnace && shown(entity.getBlockState())) {
                 FurnaceContentsPayload payload = contents(entity.getBlockPos(), furnace);
                 if (!payload.items().isEmpty()) {
-                    PacketDistributor.sendToPlayer(player, payload);
+                    dev.dyslexic.cinematic.net.Network.sendToPlayer(player, payload);
                 }
             }
         }

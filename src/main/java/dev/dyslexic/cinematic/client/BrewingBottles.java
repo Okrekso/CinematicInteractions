@@ -76,28 +76,29 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
 
         @Override
         public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand) {
-            return originalModel.getQuads(withoutBottles(state), side, rand);
+            return originalModel.getQuads(ClientOnly.serverHasMod() ? withoutBottles(state) : state, side, rand);
         }
 
         @Override
         public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, ModelData data,
                 @Nullable RenderType renderType) {
-            return originalModel.getQuads(withoutBottles(state), side, rand, data, renderType);
+            return originalModel.getQuads(ClientOnly.serverHasMod() ? withoutBottles(state) : state, side, rand, data, renderType);
         }
 
         @Override
         public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
-            return originalModel.getRenderTypes(withoutBottles(state), rand, data);
+            return originalModel.getRenderTypes(ClientOnly.serverHasMod() ? withoutBottles(state) : state, rand, data);
         }
 
         @Override
         public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
-            return originalModel.getModelData(level, pos, withoutBottles(state), data);
+            return originalModel.getModelData(level, pos, ClientOnly.serverHasMod() ? withoutBottles(state) : state, data);
         }
     }
 
     @Override
     public void render(BrewingStandBlockEntity stand, float partialTick, PoseStack pose, MultiBufferSource buffers, int light, int overlay) {
+        if (!ClientOnly.serverHasMod()) return;
         BlockPos pos = stand.getBlockPos();
         Vec3 cam = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         // the pose already stands at the block's corner

@@ -37,6 +37,9 @@ public final class SettingsScreen extends Screen {
     }
 
     @Override protected void init() {
+        addRenderableWidget(Button.builder(Component.translatable("cinematic.configuration.multiplayer"),
+                b -> minecraft.gui.setScreen(new MultiplayerSettingsScreen(this)))
+                .bounds(width - 248, 12, 116, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("cinematic.configuration.developer"),
                 b -> minecraft.gui.setScreen(new DeveloperSettingsScreen(this)))
                 .bounds(width - 124, 12, 116, 20).build());

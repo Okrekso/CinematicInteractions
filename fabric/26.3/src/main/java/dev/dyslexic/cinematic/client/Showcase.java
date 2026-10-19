@@ -2427,7 +2427,7 @@ public final class Showcase {
             ItemStack[] stock = {new ItemStack(Items.BANNER.white(), 2), new ItemStack(Items.DYE.red(), 4), map, new ItemStack(Items.PAPER, 2),
                     new ItemStack(Items.GLASS_PANE), water.copy(), water.copy(), water.copy(), new ItemStack(Items.NETHER_WART, 2),
                     new ItemStack(Items.BLAZE_POWDER, 2), new ItemStack(Items.CHICKEN, 3), new ItemStack(Items.MUTTON, 2),
-                    new ItemStack(Items.OAK_PLANKS, 8), new ItemStack(Items.GOLD_INGOT, 2)};
+                    new ItemStack(Items.OAK_PLANKS, 8), new ItemStack(Items.GOLD_INGOT, 2), new ItemStack(Items.BEEF, 3)};
             for (int i = 0; i < stock.length; i++) {
                 p.getInventory().setItem(9 + i, stock[i]);
             }
@@ -2869,6 +2869,37 @@ public final class Showcase {
         step(2, () -> pointAt(campfire().spot(0)));
         step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 0));
         step(60, () -> shot("f9_resting"));
+        // Reproduce a report about raw beef staying visible at 0% when placed from the seated scene.
+        step(4, () -> invClickItem(Items.BEEF));
+        step(3, () -> pointAt(campfire().spot(3)));
+        step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 1));
+        step(4, Showcase::stash);
+        step(24, () -> {
+            CampfireStation station = campfire();
+            check("seated beef timer advances on the client", station != null && station.syncedLit()
+                            && station.syncedCookingTime(3) > 0 && station.syncedProgress(3) > 0,
+                    "timer=" + (station == null ? "-" : station.syncedProgress(3) + "/" + station.syncedCookingTime(3)));
+            server(p -> {
+                if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                    check("seated beef cooks on the server", fire.getItems().get(3).is(Items.BEEF)
+                                    && fire.cookingTime[3] > 0 && fire.cookingProgress[3] > 0,
+                            "timer=" + fire.cookingProgress[3] + "/" + fire.cookingTime[3]);
+                }
+            });
+        });
+        step(2, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.cookingTime[3] = 0; // Simulate a timer lost after another block-entity update.
+                fire.cookingProgress[3] = 0;
+                fire.setChanged();
+            }
+        }));
+        step(12, () -> {
+            CampfireStation station = campfire();
+            check("seated beef recovers a missing timer", station != null && station.syncedCookingTime(3) > 0
+                            && station.syncedProgress(3) > 0,
+                    "timer=" + (station == null ? "-" : station.syncedProgress(3) + "/" + station.syncedCookingTime(3)));
+        });
         step(4, () -> report("campfire before standing up"));
         step(2, Scene::leave);
         step(50, () -> shot("f9_after"));

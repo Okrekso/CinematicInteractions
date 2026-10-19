@@ -137,7 +137,7 @@ public final class FurnaceActions {
 
     public static void sendState(ServerPlayer player, Session session) {
         if (player.level().getBlockEntity(session.pos()) instanceof AbstractFurnaceBlockEntity furnace) {
-            PacketDistributor.sendToPlayer(player, new FurnaceStatePayload(session.pos(), furnace.litTime, furnace.litDuration,
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new FurnaceStatePayload(session.pos(), furnace.litTime, furnace.litDuration,
                     furnace.cookingProgress, furnace.cookingTotalTime));
         }
     }

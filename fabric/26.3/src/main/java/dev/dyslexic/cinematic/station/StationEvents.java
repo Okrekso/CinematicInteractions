@@ -1,6 +1,7 @@
 package dev.dyslexic.cinematic.station;
 
 import dev.dyslexic.cinematic.ClientBridge;
+import dev.dyslexic.cinematic.campfire.CampfireActions;
 import dev.dyslexic.cinematic.furnace.FurnaceWatch;
 import dev.dyslexic.cinematic.net.PacketDistributor;
 import dev.dyslexic.cinematic.table.TableActions;
@@ -13,6 +14,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,9 +34,14 @@ public final class StationEvents {
                 return InteractionResult.PASS;
             }
             if (!level.isClientSide()) {
+                if (player instanceof ServerPlayer serverPlayer
+                        && !ServerPlayNetworking.canSend(serverPlayer, dev.dyslexic.cinematic.net.RecipeSyncPayload.TYPE)) {
+                    return InteractionResult.PASS;
+                }
                 // no swing shown to others, as with NeoForge's CONSUME
                 return InteractionResult.CONSUME;
             }
+            if (ClientBridge.vanillaUse.test(hit.getBlockPos(), kind)) return InteractionResult.PASS;
             ClientBridge.useAt = hit.getLocation();
             ClientBridge.useStation.accept(hit.getBlockPos().immutable(), kind);
             ClientBridge.swallowSwing = true;
@@ -43,6 +50,14 @@ public final class StationEvents {
         });
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) Sessions.tick(player);
+        });
+        // Repair a lost cooking timer before the vanilla campfire ticker can treat zero as "finished".
+        ServerTickEvents.START_LEVEL_TICK.register(level -> {
+            for (ServerPlayer player : level.players()) {
+                var session = Sessions.get(player);
+                if (session != null && session.kind() == StationKind.CAMPFIRE
+                        && session.dimension().equals(level.dimension())) CampfireActions.tick(level, session);
+            }
         });
         ServerTickEvents.END_LEVEL_TICK.register(level -> {
             if (level.getGameTime() % 40 != 0) return;

@@ -5,6 +5,8 @@ import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.Tooltip;
@@ -12,6 +14,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+import net.neoforged.neoforge.common.ModConfigSpec.ValueSpec;
 
 /** Adds the same profile selectors to NeoForge's screen when Cloth Config is absent. */
 final class DeveloperConfiguration extends ConfigurationScreen.ConfigurationSectionScreen {
@@ -47,5 +50,18 @@ final class DeveloperConfiguration extends ConfigurationScreen.ConfigurationSect
             elements.add(new Element(name, tooltip, selector, false));
         }
         return elements;
+    }
+
+    @Override protected Element createBooleanValue(String key, ValueSpec spec, Supplier<Boolean> source, Consumer<Boolean> target) {
+        if (!context.keylist().equals(List.of("multiplayer")) || !key.equals("clientOnlyMode")
+                || minecraft.level == null) {
+            return super.createBooleanValue(key, spec, source, target);
+        }
+        Component tooltip = Component.translatable("cinematic.settings.clientOnlyMode.locked");
+        Component value = Component.translatable(source.get() ? "cinematic.settings.on" : "cinematic.settings.off");
+        Button disabled = Button.builder(value, button -> {}).width(Button.DEFAULT_WIDTH).build();
+        disabled.active = false;
+        disabled.setTooltip(Tooltip.create(tooltip));
+        return new Element(getTranslationComponent(key), tooltip, disabled, false);
     }
 }

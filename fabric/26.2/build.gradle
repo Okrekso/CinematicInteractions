@@ -60,7 +60,13 @@ loom {
     accessWidenerPath = file('src/main/resources/cinematic.accesswidener')
     runs {
         client { client(); runDir 'run/client' }
+        clientOnlySmoke { client(); runDir 'run/client-only-smoke'; vmArg '-Dcinematic.clientOnlySmoke=true' }
         server { server(); runDir 'run/server'; programArg '--nogui' }
+        if (project.hasProperty('joinTest')) {
+            // A real network join (packets are encoded, unlike singleplayer): run joinServer, then joinClient.
+            joinServer { server(); runDir 'run/join-server'; programArg '--nogui' }
+            joinClient { client(); runDir 'run/join-client'; programArgs '--quickPlayMultiplayer', '127.0.0.1:25589' }
+        }
         showcase {
             client()
             runDir "run/${project.hasProperty('withShaders') ? 'showcase-iris' : 'showcase'}"

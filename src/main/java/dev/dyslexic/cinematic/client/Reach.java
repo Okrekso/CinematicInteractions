@@ -134,6 +134,22 @@ public final class Reach {
         return there != null ? there : judge(station, player, List.of(), true);
     }
 
+    /** Client-only scenes cannot move the player to a better position: judge their actual feet. */
+    public static Plan planHere(ClientStation station, LocalPlayer player) {
+        Plan plan = judge(station, player, List.of(), false);
+        if (!plan.scene()) return plan;
+        Vec3 eye = player.getEyePosition();
+        AABB own = new AABB(station.pos);
+        for (Vec3 point : station.workSamples()) {
+            BlockHitResult hit = player.level().clip(new ClipContext(eye, point, ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE, player));
+            if (hit.getType() != HitResult.Type.MISS && !(own.contains(point) && hit.getBlockPos().equals(station.pos)))
+                return new Plan(false, List.of(), player.position(), "work hidden from the real eye position", Reason.COVERED,
+                        player.level().getBlockState(hit.getBlockPos()).getBlock().getName());
+        }
+        return plan;
+    }
+
     /**
      * Standing beside the work rather than straight in front of it, turned towards it (lava or a pit right in front, a
      * way round at the side): places round the work at {@link #BESIDE_ANGLES} from straight out and within reach, the

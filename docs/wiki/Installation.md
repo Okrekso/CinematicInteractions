@@ -2,7 +2,7 @@
 
 ## Choose a release
 
-Download one JAR from [GitHub Releases](https://github.com/dcvke/CinematicInteractions/releases) that matches **both** your Minecraft version and mod loader. Fabric builds cover 1.21 through 1.21.11; NeoForge currently targets 1.21.1. A JAR for one game version is not a universal build for the whole 1.21 series.
+Download one JAR from [GitHub Releases](https://github.com/dcvke/CinematicInteractions/releases) that matches **both** your Minecraft version and mod loader. The latest beta supports NeoForge 1.21.1 and Fabric 1.21.11, 26.1.1, 26.1.2, 26.2 and 26.3. Older Fabric 1.21–1.21.10 downloads remain available as archived builds. A JAR for one game version is not a universal build.
 
 ## Fabric
 
@@ -32,9 +32,9 @@ Use Minecraft **1.21.1**. The reference development and verification environment
 
 ## Multiplayer
 
-The mod is required on **both the client and the server**. Install matching game, loader, and Cinematic Interactions builds on each side, plus Fabric API on Fabric. Other players with the mod can see synchronized items, workstation poses, and supported action effects.
+For the full experience, install the mod on **both the client and the server**. Install matching game, loader, and Cinematic Interactions builds on each side, plus Fabric API on Fabric. Other players with the mod can see synchronized items, workstation poses, and supported action effects.
 
-Singleplayer needs only the normal client installation: Minecraft runs the integrated server automatically. The mod is not compatible with an unmodified vanilla server.
+The latest beta also offers an optional client-only preview for selected stations on an unmodified server. Enable **Client Mode** in the mod settings from Minecraft's main menu before joining. These local scenes use vanilla menus and do not synchronize displayed items or poses with other players; unsupported stations use their vanilla interfaces. Singleplayer needs only the normal client installation: Minecraft runs the integrated server automatically.
 
 ## Release names
 

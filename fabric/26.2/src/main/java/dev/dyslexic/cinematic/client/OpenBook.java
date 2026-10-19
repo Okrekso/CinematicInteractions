@@ -58,7 +58,9 @@ final class OpenBook {
     record Look(String texture, float u0, float v0, float u1, float v1, float su0, float sv0, float su1, float sv1) {}
 
     /** The lectern's book: the leather of the enchanting table's book. */
-    static final Look LEATHER = new Look("entity/enchanting_table_book", 0, 0, 6 / 64f, 10 / 32f, 0, 0, 6 / 64f, 10 / 32f);
+    // Inset the crop: the atlas texture's outermost pixels are bright gold, which otherwise fills the thin board edges.
+    static final Look LEATHER = new Look("entity/enchantment/enchanting_table_book", 1 / 64f, 1 / 32f, 9 / 64f, 8 / 32f,
+            1 / 64f, 1 / 32f, 9 / 64f, 8 / 32f);
 
     enum Side { NONE, LEFT, RIGHT }
 

@@ -116,7 +116,8 @@ public abstract class MenuStation<M extends AbstractContainerMenu> extends Clien
      */
     protected void showMove(boolean bag) {
         moveShown = true;
-        PacketDistributor.sendToServer(new StationActionPayload(pos, kind(), StationActionPayload.Action.CRAFT, 1, bag ? 1 : 0, false, 0));
+        if (!Scene.clientOnly())
+            PacketDistributor.sendToServer(new StationActionPayload(pos, kind(), StationActionPayload.Action.CRAFT, 1, bag ? 1 : 0, false, 0));
     }
 
     /** Seconds into the move, or -1 when there is none. */
@@ -138,7 +139,7 @@ public abstract class MenuStation<M extends AbstractContainerMenu> extends Clien
         beat = null;
         if (Scene.phase == Scene.Phase.ACTIVE && menu() != null) {
             action.run();
-            if (!moveShown) {
+            if (!moveShown && !Scene.clientOnly()) {
                 PacketDistributor.sendToServer(StationActionPayload.of(pos, kind(), StationActionPayload.Action.CRAFT));
             }
         } else {
@@ -187,7 +188,7 @@ public abstract class MenuStation<M extends AbstractContainerMenu> extends Clien
         leaving = left;
         beat = null;
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player != null && menuType.isInstance(player.containerMenu)) {
+        if (!Scene.clientOnly() && player != null && menuType.isInstance(player.containerMenu)) {
             // the server closes its copy on LEAVE; ours goes quietly, without a window to close
             player.containerMenu = player.inventoryMenu;
         }

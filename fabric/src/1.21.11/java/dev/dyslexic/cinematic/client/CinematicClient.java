@@ -25,6 +25,7 @@ public final class CinematicClient implements ClientModInitializer {
     public void onInitializeClient() {
         CinematicPipelines.initialize();
         ClientBridge.useStation = Scene::begin;
+        ClientBridge.vanillaUse = ClientOnly::onVanillaUse;
         Settings.SPEC.load();
         KeyBindingHelper.registerKeyBinding(CampfireHint.SIT);
         KeyBindingHelper.registerKeyBinding(FreeLook.LOOK);
@@ -49,6 +50,7 @@ public final class CinematicClient implements ClientModInitializer {
             CampfireHint.tick();
             if (mc.level != null && mc.level.getGameTime() % 40 == 0) ClientFurnaces.prune(mc.level);
             Showcase.tick();
+            ClientOnlySmoke.tick();
         });
         // the world's frame (and no block selection box over a scene) come from the game itself since 1.21.9, where this
         // Fabric API has no world render events: LevelRendererMixin, FeatureRenderDispatcherMixin
@@ -69,14 +71,11 @@ public final class CinematicClient implements ClientModInitializer {
             }
         });
         ClientPlayConnectionEvents.DISCONNECT.register((handler, mc) -> clear());
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> {
-            if (!ClientPlayNetworking.canSend(StationActionPayload.TYPE)) {
-                handler.getConnection().disconnect(Component.literal("Cinematic Interactions must be installed on both the client and server."));
-            }
-        });
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, mc) -> ClientOnly.onLogin());
     }
 
     public static boolean screenOpening(Screen next) {
+        if (!Scene.active() && ClientOnly.onScreenOpening(next)) return true;
         if (!Scene.active() || next instanceof SceneScreen) return false;
         var player = Minecraft.getInstance().player;
         if (next instanceof MenuAccess<?> window && Scene.station.kind().usesMenu() && player != null && window.getMenu() == player.containerMenu) return true;
@@ -87,6 +86,7 @@ public final class CinematicClient implements ClientModInitializer {
 
     public static void clear() {
         Scene.drop();
+        ClientOnly.clear();
         ClientRecipes.clear();
         ClientTables.clear();
         ClientFurnaces.clear();

@@ -22,7 +22,7 @@ final class ShelfLayoutBooks implements BlockEntityRenderer<ChiseledBookShelfBlo
     private static final OpenBook book = new OpenBook();
     private static final Set<BlockPos> VISIBLE_SHELVES = new HashSet<>();
     private static double restoringUntil = -1;
-    static boolean drawsRestingBooks() { return SpatialLayouts.customShelf() || Scene.clock() < restoringUntil; }
+    static boolean drawsRestingBooks() { return ClientOnly.serverHasMod() && (SpatialLayouts.customShelf() || Scene.clock() < restoringUntil); }
     static void layoutChanged(boolean custom) {
         if (!custom) restoringUntil = Scene.clock() + 0.35;
         var mc = Minecraft.getInstance();

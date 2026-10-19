@@ -263,7 +263,8 @@ final class TableRecipeBook {
                     .withStyle(entry.craftable ? ChatFormatting.GREEN : ChatFormatting.RED));
             lines.add(text("preview").copy().withStyle(ChatFormatting.GRAY));
             // Recipe ids distinguish alternate recipes for the same result in large modpacks.
-            if (net.minecraft.client.Minecraft.getInstance().hasShiftDown()) lines.add(Component.literal(entry.holder.id().toString()).withStyle(ChatFormatting.DARK_GRAY));
+            if (entry.holder != null && net.minecraft.client.Minecraft.getInstance().hasShiftDown())
+                lines.add(Component.literal(entry.idText).withStyle(ChatFormatting.DARK_GRAY));
             return lines;
         }
         if (guide.selected == null || station.hoverCell < 0) return null;
@@ -328,7 +329,7 @@ final class TableRecipeBook {
     double[] layPoint() { return controlPoint(WIDTH / 2, LAY_Y + LAY_H / 2); }
     double[] controlPoint(int px, int py) { return new double[]{x + px * scale, y + py * scale}; }
     @Nullable double[] recipePoint(Identifier id) {
-        for (int i = 0; i < filtered.size(); i++) if (filtered.get(i).holder.id().identifier().equals(id)) {
+        for (int i = 0; i < filtered.size(); i++) if (filtered.get(i).holder != null && filtered.get(i).holder.id().identifier().equals(id)) {
             page = i / PAGE_SIZE;
             int slot = i % PAGE_SIZE;
             return controlPoint(GRID_X + slot % COLS * CELL + 12, GRID_Y + slot / COLS * CELL + 12);

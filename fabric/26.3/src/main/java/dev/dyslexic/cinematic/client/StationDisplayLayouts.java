@@ -19,6 +19,7 @@ public final class StationDisplayLayouts {
     private StationDisplayLayouts() {}
     public static boolean campfire(net.minecraft.client.renderer.blockentity.state.CampfireRenderState fire, PoseStack pose,
             net.minecraft.client.renderer.SubmitNodeCollector collector) {
+        if (!ClientOnly.serverHasMod()) return false;
         var layout = SpatialLayouts.current(StationKind.CAMPFIRE);
         if (layout.equals(SpatialAppearance.VANILLA)) return false;
         BlockPos pos = fire.blockPos;
@@ -39,7 +40,7 @@ public final class StationDisplayLayouts {
         }
         return true;
     }
-    public static boolean customLectern() { return !SpatialLayouts.current(StationKind.LECTERN).equals(SpatialAppearance.VANILLA); }
+    public static boolean customLectern() { return ClientOnly.serverHasMod() && !SpatialLayouts.current(StationKind.LECTERN).equals(SpatialAppearance.VANILLA); }
     public static void lectern(net.minecraft.client.renderer.blockentity.state.LecternRenderState lectern, PoseStack pose) {
         BlockPos pos = lectern.blockPos;
         var frame = RemainingLayouts.frame(StationKind.LECTERN, pos, Direction.fromYRot(lectern.yRot).getCounterClockWise());

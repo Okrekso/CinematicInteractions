@@ -34,7 +34,7 @@ public final class CampfireHint {
     @Nullable
     private static BlockPos looked() {
         Minecraft mc = Minecraft.getInstance();
-        if (Scene.active() || mc.gui.screen() != null || mc.player == null || mc.level == null || mc.player.isSpectator()
+        if (!ClientOnly.serverHasMod() || Scene.active() || mc.gui.screen() != null || mc.player == null || mc.level == null || mc.player.isSpectator()
                 || !Settings.scene(StationKind.CAMPFIRE) || !(mc.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
             return null;
         }

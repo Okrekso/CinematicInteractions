@@ -454,7 +454,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         leavingItem = item().copy();
         leavingLapis = lapis();
         LocalPlayer player = Minecraft.getInstance().player;
-        if (player != null && player.containerMenu instanceof EnchantmentMenu) {
+        if (!Scene.clientOnly() && player != null && player.containerMenu instanceof EnchantmentMenu) {
             // the server closes its copy on LEAVE; ours goes quietly, without a window to close
             player.containerMenu = player.inventoryMenu;
         }

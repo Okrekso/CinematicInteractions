@@ -2360,7 +2360,7 @@ public final class Showcase {
             ItemStack[] stock = {new ItemStack(Items.WHITE_BANNER, 2), new ItemStack(Items.RED_DYE, 4), map, new ItemStack(Items.PAPER, 2),
                     new ItemStack(Items.GLASS_PANE), water.copy(), water.copy(), water.copy(), new ItemStack(Items.NETHER_WART, 2),
                     new ItemStack(Items.BLAZE_POWDER, 2), new ItemStack(Items.CHICKEN, 3), new ItemStack(Items.MUTTON, 2),
-                    new ItemStack(Items.OAK_PLANKS, 8), new ItemStack(Items.GOLD_INGOT, 2)};
+                    new ItemStack(Items.OAK_PLANKS, 8), new ItemStack(Items.GOLD_INGOT, 2), new ItemStack(Items.BEEF, 3)};
             for (int i = 0; i < stock.length; i++) {
                 p.getInventory().setItem(9 + i, stock[i]);
             }
@@ -2689,6 +2689,23 @@ public final class Showcase {
         else campfireAct();
     }
 
+    private static final long[] beefPace = new long[3];
+
+    /** Cooked beef dropped round the campfire or already picked up by the player. */
+    private static long cookedBeef(ServerPlayer p, BlockPos fire) {
+        long count = 0;
+        var box = new net.minecraft.world.phys.AABB(fire.getX() - 4, fire.getY() - 2, fire.getZ() - 4,
+                fire.getX() + 5, fire.getY() + 3, fire.getZ() + 5);
+        for (var item : p.level().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, box)) {
+            if (item.getItem().is(Items.COOKED_BEEF)) count += item.getItem().getCount();
+        }
+        for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+            if (p.getInventory().getItem(i).is(Items.COOKED_BEEF)) count += p.getInventory().getItem(i).getCount();
+        }
+        ItemStack carried = p.containerMenu.getCarried();
+        return carried.is(Items.COOKED_BEEF) ? count + carried.getCount() : count;
+    }
+
     private static CampfireStation campfire() {
         return Scene.station(CampfireStation.class);
     }
@@ -2802,6 +2819,62 @@ public final class Showcase {
         step(2, () -> pointAt(campfire().spot(0)));
         step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 0));
         step(60, () -> shot("f9_resting"));
+        // Reproduce a report about raw beef staying visible at 0% when placed from the seated scene.
+        step(4, () -> invClickItem(Items.BEEF));
+        step(3, () -> pointAt(campfire().spot(3)));
+        step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 1));
+        step(4, Showcase::stash);
+        step(24, () -> {
+            CampfireStation station = campfire();
+            check("seated beef timer advances on the client", station != null && station.syncedLit()
+                            && station.syncedCookingTime(3) > 0 && station.syncedProgress(3) > 0,
+                    "timer=" + (station == null ? "-" : station.syncedProgress(3) + "/" + station.syncedCookingTime(3)));
+            server(p -> {
+                if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                    check("seated beef cooks on the server", fire.getItems().get(3).is(Items.BEEF)
+                                    && fire.cookingTime[3] > 0 && fire.cookingProgress[3] > 0,
+                            "timer=" + fire.cookingProgress[3] + "/" + fire.cookingTime[3]);
+                    beefPace[0] = p.level().getGameTime();
+                    beefPace[1] = fire.cookingProgress[3];
+                }
+            });
+        });
+        // The repair must leave a healthy fire alone: one step of progress per game tick, as in vanilla.
+        step(20, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long ticks = p.level().getGameTime() - beefPace[0], cooked = fire.cookingProgress[3] - beefPace[1];
+                check("seated beef cooks at the vanilla pace", ticks > 0 && cooked > 0 && cooked <= ticks,
+                        "progress +" + cooked + " in " + ticks + " ticks");
+            }
+        }));
+        step(2, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.cookingTime[3] = 0; // Simulate a timer lost after another block-entity update.
+                fire.cookingProgress[3] = 0;
+                fire.setChanged();
+            }
+        }));
+        step(12, () -> {
+            CampfireStation station = campfire();
+            check("seated beef recovers a missing timer", station != null && station.syncedCookingTime(3) > 0
+                            && station.syncedProgress(3) > 0,
+                    "timer=" + (station == null ? "-" : station.syncedProgress(3) + "/" + station.syncedCookingTime(3)));
+        });
+        // Finish the piece: exactly one cooked beef pops off, as from the vanilla ticker.
+        step(2, () -> server(p -> {
+            beefPace[2] = cookedBeef(p, CAMPFIRE);
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.cookingProgress[3] = Math.max(0, fire.cookingTime[3] - 4);
+                fire.setChanged();
+            }
+        }));
+        step(16, () -> server(p -> {
+            if (p.level().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long cooked = cookedBeef(p, CAMPFIRE) - beefPace[2];
+                check("seated beef pops off cooked once", fire.getItems().get(3).isEmpty() && cooked == 1,
+                        "spot=" + fire.getItems().get(3) + " cooked=" + cooked);
+            }
+        }));
         step(4, () -> report("campfire before standing up"));
         step(2, Scene::leave);
         step(50, () -> shot("f9_after"));
@@ -2857,6 +2930,43 @@ public final class Showcase {
         step(2, () -> check("cooking indicator clears when food finishes", campfire() != null && campfire().syncedCookingTime(0) == 0
                 && Minecraft.getInstance().level.getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire
                 && fire.getItems().get(0).isEmpty(), "time=" + (campfire() == null ? "-" : campfire().syncedCookingTime(0))));
+        // Raw beef from the seated scene, on its own spot of the soul fire.
+        step(4, () -> invClickItem(Items.BEEF));
+        step(3, () -> pointAt(campfire().spot(1)));
+        step(6, () -> clickCampfire(CampfireStation.Target.PLACE, 1));
+        step(4, Showcase::stash);
+        step(24, () -> {
+            CampfireStation station = campfire();
+            check("soul campfire beef timer advances on the client", station != null && station.syncedLit()
+                            && station.syncedCookingTime(1) > 0 && station.syncedProgress(1) > 0,
+                    "timer=" + (station == null ? "-" : station.syncedProgress(1) + "/" + station.syncedCookingTime(1)));
+            server(p -> {
+                if (p.level().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                    check("soul campfire beef cooks on the server", fire.getItems().get(1).is(Items.BEEF)
+                                    && fire.cookingTime[1] > 0 && fire.cookingProgress[1] > 0,
+                            "timer=" + fire.cookingProgress[1] + "/" + fire.cookingTime[1]);
+                    beefPace[0] = p.level().getGameTime();
+                    beefPace[1] = fire.cookingProgress[1];
+                }
+            });
+        });
+        step(20, () -> server(p -> {
+            if (p.level().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long ticks = p.level().getGameTime() - beefPace[0], cooked = fire.cookingProgress[1] - beefPace[1];
+                check("soul campfire beef cooks at the vanilla pace", ticks > 0 && cooked > 0 && cooked <= ticks,
+                        "progress +" + cooked + " in " + ticks + " ticks");
+                beefPace[2] = cookedBeef(p, SOUL_CAMPFIRE);
+                fire.cookingProgress[1] = Math.max(0, fire.cookingTime[1] - 4);
+                fire.setChanged();
+            }
+        }));
+        step(16, () -> server(p -> {
+            if (p.level().getBlockEntity(SOUL_CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                long cooked = cookedBeef(p, SOUL_CAMPFIRE) - beefPace[2];
+                check("soul campfire beef pops off cooked once", fire.getItems().get(1).isEmpty() && cooked == 1,
+                        "spot=" + fire.getItems().get(1) + " cooked=" + cooked);
+            }
+        }));
         step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("u9_after"));
@@ -3498,6 +3608,9 @@ public final class Showcase {
         step(16, () -> shot("o4_settings_interface"));
         step(2, () -> clickWidget(Component.translatable("cinematic.settings.camera").getString()));
         step(16, () -> shot("o5_settings_camera"));
+        step(2, () -> check("multiplayer tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                Component.translatable("cinematic.configuration.multiplayer").getString()), "client-only switch visible in-game"));
+        step(16, () -> shot("o5a_settings_multiplayer"));
         step(2, () -> check("developer tab opens", clickSettingsSection(Minecraft.getInstance().screen, Component.translatable("cinematic.configuration.developer").getString()), "profile selectors available"));
         step(16, () -> { verifyProfileControls(); shot("o5_settings_developer"); });
         step(2, () -> Minecraft.getInstance().setScreen(null));

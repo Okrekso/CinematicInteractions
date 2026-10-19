@@ -140,6 +140,22 @@ public final class Reach {
      * nearer place first at each angle, each with the work in view and a safe way to it. The station is left
      * turned ({@link ClientStation#swing}) when one is found.
      */
+    /** A client-only scene must work from the actual feet and through a clear line of sight. */
+    public static Plan planHere(ClientStation station, LocalPlayer player) {
+        Plan plan = judge(station, player, List.of(), false);
+        if (!plan.scene()) return plan;
+        Vec3 eye = player.getEyePosition();
+        AABB own = new AABB(station.pos);
+        for (Vec3 point : station.workSamples()) {
+            BlockHitResult hit = player.level().clip(new ClipContext(eye, point, ClipContext.Block.COLLIDER,
+                    ClipContext.Fluid.NONE, player));
+            if (hit.getType() != HitResult.Type.MISS && !(own.contains(point) && hit.getBlockPos().equals(station.pos)))
+                return new Plan(false, List.of(), player.position(), "work hidden from the real eye position", Reason.COVERED,
+                        player.level().getBlockState(hit.getBlockPos()).getBlock().getName());
+        }
+        return plan;
+    }
+
     public static Plan planBeside(ClientStation station, LocalPlayer player) {
         Level level = player.level();
         Vec3 work = station.workPoint();

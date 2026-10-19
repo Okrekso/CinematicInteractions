@@ -2,6 +2,9 @@ package dev.dyslexic.cinematic.client;
 
 import javax.annotation.Nullable;
 import net.minecraft.util.Mth;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -88,7 +91,20 @@ public final class CameraRig {
 
     /** The station's pose kept within what the player's head can do from where the player really is. */
     private static Pose tether(Pose pose, Vec3 eye, ClientStation station) {
-        return Reach.cameraPose(station, pose, eye);
+        Pose held = Reach.cameraPose(station, pose, eye);
+        if (!Scene.clientOnly()) return held;
+        // With no server companion, the camera never leaves the player's head far enough to see around a wall.
+        Vec3 offset = held.pos().subtract(eye);
+        Vec3 end = eye.add(offset.length() > 0.35 ? offset.normalize().scale(0.35) : offset);
+        var mc = Minecraft.getInstance();
+        if (mc.level != null && mc.player != null) {
+            var hit = mc.level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+            if (hit.getType() != HitResult.Type.MISS) {
+                Vec3 travel = hit.getLocation().subtract(eye);
+                end = eye.add(travel.length() > 0.08 ? travel.normalize().scale(travel.length() - 0.08) : Vec3.ZERO);
+            }
+        }
+        return new Pose(end, held.yaw(), held.pitch(), held.roll());
     }
 
     /** A dramatic moment: a tremor that dies down with it. */

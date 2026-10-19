@@ -118,7 +118,7 @@ public final class MenuActions {
     }
 
     private static void show(ServerPlayer player, Session session, List<ItemStack> items) {
-        PacketDistributor.sendToPlayersTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()),
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()),
                 new MenuDisplayPayload(session.pos(), session.kind(), session.side().get2DDataValue(), items));
     }
 
@@ -157,6 +157,6 @@ public final class MenuActions {
             fx = new MenuFxPayload(session.pos(), session.kind(), player.getId(), MenuFxPayload.Cue.MOVE, action.button(), items,
                     player.containerMenu.getSlot(result).getItem().copy());
         }
-        PacketDistributor.sendToPlayersTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()), fx);
+        dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(player.serverLevel(), new ChunkPos(session.pos()), fx);
     }
 }

@@ -33,6 +33,11 @@ public final class TableRenderer {
             TableStation station = mine != null && mine.pos.equals(pos) ? mine : null;
             draw(pose, buffers, cam, pos, e.getValue(), station, net.minecraft.util.LightCoordsUtil.getLightCoords(level, pos.above()), false);
         }
+        if (mine != null && Scene.clientOnly() && ClientTables.get(mine.pos) != null
+                && frustum.isVisible(new AABB(mine.pos).expandTowards(0, 0.4, 0))) {
+            draw(pose, buffers, cam, mine.pos, ClientTables.get(mine.pos), mine,
+                    net.minecraft.util.LightCoordsUtil.getLightCoords(level, mine.pos.above()), false);
+        }
         if (mine != null && mine.craftItems != null && ClientTables.get(mine.pos) == null && gathering(mine)) {
             // everything was used up: still show the ingredients gathering
             draw(pose, buffers, cam, mine.pos, null, mine, net.minecraft.util.LightCoordsUtil.getLightCoords(level, mine.pos.above()), false);
