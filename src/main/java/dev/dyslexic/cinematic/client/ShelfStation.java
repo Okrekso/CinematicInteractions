@@ -348,6 +348,30 @@ public final class ShelfStation extends ClientStation implements SpatialTarget {
         begin(Move.TAKE, slot, bookIn(slot));
     }
 
+    /**
+     * Shift-click from the drawer: a book goes into the first empty place, reading the shelf as a page (top row, left to
+     * right as the player faces it), carried in from below as a book from the hotbar is; anything else stays put.
+     */
+    @Override
+    public void quickMove(int inventorySlot, int menuSlot) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (busy() || player == null) {
+            return;
+        }
+        ItemStack stack = player.getInventory().getItem(inventorySlot);
+        if (!shelfBook(stack)) {
+            deny();
+            return;
+        }
+        for (int slot = 0; slot < net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity.MAX_BOOKS_IN_STORAGE; slot++) {
+            if (bookIn(slot).isEmpty()) {
+                put(slot, inventorySlot, stack);
+                return;
+            }
+        }
+        deny();
+    }
+
     private void put(int slot, int source, ItemStack stack) {
         from = source;
         // from the hand at the shelf, or (the book in hand when the scene began) from below

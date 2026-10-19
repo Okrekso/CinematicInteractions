@@ -31,6 +31,26 @@ public final class Fx {
 
     static final RandomSource RANDOM = RandomSource.create();
 
+    /** Plain white: under {@link #flatGlow()} the vertex colours alone make the light. */
+    private static final ResourceLocation WHITE = ResourceLocation.withDefaultNamespace("textures/misc/white.png");
+
+    /**
+     * Warm light lying flat on a block face (furnace gauges, the glow inside its openings). RenderType.lightning()
+     * blends the same way without shaders, but shader packs take it for a lightning bolt: Complementary runs it
+     * through its lighting as a solid surface and marks it in the reflection buffer, so furnace gauges turned into
+     * pale white stripes with reflections and the glow in the openings went dark. The "eyes" layer adds the same
+     * light, writes no depth, and shader packs keep it as emission (the runes of the enchanting table use it too).
+     */
+    static RenderType flatGlow() {
+        return RenderType.eyes(WHITE);
+    }
+
+    /** One corner of a {@link #flatGlow()} quad; the colour is the light added there. */
+    static void glowVertex(VertexConsumer vc, org.joml.Matrix4f m, float x, float y, float z, int r, int g, int b, Vec3 normal) {
+        vc.addVertex(m, x, y, z).setColor(r, g, b, 255).setUv(0.5f, 0.5f).setOverlay(OverlayTexture.NO_OVERLAY)
+                .setLight(LightTexture.FULL_BRIGHT).setNormal((float) normal.x, (float) normal.y, (float) normal.z);
+    }
+
     /**
      * A flat see-through highlight lying on a face (the cell of a table, the opening of a furnace): drawn without writing
      * depth, so overlapping pieces of it blend instead of fighting over which is in front, and pulled a little towards

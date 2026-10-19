@@ -279,6 +279,28 @@ public abstract class ClientStation {
     /** The scene is over (stepping away or dropped): let go of whatever the station holds. */
     public void onEnd() {}
 
+    /**
+     * Shift-click on inventory slot {@code inventorySlot} (0..35) in the drawer ({@code menuSlot}: the same slot in the
+     * open menu, or -1): the stack goes into the station where it fits, as a shift-click into the block's window would
+     * put it, or stays where it is. The server decides (a menu's own quick move, a furnace's opening, a campfire spot);
+     * without the mod there, only a vanilla shift-click that lands in the block is sent. Stations whose hands carry the
+     * item (the table, the jukebox, the chiseled bookshelf) do it their own way.
+     */
+    public void quickMove(int inventorySlot, int menuSlot) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (busy() || mc.player == null || mc.gameMode == null || mc.level == null) {
+            return;
+        }
+        if (Scene.clientOnly()) {
+            QuickMoves.sendVanilla(mc, mc.player.containerMenu, menuSlot);
+            return;
+        }
+        if (kind().usesMenu() || kind().isFurnace() || kind() == StationKind.CAMPFIRE) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(pos, kind(),
+                    dev.dyslexic.cinematic.net.StationActionPayload.Action.QUICK, inventorySlot, 0, true, 0));
+        }
+    }
+
     /** 0..1: how hard the camera is pulled in and shaken right now (a dramatic moment). */
     public double cameraKick() {
         return 0;

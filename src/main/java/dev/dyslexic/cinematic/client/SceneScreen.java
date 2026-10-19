@@ -39,6 +39,9 @@ public final class SceneScreen extends Screen {
     @Nullable
     private Consumer<String> commit;
 
+    /** The field guide on the right, when a recipe viewer is installed. */
+    final FieldGuide guide = new FieldGuide();
+
     public SceneScreen() {
         super(Component.translatable("cinematic.scene"));
     }
@@ -49,9 +52,22 @@ public final class SceneScreen extends Screen {
     }
 
     @Override
+    protected void init() {
+        super.init();
+        // back from a recipe viewer's page: the scene decides whether the work goes on here
+        Scene.consulted();
+    }
+
+    @Override
     public void tick() {
         super.tick();
+        if (!Scene.active()) {
+            // the scene ended while a recipe viewer's page covered it; the viewer handed back a screen with nothing under it
+            Minecraft.getInstance().setScreen(null);
+            return;
+        }
         inventoryEffects.tick();
+        guide.tick();
     }
 
     @Override
@@ -75,7 +91,7 @@ public final class SceneScreen extends Screen {
         return Scene.phase == Scene.Phase.ACTIVE && Scene.station != null;
     }
 
-    private static LayoutEditor editor() {
+    static LayoutEditor editor() {
         if (Scene.station instanceof TableStation table) return table.gridEditor;
         if (Scene.station instanceof FurnaceStation furnace) return furnace.gridEditor;
         if (Scene.station instanceof SurfaceStation<?> surface) return surface.gridEditor;
@@ -212,7 +228,7 @@ public final class SceneScreen extends Screen {
         float look = (float) FreeLook.amount();
         boolean over = working() && drawer && !FreeLook.looking() && overPanel(mouseX, mouseY);
         Scene.overPanel = over || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY))
-                || (editor() != null && editor().over(mouseX, mouseY));
+                || (editor() != null && editor().over(mouseX, mouseY)) || guideShown() && guide.over(mouseX, mouseY);
         expand = Anim.approach(expand, over ? 1 : 0, 13, Scene.frameDt);
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
@@ -222,6 +238,9 @@ public final class SceneScreen extends Screen {
 
         if (alpha > 0.01f) {
             station.renderScreen(graphics, font, alpha);
+            if (guideShown()) {
+                guide.render(graphics, font, alpha);
+            }
             if (drawer) {
                 drawPanel(graphics, player, hovered, alpha);
             }
@@ -371,6 +390,11 @@ public final class SceneScreen extends Screen {
 
     private void drawTooltip(GuiGraphics g, LocalPlayer player, ClientStation station, int hovered, int mx, int my) {
         ItemStack carried = player.containerMenu.getCarried();
+        List<Component> guideLines = guideShown() && carried.isEmpty() ? guide.tooltip(mx, my) : null;
+        if (guideLines != null) {
+            g.renderComponentTooltip(font, guideLines, mx, my);
+            return;
+        }
         if (hovered >= 0) {
             ItemStack stack = player.getInventory().getItem(inventoryIndex(hovered));
             if (carried.isEmpty() && !stack.isEmpty()) {
@@ -390,12 +414,46 @@ public final class SceneScreen extends Screen {
         g.renderTooltip(font, seq, mx, my);
     }
 
+    /** The guide stays out of the way while a layout editor is open. */
+    private boolean guideShown() {
+        return working() && !(editor() != null && editor().visible());
+    }
+
+    /** The inventory item under the cursor on the panel, for the recipe viewer's own keys. */
+    @javax.annotation.Nullable
+    private ItemStack hoveredPanelItem() {
+        LocalPlayer player = Minecraft.getInstance().player;
+        double[] mouse = Picking.mouseGui();
+        if (player == null || Scene.station == null || !Scene.station.showsInventory() || !overPanel(mouse[0], mouse[1])) return null;
+        int slot = slotAt(mouse[0], mouse[1]);
+        return slot < 0 ? null : player.getInventory().getItem(inventoryIndex(slot));
+    }
+
     private static int argb(float a, int r, int g, int b) {
         int alpha = Mth.clamp(Math.round(a * 255), 0, 255);
         return alpha << 24 | r << 16 | g << 8 | b;
     }
 
     // ---- input --------------------------------------------------------------------------------------
+
+    /**
+     * A click on a drawer slot (numbered as in the inventory menu: hotbar 36..44, the pack 9..35). A plain click picks up
+     * and puts down through the open menu; with shift the stack goes into the station where it fits
+     * ({@link ClientStation#quickMove}), never just shuffled between hotbar and pack.
+     */
+    void panelClick(int drawerSlot, int button, boolean shift) {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        if (drawerSlot < 0 || player == null || mc.gameMode == null || Scene.station == null) {
+            return;
+        }
+        int target = menuSlot(player, drawerSlot);
+        if (shift) {
+            Scene.station.quickMove(inventoryIndex(drawerSlot), target);
+        } else if (target >= 0) {
+            mc.gameMode.handleInventoryMouseClick(player.containerMenu.containerId, target, button, ClickType.PICKUP, player);
+        }
+    }
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
@@ -412,17 +470,15 @@ public final class SceneScreen extends Screen {
             return true;
         }
         inventoryEffects.action(hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP);
+        if (guideShown() && guide.click(mx, my, button)) {
+            return true;
+        }
         if (Scene.station instanceof TableStation table && table.recipeBook.click(mx, my, button)) {
             table.release(button);
             return true;
         }
         if (Scene.station.showsInventory() && overPanel(mx, my)) {
-            int slot = slotAt(mx, my);
-            int target = slot >= 0 ? menuSlot(player, slot) : -1;
-            if (target >= 0) {
-                mc.gameMode.handleInventoryMouseClick(player.containerMenu.containerId, target, button,
-                        hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP, player);
-            }
+            panelClick(slotAt(mx, my), button, hasShiftDown());
             return true;
         }
         if (button == 1 && Scene.neighbor != null) {
@@ -440,6 +496,7 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (working() && editor() != null && editor().scroll(mx, my, scrollY)) return true;
+        if (working() && guideShown() && guide.scroll(mx, my, scrollY)) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.scroll(mx, my, scrollY)) return true;
         if (working() && !(Scene.station.showsInventory() && overPanel(mx, my))) {
             Scene.station.scroll(scrollY);
@@ -450,6 +507,7 @@ public final class SceneScreen extends Screen {
     @Override
     public boolean charTyped(char c, int modifiers) {
         if (working() && editor() != null && editor().editing()) return true;
+        if (working() && guideShown() && guide.charTyped(c, modifiers)) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.charTyped(c, modifiers)) return true;
         return field != null ? field.charTyped(c, modifiers) : super.charTyped(c, modifiers);
     }
@@ -460,8 +518,14 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (working() && editor() != null && editor().drag(mx, my, button)) return true;
+        if (working() && guideShown() && guide.over(mx, my)) {
+            // over the guide: neither a drag of the station nor painting, and a left-drag still ends on release
+            if (button == 1 && Scene.station instanceof TableStation table) table.release(button);
+            return true;
+        }
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.over(mx, my)) {
-            table.release(button);
+            // A right-drag stops painting over the panel; a left-drag only stops gathering and still ends on release.
+            if (button == 1) table.release(button);
             return true;
         }
         if (working()) {
@@ -515,7 +579,9 @@ public final class SceneScreen extends Screen {
             return true;
         }
         inventoryEffects.action(hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP);
+        if (guideShown() && guide.keyPressed(key, scanCode, modifiers)) return true;
         if (Scene.station instanceof TableStation table && table.recipeBook.keyPressed(key, scanCode, modifiers)) return true;
+        if (guideShown() && guide.viewerKey(key, scanCode, hoveredPanelItem())) return true;
         if (editor() != null && editor().keyPressed(key)) return true;
         if (Scene.station.keyPressed(key)) {
             return true;

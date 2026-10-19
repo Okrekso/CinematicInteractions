@@ -27,6 +27,7 @@ public final class EnchantFx {
     private EnchantFx() {}
 
     public static final ResourceLocation CIRCLE = Cinematic.id("textures/fx/magic_circle.png");
+    public static final ResourceLocation PIXEL_CIRCLE = Cinematic.id("textures/fx/enchant_circle_pixel.png");
     public static final ResourceLocation GLOW = Cinematic.id("textures/fx/glow.png");
     public static final ResourceLocation BEAM = Cinematic.id("textures/fx/beam.png");
 
@@ -124,14 +125,70 @@ public final class EnchantFx {
         }
     }
 
+    /** The neutral pixel mask stays white; its two vertex colours supply the palette as the quad rotates. */
+    private static void gradientQuad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] corners, CirclePalette palette,
+            float brightness, Vec3 normal) {
+        for (int[] order : BOTH_WAYS) {
+            for (int i : order) {
+                int rgb = i < 2 ? palette.top : palette.bottom;
+                vc.addVertex(pose, (float) corners[i].x, (float) corners[i].y, (float) corners[i].z)
+                        .setColor(clamp(((rgb >> 16) & 255) / 255f * brightness),
+                                clamp(((rgb >> 8) & 255) / 255f * brightness),
+                                clamp((rgb & 255) / 255f * brightness), 255)
+                        .setUv(QUAD_UV[i][0], QUAD_UV[i][1])
+                        .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT)
+                        .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z);
+            }
+        }
+    }
+
+    public enum CirclePalette {
+        VIOLET(0xAB00F9, 0xDA9FFF),
+        RED(0xA3303B, 0xCF5354),
+        LAPIS(0x3B78D9, 0x9CC8FF);
+
+        final int top, bottom;
+
+        CirclePalette(int top, int bottom) {
+            this.top = top;
+            this.bottom = bottom;
+        }
+    }
+
     private static int clamp(float v) {
         return Math.max(0, Math.min(255, Math.round(v * 255)));
     }
 
-    /** The rune circle lying on a surface, turned by {@code angle} radians, coloured (r, g, b) as light. */
+    /** The pixel rune circle lying on a surface, with a gradient that turns together with its glyphs. */
     public static void circle(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 center, double radius, double angle,
-            float r, float g, float b) {
-        disc(pose, buffers, cam, center, radius, angle, CIRCLE, r, g, b);
+            CirclePalette palette, float brightness) {
+        Vec3[] corners = new Vec3[4];
+        for (int i = 0; i < 4; i++) {
+            double a = angle + Math.PI / 4 + i * Math.PI / 2;
+            double d = radius * Math.sqrt(2);
+            corners[i] = new Vec3(center.x + Math.cos(a) * d - cam.x, center.y - cam.y, center.z + Math.sin(a) * d - cam.z);
+        }
+        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette,
+                brightness, new Vec3(0, 1, 0));
+    }
+
+    /** The same pixel rune facing the camera, used by the floating enchantment offers. */
+    public static void circleBillboard(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 center, double radius,
+            double angle, CirclePalette palette, float brightness) {
+        Vector3f left = camera.getLeftVector();
+        Vector3f up = camera.getUpVector();
+        Vec3 cam = camera.getPosition();
+        Vec3[] corners = new Vec3[4];
+        for (int i = 0; i < 4; i++) {
+            double a = angle + Math.PI / 4 + i * Math.PI / 2;
+            double x = Math.cos(a) * radius * Math.sqrt(2);
+            double y = Math.sin(a) * radius * Math.sqrt(2);
+            corners[i] = new Vec3(center.x + left.x() * x + up.x() * y - cam.x,
+                    center.y + left.y() * x + up.y() * y - cam.y, center.z + left.z() * x + up.z() * y - cam.z);
+        }
+        Vector3f look = camera.getLookVector();
+        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette, brightness,
+                new Vec3(-look.x(), -look.y(), -look.z()));
     }
 
     /** A texture lying flat on a surface as added light. */

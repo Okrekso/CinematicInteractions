@@ -29,7 +29,8 @@ public final class TableActions {
             case CLICK -> click(player, level, session, action.index(), action.button(), action.shift());
             case PAINT -> paint(player, level, session, action.index());
             case CRAFT -> craft(player, level, session, action.shift());
-            case PLACE -> place(player, level, session, action.index(), action.button());
+            case PLACE -> place(player, level, session, action.index(), action.button(), Math.max(1, action.side()));
+            case SPREAD -> spread(player, level, session, action.index());
             default -> {}
         }
     }
@@ -137,10 +138,57 @@ public final class TableActions {
     }
 
     /**
-     * Laying out a recipe: one item from inventory slot {@code slot} (-1: the item in hand) into an empty cell, or onto
-     * the same item there.
+     * Left-drag across cells: the stack in hand is shared evenly between the chosen cells, by the rules of a vanilla
+     * left-drag over slots (each takes the same whole share up to its stack limit; the rest stays in hand). Only cells
+     * that are empty or hold the same item take part; the server works from its own stack, so nothing is created.
      */
-    private static void place(ServerPlayer player, ServerLevel level, Session session, int cell, int slot) {
+    private static void spread(ServerPlayer player, ServerLevel level, Session session, int mask) {
+        ItemStack carried = player.inventoryMenu.getCarried();
+        if (carried.isEmpty() || mask <= 0 || mask >= 1 << TableGrid.CELLS) {
+            return;
+        }
+        TableStore store = TableStore.get(level);
+        TableStore.Table table = store.getOrCreate(session.pos());
+        List<Integer> cells = new ArrayList<>();
+        for (int cell = 0; cell < TableGrid.CELLS; cell++) {
+            ItemStack onCell = table.items.get(cell);
+            if ((mask & 1 << cell) != 0 && (onCell.isEmpty() || ItemStack.isSameItemSameComponents(carried, onCell))) {
+                cells.add(cell);
+            }
+        }
+        int share = cells.isEmpty() ? 0 : carried.getCount() / cells.size();
+        boolean placed = false;
+        for (int cell : cells) {
+            ItemStack onCell = table.items.get(cell);
+            int move = Math.min(share, carried.getMaxStackSize() - onCell.getCount());
+            if (move <= 0) {
+                continue;
+            }
+            if (onCell.isEmpty()) {
+                table.items.set(cell, carried.split(move));
+            } else {
+                onCell.grow(move);
+                carried.shrink(move);
+            }
+            table.facing[cell] = (byte) session.side().get2DDataValue();
+            placed = true;
+        }
+        if (!placed) {
+            store.cleanup(session.pos());
+            return;
+        }
+        if (carried.isEmpty()) {
+            player.inventoryMenu.setCarried(ItemStack.EMPTY);
+        }
+        finish(player, level, store, session.pos());
+        level.playSound(null, session.pos(), SoundEvents.WOOD_HIT, SoundSource.PLAYERS, 0.35f, 1.15f + level.random.nextFloat() * 0.25f);
+    }
+
+    /**
+     * Laying out a recipe: up to {@code count} items from inventory slot {@code slot} (-1: the item in hand) into an
+     * empty cell, or onto the same item there, never past its stack limit.
+     */
+    private static void place(ServerPlayer player, ServerLevel level, Session session, int cell, int slot, int count) {
         if (cell < 0 || cell >= TableGrid.CELLS || slot < -1 || slot >= 36) {
             return;
         }
@@ -150,9 +198,16 @@ public final class TableActions {
         }
         TableStore store = TableStore.get(level);
         TableStore.Table table = store.getOrCreate(session.pos());
-        if (!placeOne(table, cell, source)) {
+        int laid = 0;
+        while (laid < count && !source.isEmpty() && placeOne(table, cell, source)) {
+            laid++;
+        }
+        if (laid == 0) {
             store.cleanup(session.pos());
             return;
+        }
+        if (slot >= 0) {
+            player.getInventory().setChanged();
         }
         if (slot < 0 && source.isEmpty()) {
             player.inventoryMenu.setCarried(ItemStack.EMPTY);

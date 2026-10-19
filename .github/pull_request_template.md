@@ -11,4 +11,4 @@ Describe the problem and the resulting behavior. Link the related issue if there
 
 ## Notes
 
-Mention translation updates, third-party attribution, or substantial AI assistance if applicable.
+Mention translation updates or third-party attribution when applicable.

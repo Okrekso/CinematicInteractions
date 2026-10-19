@@ -192,6 +192,24 @@ public final class JukeboxStation extends ClientStation implements SpatialTarget
         }
     }
 
+    /**
+     * Shift-click from the drawer: a record goes into an empty jukebox, carried and slid in as one from the hotbar is;
+     * anything else, or a jukebox already playing, leaves the inventory as it is.
+     */
+    @Override
+    public void quickMove(int inventorySlot, int menuSlot) {
+        LocalPlayer player = Minecraft.getInstance().player;
+        if (busy() || player == null) {
+            return;
+        }
+        ItemStack stack = player.getInventory().getItem(inventorySlot);
+        if (playing() || !isRecord(stack)) {
+            Hands.tap();
+            return;
+        }
+        begin(Move.INSERT, stack.copyWithCount(1), inventorySlot);
+    }
+
     private void begin(Move next, ItemStack stack, int source) {
         move = next;
         record = stack;

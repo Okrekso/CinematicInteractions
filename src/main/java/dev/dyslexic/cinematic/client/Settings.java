@@ -42,6 +42,7 @@ public final class Settings {
                 .translation("cinematic.configuration.heightLogic").define("heightLogic", true);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             String key = key(kind);
             SCENES.put(kind, b.comment("Whether " + key + " plays its scene (false: the block keeps its usual window).")
                     .translation("cinematic.configuration." + key).define(key, true));
@@ -131,6 +132,7 @@ public final class Settings {
 
     /** Whether this block plays its scene; otherwise it keeps its usual window. */
     public static boolean scene(StationKind kind) {
+        if (kind == StationKind.ADDON) return true;
         return get(SCENES.get(kind));
     }
 

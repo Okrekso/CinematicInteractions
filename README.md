@@ -45,7 +45,7 @@ Chests, barrels, and shulker boxes keep their normal interfaces. [Station guide 
 
 ## 📦 Get the right build
 
-For the complete shared experience, **install the mod on both the client and the server**. The latest beta also has an optional client-only preview for selected stations on servers without the mod; enable it in the main-menu settings. In singleplayer, the integrated server is handled automatically. Each Minecraft version has its own JAR: install one matching your game version and loader.
+For the complete shared experience, **install the mod on both the client and the server**. Recent builds also have an optional client-only preview for selected stations on servers without the mod; enable it in the main-menu settings. In singleplayer, the integrated server is handled automatically. Each Minecraft version has its own JAR: install one matching your game version and loader.
 
 ### Fabric
 
@@ -74,7 +74,7 @@ Fabric API is required. Mod Menu and Cloth Config are optional settings integrat
 
 | Minecraft | Release |
 | --- | --- |
-| 1.21.1 | [**0.18.6 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) · [0.1](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.1-neoforge-1.21.1) |
+| 1.21.1 | [**0.18.12 API preview**](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.18.12-neoforge-1.21.1) · [0.18.6 beta](https://github.com/dcvke/CinematicInteractions/releases/tag/beta-2026-10-19) |
 
 Cloth Config is optional. See [installation and dependencies](docs/wiki/Installation.md) for loader requirements.
 
@@ -87,6 +87,10 @@ Cloth Config is optional. See [installation and dependencies](docs/wiki/Installa
 Press **H** while looking at a campfire to sit down. Hold **Left Alt** during a scene for an orbit view of your character. Both bindings can be changed in Minecraft's controls.
 
 [Controls](docs/wiki/Controls.md) · [Settings](docs/wiki/Settings.md) · [Troubleshooting](docs/wiki/Troubleshooting.md)
+
+## 🔧 Create an add-on
+
+Mod authors can add a Cinematic Interactions scene to their own menu-backed workstation on **NeoForge 1.21.1**. The block's menu still handles its items, recipes and rewards; Cinematic Interactions handles the approach, camera, hands and exit. Start with the [add-on API guide](docs/addon-api.md) and [source example](examples/addon-template/). The API is included in the mod JAR, so players only need Cinematic Interactions and the add-on itself.
 
 ## 🛠️ Build & explore
 
@@ -119,6 +123,6 @@ Have an idea? [Suggest a feature](https://github.com/dcvke/CinematicInteractions
 
 ## 📜 Credits & license
 
-Created and maintained by **[Southware](https://github.com/dcvke)** as a solo project. Original project code is available under the [MIT License](LICENSE). The imported **Just a Hammer** model by **RDiamonds** is licensed under **CC BY 4.0**; attribution, adaptation details, and development disclosures are in [CREDITS.md](CREDITS.md).
+Created and maintained by **[Southware](https://github.com/dcvke)** as a solo project. Original project code is available under the [MIT License](LICENSE). The imported **Just a Hammer** model by **RDiamonds** is licensed under **CC BY 4.0**; attribution and adaptation details are in [CREDITS.md](CREDITS.md).
 
 Minecraft is a trademark of Mojang Studios. This project is not an official Minecraft product and is not approved by or associated with Mojang or Microsoft.

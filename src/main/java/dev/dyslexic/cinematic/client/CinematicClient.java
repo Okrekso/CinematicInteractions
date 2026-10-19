@@ -87,6 +87,7 @@ public final class CinematicClient {
         public static void onClientTick(ClientTickEvent.Post event) {
             Scene.tick();
             ClientOnlySmoke.tick();
+            ServerSmoke.tick();
             CampfireHint.tick();
             Minecraft mc = Minecraft.getInstance();
             if (mc.level != null && mc.level.getGameTime() % 40 == 0) {
@@ -207,13 +208,24 @@ public final class CinematicClient {
             // (the lectern's window is a book screen, not a container screen, but it holds the menu all the same)
             if (next instanceof MenuAccess<?> window && Scene.station.kind().usesMenu() && player != null
                     && window.getMenu() == player.containerMenu) {
-                // the server opened the block's menu for us: keep the menu, the scene stands in for its window
-                event.setCanceled(true);
+                var addon = Scene.station.kind() == dev.dyslexic.cinematic.station.StationKind.ADDON
+                        ? dev.dyslexic.cinematic.api.AddonStations.forBlock(player.level().getBlockState(Scene.station.pos)) : null;
+                boolean expected = addon != null ? addon.accepts(window.getMenu())
+                        : dev.dyslexic.cinematic.station.MenuActions.isOpen(Scene.station.kind(), window.getMenu());
+                if (expected) {
+                    // the server opened the block's menu for us: keep the menu, the scene stands in for its window
+                    event.setCanceled(true);
+                } else {
+                    // the block opened a menu the scene does not know (a mod replaced it, as Penchant does the
+                    // enchanting table's): its own window must open, or the window built for it is left half-made
+                    // and the mod's menu calls into it on the next slot change
+                    Scene.yieldToWindow();
+                }
                 return;
             }
             if (next instanceof InventoryScreen) {
                 event.setCanceled(true);
-            } else if (Scene.phase == Scene.Phase.ACTIVE && next != null && !next.isPauseScreen()) {
+            } else if (Scene.phase == Scene.Phase.ACTIVE && next != null && !next.isPauseScreen() && !Scene.consulting) {
                 // something else took over the screen (a server menu, another mod): drop the scene at once
                 Scene.drop();
             }
@@ -230,6 +242,7 @@ public final class CinematicClient {
             if (event.getLevel().isClientSide()) {
                 ClientTables.unloadChunk(event.getChunk().getPos());
                 ClientFurnaces.unloadChunk(event.getChunk().getPos());
+                ClientBrewing.unloadChunk(event.getChunk().getPos());
                 ClientEnchants.unloadChunk(event.getChunk().getPos());
                 ClientMenus.unloadChunk(event.getChunk().getPos());
                 ShelfBooks.unloadChunk(event.getChunk().getPos());
@@ -256,6 +269,7 @@ public final class CinematicClient {
                 Scene.drop();
                 ClientTables.clear();
                 ClientFurnaces.clear();
+                ClientBrewing.clear();
                 ClientEnchants.clear();
                 ClientMenus.clear();
                 ShelfBooks.clear();
@@ -272,9 +286,11 @@ public final class CinematicClient {
         @SubscribeEvent
         public static void onLogout(ClientPlayerNetworkEvent.LoggingOut event) {
             Scene.drop();
+            Scene.forgetOwnWindows();
             ClientOnly.clear();
             ClientTables.clear();
             ClientFurnaces.clear();
+            ClientBrewing.clear();
             ClientEnchants.clear();
             ClientMenus.clear();
             ShelfBooks.clear();

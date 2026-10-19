@@ -35,6 +35,7 @@ final class DeveloperConfiguration extends ConfigurationScreen.ConfigurationSect
         if (!context.keylist().equals(List.of("developer"))) return List.of();
         List<Element> elements = new ArrayList<>();
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             Component name = LayoutProfiles.name(kind);
             Component tooltip = Component.translatable("cinematic.settings.profiles.tooltip");
             CycleButton<Integer> selector = CycleButton.<Integer>builder(LayoutProfiles::value)

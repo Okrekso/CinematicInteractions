@@ -1,5 +1,6 @@
 package dev.dyslexic.cinematic.station;
 
+import dev.dyslexic.cinematic.api.AddonStations;
 import dev.dyslexic.cinematic.net.MenuDisplayPayload;
 import dev.dyslexic.cinematic.net.MenuFxPayload;
 import dev.dyslexic.cinematic.net.StationActionPayload;
@@ -46,7 +47,7 @@ public final class MenuActions {
     /** Opens the block's menu for the player; the client keeps it but shows the scene instead of the window. */
     public static boolean open(ServerPlayer player, Session session) {
         MenuProvider provider = provider(player, session.pos(), session.kind());
-        return provider != null && player.openMenu(provider).isPresent() && isOpen(session.kind(), player.containerMenu);
+        return provider != null && player.openMenu(provider).isPresent() && isOpen(session, player.containerMenu);
     }
 
     /** What opens the block's menu, as using the block would (null when it has none, or will not open now). */
@@ -58,12 +59,53 @@ public final class MenuActions {
     /** Closes the menu quietly (the client drops its own copy); vanilla hands back what lay in it. */
     public static void close(ServerPlayer player, Session session) {
         LAST_FX.remove(player.getUUID());
-        if (isOpen(session.kind(), player.containerMenu)) {
+        if (isOpen(session, player.containerMenu)) {
             player.doCloseContainer();
         }
         if (SHOWN.remove(player.getUUID()) != null) {
             show(player, session, List.of());
         }
+    }
+
+    /**
+     * A shift-click from the drawer into the station's menu: the menu's own quick move decides where the stack goes
+     * and what it may hold (as the vanilla click packet would). When it can go nowhere in the station, a vanilla menu
+     * moves it between hotbar and pack instead; in the scene that only shuffles the drawer, so it is undone.
+     */
+    public static void quickMove(ServerPlayer player, Session session, int inventorySlot) {
+        AbstractContainerMenu menu = player.containerMenu;
+        if (!isOpen(session, menu) || !menu.stillValid(player) || player.isSpectator()) {
+            return;
+        }
+        int index = -1;
+        for (int i = 0; i < menu.slots.size(); i++) {
+            if (menu.slots.get(i).container == player.getInventory() && menu.slots.get(i).getContainerSlot() == inventorySlot) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0 || !menu.getSlot(index).hasItem()) {
+            return;
+        }
+        List<ItemStack> before = new ArrayList<>(menu.slots.size());
+        for (var slot : menu.slots) before.add(slot.getItem().copy());
+        menu.clicked(index, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, player);
+        boolean intoStation = false;
+        for (int i = 0; i < menu.slots.size(); i++) {
+            if (menu.slots.get(i).container != player.getInventory() && !ItemStack.matches(before.get(i), menu.slots.get(i).getItem())) {
+                intoStation = true;
+                break;
+            }
+        }
+        if (!intoStation) {
+            for (int i = 0; i < menu.slots.size(); i++) {
+                var slot = menu.slots.get(i);
+                if (slot.container == player.getInventory() && !ItemStack.matches(before.get(i), slot.getItem())) {
+                    slot.set(before.get(i));
+                }
+            }
+        }
+        menu.broadcastChanges();
     }
 
     public static boolean isOpen(StationKind kind, AbstractContainerMenu menu) {
@@ -81,6 +123,12 @@ public final class MenuActions {
             case BEACON -> menu instanceof BeaconMenu;
             default -> false;
         };
+    }
+
+    public static boolean isOpen(Session session, AbstractContainerMenu menu) {
+        if (session.kind() != StationKind.ADDON) return isOpen(session.kind(), menu);
+        AddonStations.Definition definition = AddonStations.byId(session.addonId());
+        return definition != null && definition.accepts(menu);
     }
 
     /** How many of the menu's first slots are inputs that lie on the block for everyone to see. */

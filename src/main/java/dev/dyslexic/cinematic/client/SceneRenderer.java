@@ -50,6 +50,10 @@ public final class SceneRenderer {
         ClientStation station = Scene.station;
         if (Scene.active() && station != null) {
             int light = LevelRenderer.getLightColor(level, station.lightPos());
+            if (station.kind() == dev.dyslexic.cinematic.station.StationKind.ADDON
+                    && station instanceof MenuStation<?> menuStation) {
+                menuStation.renderScene(pose, buffers, camera, light);
+            }
             if (Scene.phase == Scene.Phase.ACTIVE) {
                 station.renderWorld(pose, buffers, cam, light);
                 outlineNeighbor(pose, buffers, cam, level);

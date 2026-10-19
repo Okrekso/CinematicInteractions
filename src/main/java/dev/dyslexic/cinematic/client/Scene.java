@@ -1,5 +1,6 @@
 package dev.dyslexic.cinematic.client;
 
+import dev.dyslexic.cinematic.api.client.AddonScenes;
 import dev.dyslexic.cinematic.Cinematic;
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
@@ -121,6 +122,47 @@ public final class Scene {
         return phase != Phase.NONE && station != null;
     }
 
+    /**
+     * A recipe viewer's page is open over the scene (opened from the field guide). Another screen replacing ours would
+     * otherwise drop the scene at once; while consulting, the scene holds still beneath it (the camera stays, the
+     * session and the open menu stay) and work goes on when the viewer hands the screen back.
+     */
+    static boolean consulting;
+
+    /** Opens a viewer's page over the scene. */
+    static void consult(Runnable open) {
+        if (phase != Phase.ACTIVE) {
+            return;
+        }
+        consulting = true;
+        open.run();
+        if (Minecraft.getInstance().screen instanceof SceneScreen) {
+            // the viewer had nothing to show and kept our screen
+            consulting = false;
+        }
+    }
+
+    /** Back from the viewer: work on only while the player still stands at the same block and may work it. */
+    static void consulted() {
+        if (!consulting) {
+            return;
+        }
+        consulting = false;
+        if (phase == Phase.ACTIVE && !stillAt()) {
+            leave();
+        }
+    }
+
+    private static boolean stillAt() {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null || station == null || !player.isAlive()) {
+            return false;
+        }
+        return StationKind.of(mc.level.getBlockState(station.pos)) == station.kind()
+                && player.position().distanceTo(Vec3.atCenterOf(station.pos)) < 3.5;
+    }
+
     public static boolean clientOnly() { return clientOnly && active(); }
 
     /** 0..1 through the intro: up to {@link #WALK_SHARE} while walking, then the lean; 1 once working. */
@@ -168,11 +210,19 @@ public final class Scene {
         if (phase != Phase.NONE || player == null || mc.level == null) {
             return;
         }
-        if (!Settings.scene(kind)) {
-            // the player turned this block's scene off: it keeps its usual window (a campfire has none)
+        BlockState currentState = mc.level.getBlockState(pos);
+        var addonDefinition = kind == StationKind.ADDON ? dev.dyslexic.cinematic.api.AddonStations.forBlock(currentState) : null;
+        if (!Settings.scene(kind) || OWN_WINDOW.contains(kind)
+                || addonDefinition != null && OWN_ADDON_WINDOWS.contains(addonDefinition.id())) {
+            // the player turned this block's scene off, or a mod gave the block a menu of its own: it keeps its usual
+            // window (a campfire has none)
             if (kind != StationKind.CAMPFIRE) {
                 openWindow(pos, kind);
             }
+            return;
+        }
+        if (kind == StationKind.ADDON && !AddonScenes.available(currentState)) {
+            openWindow(pos, kind);
             return;
         }
         if (kind == StationKind.JUKEBOX && !JukeboxStation.worthIt(player, pos)) {
@@ -335,7 +385,8 @@ public final class Scene {
         }
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
         StationKind kind = StationKind.of(state);
-        if (kind == null || !kind.startsOnUse() || !Settings.scene(kind) || !kind.usable(mc.level, hit.getBlockPos(), state)) {
+        if (kind == null || !kind.startsOnUse() || !Settings.scene(kind) || !kind.usable(mc.level, hit.getBlockPos(), state)
+                || kind == StationKind.ADDON && !AddonScenes.available(state)) {
             return;
         }
         neighbor = hit.getBlockPos().immutable();
@@ -404,6 +455,7 @@ public final class Scene {
             case BEACON -> new BeaconStation(pos, side);
             case JUKEBOX -> new JukeboxStation(pos, side);
             case CHISELED_BOOKSHELF -> new ShelfStation(pos, side);
+            case ADDON -> AddonScenes.create(pos, state, player, side);
         };
     }
 
@@ -435,6 +487,40 @@ public final class Scene {
     public static void serverClosed() {
         leaveSent = true;
         leave();
+    }
+
+    /**
+     * Kinds of block whose menu, on this connection, is not the one the scene plays (a mod put its own in place): they
+     * keep their own window from then on, without the scene starting first.
+     */
+    private static final java.util.Set<StationKind> OWN_WINDOW = java.util.EnumSet.noneOf(StationKind.class);
+    private static final java.util.Set<net.minecraft.resources.ResourceLocation> OWN_ADDON_WINDOWS = new java.util.HashSet<>();
+
+    /**
+     * The server answered with a menu the scene cannot stand in for: its window shows instead and the scene ends at
+     * once. The server started no session for it (it checks the menu too), so nothing is sent back.
+     */
+    static void yieldToWindow() {
+        if (phase == Phase.NONE || station == null) {
+            return;
+        }
+        if (station.kind() == StationKind.ADDON && Minecraft.getInstance().level != null) {
+            var definition = dev.dyslexic.cinematic.api.AddonStations.forBlock(
+                    Minecraft.getInstance().level.getBlockState(station.pos));
+            if (definition != null) OWN_ADDON_WINDOWS.add(definition.id());
+        } else {
+            OWN_WINDOW.add(station.kind());
+        }
+        Cinematic.LOGGER.info("[Cinematic] {} opened a menu of its own ({}): its window instead of the scene", station.kind(),
+                Minecraft.getInstance().player == null ? "-" : Minecraft.getInstance().player.containerMenu.getClass().getName());
+        leaveSent = true;
+        finish(false);
+    }
+
+    /** A new connection: every block plays its scene again until it shows otherwise. */
+    public static void forgetOwnWindows() {
+        OWN_WINDOW.clear();
+        OWN_ADDON_WINDOWS.clear();
     }
 
     /** Ends at once, without the closing shot. */
@@ -503,6 +589,7 @@ public final class Scene {
         transition = false;
         transitionFrom = null;
         neighbor = null;
+        consulting = false;
         if (phase != Phase.OUTRO && station != null) {
             station.onEnd();
         }
@@ -614,6 +701,15 @@ public final class Scene {
         if (!player.isAlive()) {
             abort();
             return;
+        }
+        if (consulting && mc.screen == null) {
+            // the viewer closed without handing our screen back: return to the work, or step away if it is gone
+            consulting = false;
+            if (phase == Phase.ACTIVE && stillAt()) {
+                mc.setScreen(new SceneScreen());
+            } else {
+                leave();
+            }
         }
         if (clientOnly && phase != Phase.OUTRO && (player.containerMenu == player.inventoryMenu
                 || player.containerMenu.containerId != clientMenuId)) {

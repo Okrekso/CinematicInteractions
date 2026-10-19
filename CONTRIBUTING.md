@@ -21,4 +21,8 @@ Describe the player's action and the resulting behavior. For new stations or lar
 
 Do not commit build output, game worlds, local options, credentials, downloaded mods, shader packs, or decompiled Minecraft sources. Do not publish JARs in the source tree; they belong in GitHub Releases.
 
-New work must be compatible with the project's MIT license. Keep third-party attribution and license terms, and disclose substantial AI contributions in your pull request.
+New work must be compatible with the project's MIT license. Keep third-party attribution and license terms.
+
+## Build an add-on
+
+The [add-on API guide](docs/addon-api.md) explains how to attach a first-person scene to a custom menu-backed block on NeoForge 1.21.1. The [source example](examples/addon-template/) shows the registration hooks and a minimal scene. Add-ons are separate mods and declare Cinematic Interactions as a required dependency.

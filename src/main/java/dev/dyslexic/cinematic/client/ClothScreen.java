@@ -48,6 +48,7 @@ final class ClothScreen {
                 .setExpanded(true);
         BooleanListEntry campfire = null;
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             BooleanListEntry entry = toggle(entries, Settings.key(kind), Settings.SCENES.get(kind),
                     on -> value(on, "cinematic.settings.scene.on", kind == StationKind.CAMPFIRE ? "cinematic.settings.off" : "cinematic.settings.scene.off"));
             blocks.add(entry);
@@ -109,6 +110,7 @@ final class ClothScreen {
         developer.addEntry(toggle(entries, "developerMode", Settings.DEVELOPER_MODE, onOff));
         developer.addEntry(note(entries, "cinematic.settings.profiles.note"));
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             developer.addEntry(entries.startIntSlider(LayoutProfiles.name(kind), LayoutProfiles.selected(kind) + 1, 1, 3)
                     .setDefaultValue(1)
                     .setTextGetter(v -> LayoutProfiles.value(v - 1))

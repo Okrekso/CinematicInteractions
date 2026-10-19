@@ -36,7 +36,7 @@ public final class Network {
     /** Client handlers are routed through lambdas so a dedicated server never loads client classes. */
     public static void register(RegisterPayloadHandlersEvent event) {
         // Missing channels are expected when a client uses only vanilla menus on an unmodded server.
-        PayloadRegistrar registrar = event.registrar("8").optional();
+        PayloadRegistrar registrar = event.registrar("11").optional();
         registrar.playToServer(StationActionPayload.TYPE, StationActionPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 Sessions.handle(player, payload);
@@ -46,6 +46,8 @@ public final class Network {
                 (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.tableContents(payload));
         registrar.playToClient(FurnaceContentsPayload.TYPE, FurnaceContentsPayload.CODEC,
                 (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.furnaceContents(payload));
+        registrar.playToClient(BrewingContentsPayload.TYPE, BrewingContentsPayload.CODEC,
+                (payload, context) -> dev.dyslexic.cinematic.client.ClientBrewing.apply(payload));
         registrar.playToClient(FurnaceStatePayload.TYPE, FurnaceStatePayload.CODEC,
                 (payload, context) -> dev.dyslexic.cinematic.client.ClientPayloads.furnaceState(payload));
         registrar.playToClient(CampfireProgressPayload.TYPE, CampfireProgressPayload.CODEC,

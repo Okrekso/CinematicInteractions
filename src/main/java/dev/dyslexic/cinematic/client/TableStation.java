@@ -122,7 +122,10 @@ public final class TableStation extends ClientStation {
     }
 
     @Override
-    public void onEnd() { gridEditor.cancel(); }
+    public void onEnd() {
+        gridEditor.cancel();
+        cancelSpread();
+    }
 
     double surfaceY() { return TableLayouts.current().surfaceY(pos); }
 
@@ -133,7 +136,10 @@ public final class TableStation extends ClientStation {
     /** When in a move the item is let go of (the server is asked to put it down). */
     private static final double LAY_DROP = 0.64;
 
-    /** The moves still to make, {world cell, inventory slot or -1}; the one under way is {@link #laying}. */
+    /**
+     * The moves still to make, {world cell, inventory slot or -1, how many}; the one under way is {@link #laying}. A
+     * move carries a whole handful, so laying out many sets takes no longer than laying out one.
+     */
     private final java.util.ArrayDeque<int[]> layQueue = new java.util.ArrayDeque<>();
     @Nullable
     private int[] laying;
@@ -141,7 +147,7 @@ public final class TableStation extends ClientStation {
     private double layAt;
     private boolean layDropped;
 
-    /** Lays out the selected recipe from the inventory, one item after another. */
+    /** Lays out the selected recipe from the inventory, one cell after another. */
     void layOut(List<int[]> moves) {
         if (busy() || moves.isEmpty()) {
             return;
@@ -150,13 +156,66 @@ public final class TableStation extends ClientStation {
         nextLay();
     }
 
+    /**
+     * Shift-click from the drawer: the stack goes onto the table, carried by the hand like a laid-out recipe, by a rule a
+     * player can see coming: a cell of the chosen recipe's diagram that wants it, else a cell already holding the same
+     * item with room, else the first free cell, reading the grid as a recipe is read from where the player stands (far
+     * row first, left to right). As much of the stack as the cell takes; the rest stays in its slot.
+     */
+    @Override
+    public void quickMove(int inventorySlot, int menuSlot) {
+        Minecraft mc = Minecraft.getInstance();
+        if (busy() || mc.player == null) {
+            return;
+        }
+        ItemStack stack = mc.player.getInventory().getItem(inventorySlot);
+        if (stack.isEmpty()) {
+            return;
+        }
+        ClientTables.Entry entry = ClientTables.get(pos);
+        TableRecipeGuide guide = recipeBook.guide;
+        int target = -1;
+        for (int logical = 0; logical < TableGrid.CELLS && target < 0 && guide.selected != null; logical++) {
+            int world = TableGrid.worldIndex(side, logical / 3, logical % 3);
+            if (!guide.grid[logical].isEmpty() && !guide.placed[logical] && onCell(entry, world).isEmpty() && guide.grid[logical].test(stack)) {
+                target = world;
+            }
+        }
+        for (int logical = 0; logical < TableGrid.CELLS && target < 0; logical++) {
+            int world = TableGrid.worldIndex(side, logical / 3, logical % 3);
+            ItemStack there = onCell(entry, world);
+            if (!there.isEmpty() && ItemStack.isSameItemSameComponents(there, stack) && there.getCount() < there.getMaxStackSize()) {
+                target = world;
+            }
+        }
+        for (int logical = 0; logical < TableGrid.CELLS && target < 0; logical++) {
+            int world = TableGrid.worldIndex(side, logical / 3, logical % 3);
+            if (onCell(entry, world).isEmpty()) {
+                target = world;
+            }
+        }
+        if (target < 0) {
+            // a full table: the stack stays where it is
+            Scene.sound(net.minecraft.sounds.SoundEvents.WOOD_HIT, 0.25f, 0.7f);
+            return;
+        }
+        ItemStack there = onCell(entry, target);
+        int count = Math.min(stack.getCount(), there.isEmpty() ? stack.getMaxStackSize() : there.getMaxStackSize() - there.getCount());
+        layOut(List.of(new int[]{target, inventorySlot, count}));
+    }
+
+    private static ItemStack onCell(@Nullable ClientTables.Entry entry, int world) {
+        return entry == null ? ItemStack.EMPTY : entry.items[world];
+    }
+
     private void nextLay() {
         laying = layQueue.poll();
         layDropped = false;
         layAt = Scene.clock();
         Minecraft mc = Minecraft.getInstance();
-        layItem = laying == null || mc.player == null ? ItemStack.EMPTY
-                : (laying[1] < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(laying[1])).copyWithCount(1);
+        ItemStack source = laying == null || mc.player == null ? ItemStack.EMPTY
+                : laying[1] < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(laying[1]);
+        layItem = laying == null ? ItemStack.EMPTY : source.copyWithCount(Math.min(source.getCount(), laying[2]));
         if (laying != null && layItem.isEmpty()) {
             // the inventory changed meanwhile: skip it
             nextLay();
@@ -182,9 +241,9 @@ public final class TableStation extends ClientStation {
         if (!layDropped && t >= LAY_DROP) {
             layDropped = true;
             Hands.tap();
-            if (Scene.clientOnly()) placeOneVanilla(laying[0], laying[1]);
+            if (Scene.clientOnly()) placeVanilla(laying[0], laying[1], layItem.getCount());
             else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE,
-                    laying[0], laying[1], false, 0));
+                    laying[0], laying[1], false, layItem.getCount()));
         }
         if (t >= 1) {
             nextLay();
@@ -383,6 +442,14 @@ public final class TableStation extends ClientStation {
             return;
         }
         boolean carrying = !Hands.carried().isEmpty();
+        if (button == 0 && !shift && carrying) {
+            // As over vanilla slots, a held stack is put down on release: a drag over more cells shares it out.
+            spreadStart = hoverCell;
+            spreadMask = spreadable(hoverCell) ? 1 << hoverCell : 0;
+            spreadStack = Hands.carried().copy();
+            spreadSince = Scene.clock();
+            return;
+        }
         send(StationActionPayload.Action.CLICK, hoverCell, button, shift);
         if (button == 1 && carrying) {
             painting = true;
@@ -391,7 +458,7 @@ public final class TableStation extends ClientStation {
         }
     }
 
-    /** Right-drag across cells drops one item into each. */
+    /** Right-drag across cells drops one item into each; a left-drag gathers the cells to share the stack between. */
     @Override
     public void drag(int button) {
         if (painting && button == 1) {
@@ -401,6 +468,14 @@ public final class TableStation extends ClientStation {
                 send(StationActionPayload.Action.PAINT, hoverCell, 1, false);
             }
         }
+        if (spreadStart >= 0 && button == 0) {
+            Scene.updateCursor();
+            if (hoverCell >= 0 && (spreadMask & 1 << hoverCell) == 0 && spreadable(hoverCell)
+                    && spreadStack.getCount() > Integer.bitCount(spreadMask)) {
+                spreadMask |= 1 << hoverCell;
+                Scene.sound(net.minecraft.sounds.SoundEvents.WOOD_HIT, 0.12f, 1.6f + 0.05f * Integer.bitCount(spreadMask));
+            }
+        }
     }
 
     @Override
@@ -408,6 +483,68 @@ public final class TableStation extends ClientStation {
         if (button == 1) {
             painting = false;
         }
+        if (button == 0 && spreadStart >= 0) {
+            int start = spreadStart, mask = spreadMask;
+            spreadStart = -1;
+            spreadMask = 0;
+            if (Integer.bitCount(mask) > 1) spread(mask);
+            else send(StationActionPayload.Action.CLICK, start, 0, false);
+        }
+    }
+
+    /** Stops gathering cells without putting anything down (the drag left for a panel, or the scene ends). */
+    void cancelSpread() {
+        spreadStart = -1;
+        spreadMask = 0;
+    }
+
+    /** The cell where a left-drag began, or -1; the cells it gathered so far. */
+    private int spreadStart = -1;
+    private int spreadMask;
+    private ItemStack spreadStack = ItemStack.EMPTY;
+    private double spreadSince;
+
+    /** A cell that can take part in sharing the held stack: empty, or holding the very same item. */
+    private boolean spreadable(int cell) {
+        ClientTables.Entry entry = ClientTables.get(pos);
+        ItemStack onCell = entry == null ? ItemStack.EMPTY : entry.items[cell];
+        ItemStack held = Hands.carried();
+        return !held.isEmpty() && (onCell.isEmpty() || ItemStack.isSameItemSameComponents(held, onCell));
+    }
+
+    /** The cells a left-drag will share the held stack between (at least two), or 0 while it is a plain click. */
+    int spreadCells() {
+        return spreadStart >= 0 && Integer.bitCount(spreadMask) > 1 ? spreadMask : 0;
+    }
+
+    /** How many items each gathered cell gets, by vanilla's left-drag rule (the remainder stays in hand). */
+    int spreadShare() {
+        int cells = Integer.bitCount(spreadCells());
+        return cells == 0 ? 0 : Hands.carried().getCount() / cells;
+    }
+
+    private void spread(int mask) {
+        Hands.tap();
+        if (!Scene.clientOnly()) {
+            PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.SPREAD,
+                    mask, 0, false, 0));
+            return;
+        }
+        Minecraft mc = Minecraft.getInstance();
+        CraftingMenu menu = vanillaMenu();
+        if (menu == null || mc.gameMode == null || mc.player == null) return;
+        // The vanilla drag over slots: begin, each slot, end; the server repeats and checks it.
+        int type = 0;
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, -999,
+                net.minecraft.world.inventory.AbstractContainerMenu.getQuickcraftMask(0, type), ClickType.QUICK_CRAFT, mc.player);
+        for (int cell = 0; cell < TableGrid.CELLS; cell++) {
+            if ((mask & 1 << cell) != 0 && menuCell(cell) > 0) {
+                mc.gameMode.handleInventoryMouseClick(menu.containerId, menuCell(cell),
+                        net.minecraft.world.inventory.AbstractContainerMenu.getQuickcraftMask(1, type), ClickType.QUICK_CRAFT, mc.player);
+            }
+        }
+        mc.gameMode.handleInventoryMouseClick(menu.containerId, -999,
+                net.minecraft.world.inventory.AbstractContainerMenu.getQuickcraftMask(2, type), ClickType.QUICK_CRAFT, mc.player);
     }
 
     private void send(StationActionPayload.Action action, int cell, int button, boolean shift) {
@@ -440,21 +577,23 @@ public final class TableStation extends ClientStation {
                     shift ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
     }
 
-    private void placeOneVanilla(int world, int source) {
+    private void placeVanilla(int world, int source, int count) {
         Minecraft mc = Minecraft.getInstance();
         CraftingMenu menu = vanillaMenu();
         if (menu == null || mc.gameMode == null || mc.player == null || menuCell(world) < 0) return;
         if (source < 0) {
-            if (!menu.getCarried().isEmpty()) clickVanilla(world, 1, false);
+            for (int i = 0; i < count && !menu.getCarried().isEmpty(); i++) clickVanilla(world, 1, false);
             return;
         }
-        // A vanilla pickup, one-item placement, and return. The server validates every click and recipe.
+        // A vanilla pickup, a right-click for each item, and return. The server validates every click and recipe.
         if (!menu.getCarried().isEmpty() || source >= 36) return;
         int inventorySlot = source < 9 ? 37 + source : 10 + source - 9;
         if (menu.getSlot(inventorySlot).getItem().isEmpty()) return;
         mc.gameMode.handleInventoryMouseClick(menu.containerId, inventorySlot, 0, ClickType.PICKUP, mc.player);
-        clickVanilla(world, 1, false);
-        mc.gameMode.handleInventoryMouseClick(menu.containerId, inventorySlot, 0, ClickType.PICKUP, mc.player);
+        if (menu.getCarried().getCount() <= count) clickVanilla(world, 0, false);
+        else for (int i = 0; i < count && !menu.getCarried().isEmpty(); i++) clickVanilla(world, 1, false);
+        if (!menu.getCarried().isEmpty())
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, inventorySlot, 0, ClickType.PICKUP, mc.player);
     }
 
     public void craft(boolean all) {
@@ -514,7 +653,27 @@ public final class TableStation extends ClientStation {
         if (gridEditor.visible()) return;
         drawResult(pose, buffers, camera, light);
         drawLayItem(pose, buffers, camera, light);
+        drawSpreadPreview(pose, buffers, camera, light);
         recipeBook.renderWorld(pose, buffers, camera, light);
+    }
+
+    /** While a left-drag gathers cells, the empty ones show a faint copy of what will land there. */
+    private void drawSpreadPreview(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        int spread = spreadCells();
+        ItemStack held = Hands.carried();
+        if (spread == 0 || held.isEmpty() || spreadShare() <= 0) {
+            return;
+        }
+        ClientTables.Entry entry = ClientTables.get(pos);
+        float appear = (float) Anim.smoother((Scene.clock() - spreadSince) / 0.2);
+        if (buffers instanceof MultiBufferSource.BufferSource source) source.endBatch();
+        for (int cell = 0; cell < TableGrid.CELLS; cell++) {
+            if ((spread & 1 << cell) == 0 || entry != null && !entry.items[cell].isEmpty()) continue;
+            TableLayout layout = TableLayouts.current();
+            layout.renderItem(pose, buffers, camera, held.copyWithCount(spreadShare()), layout.cell(pos, cell).add(0, 0.002, 0),
+                    side, cell, 1, 0, light, appear * 0.4f, false);
+        }
+        if (buffers instanceof MultiBufferSource.BufferSource source) source.endBatch();
     }
 
     @Override
@@ -524,12 +683,21 @@ public final class TableStation extends ClientStation {
     }
 
     void drawHighlight(PoseStack pose, MultiBufferSource buffers, Vec3 cam) {
-        if (hoverCell < 0 || craftProgress() >= 0) {
+        if (craftProgress() >= 0) {
             return;
         }
+        int spread = spreadCells();
+        for (int cell = 0; cell < TableGrid.CELLS; cell++) {
+            if (cell == hoverCell || (spread & 1 << cell) != 0) {
+                drawHighlight(pose, buffers, cam, cell);
+            }
+        }
+    }
+
+    private void drawHighlight(PoseStack pose, MultiBufferSource buffers, Vec3 cam, int cell) {
         double half = TableGrid.CELL / 2 - 0.006;
         pose.pushPose();
-        TableLayouts.current().cellPose(pose, pos, hoverCell, cam);
+        TableLayouts.current().cellPose(pose, pos, cell, cam);
         double cx = 0, cz = 0, y = 0;
         // one even, steady glow: the rim blends over the fill instead of fighting it for depth
         int alpha = 47;
@@ -606,6 +774,15 @@ public final class TableStation extends ClientStation {
         if (editorTip != null || gridEditor.editing()) return editorTip;
         List<Component> guide = recipeBook.tooltip(mouse[0], mouse[1]);
         if (guide != null || recipeBook.over(mouse[0], mouse[1])) return guide;
+        int spread = Integer.bitCount(spreadCells());
+        if (spread > 0) {
+            int share = spreadShare();
+            int rest = carried.getCount() - share * spread;
+            List<Component> lines = new ArrayList<>();
+            lines.add(Component.translatable("cinematic.hint.spread", share, spread));
+            if (rest > 0) lines.add(Component.translatable("cinematic.hint.spread_rest", rest).withStyle(ChatFormatting.GRAY));
+            return lines;
+        }
         if (!carried.isEmpty()) {
             return null;
         }

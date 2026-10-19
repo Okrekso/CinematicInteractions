@@ -104,6 +104,7 @@ public final class StationEvents {
             dev.dyslexic.cinematic.net.Network.sendToPlayer(event.getPlayer(), TableActions.contents(pos, store.get(pos)));
         }
         FurnaceWatch.chunkSent(event.getPlayer(), event.getChunk());
+        dev.dyslexic.cinematic.brewing.BrewingWatch.chunkSent(event.getPlayer(), event.getChunk());
     }
 
     @SubscribeEvent

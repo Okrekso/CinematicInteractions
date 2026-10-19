@@ -85,6 +85,44 @@ public final class CampfireActions {
     }
 
     /**
+     * A shift-click from the drawer: food that cooks on a campfire goes one piece to each free spot, as many as the stack
+     * and the spots allow (moved, not used: a creative player's stack shrinks too); anything else stays where it is.
+     */
+    public static void quickMove(ServerPlayer player, ServerLevel level, Session session, int inventorySlot) {
+        if (!(level.getBlockEntity(session.pos()) instanceof CampfireBlockEntity fire)) {
+            return;
+        }
+        ItemStack source = player.getInventory().getItem(inventorySlot);
+        var recipe = level.getRecipeManager().getRecipeFor(RecipeType.CAMPFIRE_COOKING, new SingleRecipeInput(source), level);
+        if (recipe.isEmpty()) {
+            return;
+        }
+        int placed = 0;
+        for (int spot = 0; spot < SPOTS && !source.isEmpty(); spot++) {
+            if (!fire.getItems().get(spot).isEmpty()) {
+                continue;
+            }
+            fire.cookingTime[spot] = recipe.get().value().getCookingTime();
+            fire.cookingProgress[spot] = 0;
+            fire.getItems().set(spot, source.split(1));
+            CookingWatch watch = WATCHES.get(fire);
+            if (watch != null) watch.reset(spot);
+            placed++;
+        }
+        if (placed == 0) {
+            return;
+        }
+        player.getInventory().setChanged();
+        level.gameEvent(GameEvent.BLOCK_CHANGE, session.pos(), GameEvent.Context.of(player, fire.getBlockState()));
+        player.awardStat(Stats.INTERACT_WITH_CAMPFIRE);
+        fire.setChanged();
+        BlockState state = fire.getBlockState();
+        level.sendBlockUpdated(session.pos(), state, state, 3);
+        player.inventoryMenu.broadcastChanges();
+        sendProgress(player, session);
+    }
+
+    /**
      * A scene may leave food on a campfire whose timer or block-entity ticker was lost. Repair an absent recipe
      * timer, and if one occupied slot stops advancing on a lit fire, apply the vanilla cooking rules to that
      * slot. This is keyed to the block entity and game tick, so two seated players cannot cook twice.

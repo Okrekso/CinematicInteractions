@@ -33,8 +33,8 @@ import net.neoforged.neoforge.client.model.data.ModelData;
 /**
  * The bottles in a brewing stand are the real potions: the stand's own bottle pictures (one generic red potion for
  * every bottle) are taken out of its model, and each potion that stands in it is drawn on its foot, turned to whoever
- * looks at it, in its own colour and shape (splash and lingering bottles too). The contents come from the stand's
- * update packet ({@code BrewingWatch}); in the player's own scene, straight from the menu.
+ * looks at it, in its own colour and shape (splash and lingering bottles too). The contents come from the mod's own
+ * packet ({@code BrewingWatch}, {@link ClientBrewing}); in the player's own scene, straight from the menu.
  */
 public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlockEntity> {
     /** Edge of the drawn item: the bottle in it is a little smaller than the stand's own bottle picture. */
@@ -106,7 +106,7 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         BrewingStation scene = Scene.station(BrewingStation.class);
         boolean mine = scene != null && scene.pos.equals(pos) && scene.menu() != null;
         for (int i = 0; i < BrewingStation.BOTTLES; i++) {
-            ItemStack stack = mine ? scene.slot(i) : stand.getItem(i);
+            ItemStack stack = mine ? scene.slot(i) : ClientBrewing.item(stand, i);
             if (stack.isEmpty()) {
                 continue;
             }
@@ -116,8 +116,8 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         if (!mine) {
             // the ingredient in the bowl and the blaze powder at the foot stay where they were put (the scene at this
             // stand draws its own, melting as it brews); the powder lies on the side of the foot towards the viewer
-            ItemStack ingredient = stand.getItem(BrewingStation.INGREDIENT);
-            ItemStack fuel = stand.getItem(BrewingStation.FUEL);
+            ItemStack ingredient = ClientBrewing.item(stand, BrewingStation.INGREDIENT);
+            ItemStack fuel = ClientBrewing.item(stand, BrewingStation.FUEL);
             if (!ingredient.isEmpty() || !fuel.isEmpty()) {
                 pose.pushPose();
                 pose.translate(-origin.x + cam.x, -origin.y + cam.y, -origin.z + cam.z);

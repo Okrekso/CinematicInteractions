@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 import net.minecraft.client.CameraType;
@@ -174,6 +175,7 @@ public final class Showcase {
         } else if (t == 75) {
             switch (FROM) {
                 case "ip" -> nextAct("ip", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+                case "ji" -> nextAct("ji", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
                 case "3" -> nextAct("3", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "4" -> nextAct("4", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "5" -> nextAct("5", new Vec3(4.5, -60, 5.4), 180f, BLAST, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
@@ -231,6 +233,9 @@ public final class Showcase {
                     shelfAct();
                 }
                 case "w" -> watchAct();
+                case "pn" -> penchantAct();
+                case "av" -> anvilRulesAct();
+                case "sq" -> quickMoveAct();
                 case "d" -> nextAct("d", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
                 case "p" -> nextAct("p", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
                 case "z" -> { developerOptionsScript(); step(3, () -> finish(Minecraft.getInstance())); }
@@ -288,6 +293,7 @@ public final class Showcase {
     private static void runScript() {
         switch (act) {
             case "ip" -> inventoryEffectsScript();
+            case "ji" -> fieldGuideScript();
             case "0" -> tableScript();
             case "d" -> {
                 tableGridEditorScript();
@@ -495,6 +501,734 @@ public final class Showcase {
         });
         step(30, () -> shot(next + "0_before"));
         step(4, () -> use(station, local, face));
+    }
+
+
+
+
+
+    // ---- shift-click from the drawer into every station -------------------------------------------------------
+
+    /** One shift-click: optional preparation on the server, the inventory slot clicked, what must be true after. */
+    private record QuickCase(String name, Consumer<ServerPlayer> before, int slot, java.util.function.Predicate<ServerPlayer> expect, int settle) {
+        QuickCase(String name, int slot, java.util.function.Predicate<ServerPlayer> expect) {
+            this(name, p -> {}, slot, expect, 0);
+        }
+    }
+
+    private static ItemStack inv(ServerPlayer p, int slot) {
+        return p.getInventory().getItem(slot);
+    }
+
+    private static boolean holds(ItemStack stack, net.minecraft.world.item.Item item, int count) {
+        return count == 0 ? stack.isEmpty() : stack.is(item) && stack.getCount() == count;
+    }
+
+    /** The station's own slots in the open menu (not the player's), for menu stations. */
+    private static List<ItemStack> menuItems(ServerPlayer p) {
+        List<ItemStack> items = new ArrayList<>();
+        for (var slot : p.containerMenu.slots) if (slot.container != p.getInventory()) items.add(slot.getItem());
+        return items;
+    }
+
+    private static String describeAll(List<ItemStack> items) {
+        StringBuilder b = new StringBuilder("[");
+        for (ItemStack stack : items) b.append(describe(stack)).append(' ');
+        return b.append(']').toString();
+    }
+
+    /**
+     * Sets the inventory up, enters the station's scene ({@code enter}), runs the cases one after another and steps away.
+     * {@code state} tells what the station holds, for the report.
+     */
+    private static void quickStation(String name, Consumer<ServerPlayer> setup, Runnable enter, int settle,
+                                     java.util.function.Function<ServerPlayer, String> state, List<QuickCase> cases) {
+        step(4, () -> server(p -> {
+            for (int i = 0; i < 36; i++) p.getInventory().setItem(i, ItemStack.EMPTY);
+            p.getInventory().selected = 8;
+            setup.accept(p);
+            p.inventoryMenu.broadcastChanges();
+        }));
+        step(4, () -> {
+            Minecraft.getInstance().player.getInventory().selected = 8;
+            Minecraft.getInstance().getConnection().send(new net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket(8));
+        });
+        enter.run();
+        step(settle, () -> check(name + ": the scene is at work", Scene.phase == Scene.Phase.ACTIVE && Minecraft.getInstance().screen instanceof SceneScreen,
+                "phase=" + Scene.phase + " station=" + (Scene.station == null ? "-" : Scene.station.kind())));
+        for (QuickCase c : cases) {
+            step(4, () -> server(c.before()));
+            step(4, () -> {
+                if (Minecraft.getInstance().screen instanceof SceneScreen screen) {
+                    // the drawer numbers the hotbar 36..44 and the pack 9..35, as the inventory menu does
+                    screen.panelClick(c.slot() < 9 ? 36 + c.slot() : c.slot(), 0, true);
+                }
+            });
+            step(Math.max(8, c.settle()), () -> server(p -> check(name + ": " + c.name(), c.expect().test(p),
+                    "slot " + c.slot() + "=" + describe(inv(p, c.slot())) + " station=" + state.apply(p))));
+        }
+        step(2, () -> shot("sq_" + name.replace(' ', '_')));
+        step(2, () -> { if (Scene.phase == Scene.Phase.ACTIVE) Scene.leave(); });
+        step(50, () -> server(p -> check(name + ": no session after leaving", dev.dyslexic.cinematic.station.Sessions.get(p) == null, "session")));
+    }
+
+    private static Runnable enterAt(Vec3 feet, float yaw, BlockPos station, Vec3 local, Direction face) {
+        // run while the act is being scheduled: these steps go in their place in the queue
+        return () -> {
+            step(2, () -> server(p -> p.teleportTo(p.serverLevel(), feet.x, feet.y, feet.z, yaw, 20f)));
+            step(20, () -> useAt(station, local, face));
+        };
+    }
+
+    private static Runnable enterSmithy(BlockPos station) {
+        double y = station.equals(STONECUTTER) ? 0.56 : 1.0;
+        return enterAt(new Vec3(station.getX() + 0.5, -60, station.getZ() + 3.4), 180f, station, new Vec3(0.5, y, 0.5), Direction.UP);
+    }
+
+    private static ItemStack tableCell(ServerPlayer p, int world) {
+        TableStore.Table table = TableStore.get(p.serverLevel()).get(TABLE);
+        return table == null ? ItemStack.EMPTY : table.items.get(world);
+    }
+
+    private static int tableWorld(int logical) {
+        return TableGrid.worldIndex(Scene.station != null ? Scene.station.sideDirection() : Direction.SOUTH, logical / 3, logical % 3);
+    }
+
+    private static List<ItemStack> furnaceItems(ServerPlayer p, BlockPos pos) {
+        return p.serverLevel().getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f
+                ? List.of(f.getItem(0), f.getItem(1), f.getItem(2)) : List.of();
+    }
+
+    private static void setFurnace(ServerPlayer p, BlockPos pos, ItemStack input, ItemStack fuel) {
+        if (p.serverLevel().getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) {
+            f.setItem(0, input);
+            f.setItem(1, fuel);
+            f.setItem(2, ItemStack.EMPTY);
+        }
+    }
+
+    private static void quickFurnace(String name, BlockPos pos, Vec3 feet, float yaw, ItemStack food, ItemStack wrong) {
+        quickStation(name, p -> {
+            setFurnace(p, pos, ItemStack.EMPTY, ItemStack.EMPTY);
+            p.getInventory().setItem(1, food.copyWithCount(20));
+            p.getInventory().setItem(12, new ItemStack(Items.COAL, 10));
+            p.getInventory().setItem(13, wrong.copy());
+            p.getInventory().setItem(14, food.copyWithCount(10));
+            p.getInventory().setItem(15, food.copyWithCount(3));
+        }, enterAt(feet, yaw, pos, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH), 90, p -> describeAll(furnaceItems(p, pos)), List.of(
+                new QuickCase("what smelts goes in at the top (hotbar)", 1,
+                        p -> inv(p, 1).isEmpty() && holds(furnaceItems(p, pos).get(0), food.getItem(), 20)),
+                // with something to smelt the fire lights at once and burns one piece
+                new QuickCase("fuel goes into the fire box (pack)", 12, p -> inv(p, 12).isEmpty()
+                        && furnaceItems(p, pos).get(1).is(Items.COAL) && furnaceItems(p, pos).get(1).getCount() >= 9),
+                new QuickCase("what neither smelts nor burns stays put", 13,
+                        p -> holds(inv(p, 13), wrong.getItem(), wrong.getCount())),
+                new QuickCase("a nearly full opening takes what fits, the rest stays", q -> furnaceItems(q, pos).get(0).setCount(60), 14,
+                        p -> holds(inv(p, 14), food.getItem(), 6) && holds(furnaceItems(p, pos).get(0), food.getItem(), 64), 0),
+                new QuickCase("an opening holding something else takes nothing",
+                        q -> setFurnace(q, pos, new ItemStack(Items.GOLD_ORE), furnaceItems(q, pos).get(1).copy()), 15,
+                        p -> holds(inv(p, 15), food.getItem(), 3) && furnaceItems(p, pos).get(0).is(Items.GOLD_ORE), 0)));
+    }
+
+    private static void quickMoveAct() {
+        // the table: the recipe's own cell, then a cell with the same item, then the first free one, as the player reads the grid
+        quickStation("table", p -> {
+            TableStore store = TableStore.get(p.serverLevel());
+            store.remove(TABLE);
+            p.getInventory().setItem(0, new ItemStack(Items.OAK_PLANKS, 64));
+            p.getInventory().setItem(9, new ItemStack(Items.OAK_PLANKS, 10));
+            p.getInventory().setItem(10, new ItemStack(Items.OAK_PLANKS, 60));
+            p.getInventory().setItem(11, new ItemStack(Items.IRON_SWORD));
+            p.getInventory().setItem(12, new ItemStack(Items.STICK, 5));
+        }, enterAt(new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP), 90,
+                p -> { TableStore.Table t = TableStore.get(p.serverLevel()).get(TABLE); return t == null ? "[]" : describeAll(t.items); }, List.of(
+                new QuickCase("a whole stack from the hotbar lands on the first cell", 0,
+                        p -> inv(p, 0).isEmpty() && holds(tableCell(p, tableWorld(0)), Items.OAK_PLANKS, 64)),
+                new QuickCase("a full cell is passed over for the next free one (pack)", p -> {}, 9,
+                        p -> inv(p, 9).isEmpty() && holds(tableCell(p, tableWorld(1)), Items.OAK_PLANKS, 10), 16),
+                new QuickCase("a partial stack tops up the cell with the same item, the rest stays", p -> {}, 10,
+                        p -> holds(inv(p, 10), Items.OAK_PLANKS, 6) && holds(tableCell(p, tableWorld(1)), Items.OAK_PLANKS, 64), 16),
+                new QuickCase("a full table takes nothing", q -> {
+                    TableStore.Table t = TableStore.get(q.serverLevel()).getOrCreate(TABLE);
+                    for (int i = 0; i < TableGrid.CELLS; i++) if (t.items.get(i).isEmpty()) t.items.set(i, new ItemStack(Items.DIRT, 64));
+                }, 11, p -> holds(inv(p, 11), Items.IRON_SWORD, 1), 16)));
+        // with a recipe chosen, the stick goes where its diagram wants it
+        quickStation("table recipe", p -> {
+            TableStore.get(p.serverLevel()).remove(TABLE);
+            p.getInventory().setItem(12, new ItemStack(Items.STICK, 5));
+            p.getInventory().setItem(13, new ItemStack(Items.COAL, 4));
+        }, () -> {
+            enterAt(new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP).run();
+            step(95, () -> {
+                var entry = table().recipeBook.guide.entries.stream().filter(e -> e.holder.id().getPath().equals("torch")).findFirst();
+                entry.ifPresent(table().recipeBook::show);
+            });
+        }, 100, p -> { TableStore.Table t = TableStore.get(p.serverLevel()).get(TABLE); return t == null ? "[]" : describeAll(t.items); }, List.of(
+                new QuickCase("the stick goes to the diagram's stick cell", p -> {}, 12, p -> {
+                    var guide = table().recipeBook.guide;
+                    for (int l = 0; l < 9; l++)
+                        if (!guide.grid[l].isEmpty() && guide.grid[l].test(new ItemStack(Items.STICK)))
+                            return holds(tableCell(p, tableWorld(l)), Items.STICK, 5) && inv(p, 12).isEmpty();
+                    return false;
+                }, 16),
+                new QuickCase("the coal to the diagram's coal cell", p -> {}, 13, p -> {
+                    var guide = table().recipeBook.guide;
+                    for (int l = 0; l < 9; l++)
+                        if (!guide.grid[l].isEmpty() && guide.grid[l].test(new ItemStack(Items.COAL)))
+                            return holds(tableCell(p, tableWorld(l)), Items.COAL, 4) && inv(p, 13).isEmpty();
+                    return false;
+                }, 16)));
+        step(2, () -> server(p -> TableStore.get(p.serverLevel()).remove(TABLE)));
+
+        quickFurnace("furnace", FURNACE, new Vec3(-3.2, -60, 4.6), 200f, new ItemStack(Items.RAW_IRON), new ItemStack(Items.DIRT, 5));
+        quickFurnace("smoker", SMOKER, new Vec3(2.5, -60, 5.4), 180f, new ItemStack(Items.BEEF), new ItemStack(Items.RAW_IRON, 5));
+        quickFurnace("blast furnace", BLAST, new Vec3(4.5, -60, 5.4), 180f, new ItemStack(Items.RAW_IRON), new ItemStack(Items.BEEF, 5));
+
+        quickStation("enchanting table", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.LAPIS_LAZULI, 10));
+            p.getInventory().setItem(9, new ItemStack(Items.IRON_SWORD));
+            p.getInventory().setItem(10, new ItemStack(Items.IRON_PICKAXE));
+        }, enterAt(new Vec3(-4.5, -60, 11.6), 180f, ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("lapis into its own place", 0, p -> inv(p, 0).isEmpty() && holds(menuItems(p).get(1), Items.LAPIS_LAZULI, 10)),
+                new QuickCase("the sword onto the book", 9, p -> inv(p, 9).isEmpty() && holds(menuItems(p).get(0), Items.IRON_SWORD, 1)),
+                new QuickCase("a second tool finds the place taken and stays put", 10, p -> holds(inv(p, 10), Items.IRON_PICKAXE, 1))));
+
+        quickStation("anvil", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.IRON_SWORD));
+            p.getInventory().setItem(9, new ItemStack(Items.IRON_INGOT, 5));
+            p.getInventory().setItem(10, new ItemStack(Items.STICK, 3));
+        }, enterSmithy(ANVIL), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("the sword onto the anvil", 0, p -> inv(p, 0).isEmpty() && holds(menuItems(p).get(0), Items.IRON_SWORD, 1)),
+                new QuickCase("the ingots beside it", 9, p -> inv(p, 9).isEmpty() && holds(menuItems(p).get(1), Items.IRON_INGOT, 5)),
+                new QuickCase("a full anvil takes nothing more", 10, p -> holds(inv(p, 10), Items.STICK, 3))));
+
+        quickStation("grindstone", p -> {
+            ItemStack worn = new ItemStack(Items.IRON_SWORD);
+            worn.setDamageValue(100);
+            p.getInventory().setItem(0, worn);
+            p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
+        }, enterSmithy(GRINDSTONE), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("a worn sword onto the wheel", 0, p -> inv(p, 0).isEmpty() && menuItems(p).get(0).is(Items.IRON_SWORD)),
+                new QuickCase("dirt does not go on a grindstone", 9, p -> holds(inv(p, 9), Items.DIRT, 4))));
+
+        quickStation("smithing table", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, 2));
+            p.getInventory().setItem(9, new ItemStack(Items.DIAMOND_SWORD));
+            p.getInventory().setItem(10, new ItemStack(Items.DIRT, 4));
+        }, enterSmithy(SMITHING), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("the template into its place", 0, p -> inv(p, 0).isEmpty() && holds(menuItems(p).get(0), Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE, 2)),
+                new QuickCase("the sword onto it", 9, p -> inv(p, 9).isEmpty() && holds(menuItems(p).get(1), Items.DIAMOND_SWORD, 1)),
+                new QuickCase("dirt stays put", 10, p -> holds(inv(p, 10), Items.DIRT, 4))));
+
+        quickStation("stonecutter", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.STONE, 12));
+            p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
+        }, enterSmithy(STONECUTTER), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("dirt has nothing to be cut into: it stays", 9, p -> holds(inv(p, 9), Items.DIRT, 4)),
+                new QuickCase("stone onto the saw", 0, p -> inv(p, 0).isEmpty() && holds(menuItems(p).get(0), Items.STONE, 12))));
+
+        quickStation("loom", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.WHITE_BANNER));
+            p.getInventory().setItem(9, new ItemStack(Items.RED_DYE, 4));
+            p.getInventory().setItem(10, new ItemStack(Items.DIRT, 4));
+        }, enterSmithy(LOOM), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("the banner onto the loom", 0, p -> inv(p, 0).isEmpty() && holds(menuItems(p).get(0), Items.WHITE_BANNER, 1)),
+                new QuickCase("the dye beside it", 9, p -> inv(p, 9).isEmpty() && holds(menuItems(p).get(1), Items.RED_DYE, 4)),
+                new QuickCase("dirt stays put", 10, p -> holds(inv(p, 10), Items.DIRT, 4))));
+
+        quickStation("cartography table", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.PAPER, 3));
+            p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
+        }, enterSmithy(CARTOGRAPHY), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("paper into its place", 0, p -> inv(p, 0).isEmpty() && holds(menuItems(p).get(1), Items.PAPER, 3)),
+                new QuickCase("dirt stays put", 9, p -> holds(inv(p, 9), Items.DIRT, 4))));
+
+        quickStation("brewing stand", p -> {
+            if (p.serverLevel().getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand)
+                for (int i = 0; i < 5; i++) stand.setItem(i, ItemStack.EMPTY);
+            ItemStack water = net.minecraft.world.item.alchemy.PotionContents.createItemStack(Items.POTION, net.minecraft.world.item.alchemy.Potions.WATER);
+            p.getInventory().setItem(0, new ItemStack(Items.BLAZE_POWDER, 3));
+            p.getInventory().setItem(9, new ItemStack(Items.NETHER_WART, 2));
+            p.getInventory().setItem(10, water);
+            p.getInventory().setItem(11, new ItemStack(Items.DIRT, 4));
+        }, enterSmithy(BREWING), 90, p -> describeAll(menuItems(p)), List.of(
+                // the stand takes one powder as fuel straight away
+                new QuickCase("blaze powder to the foot", 0, p -> inv(p, 0).isEmpty() && menuItems(p).get(4).is(Items.BLAZE_POWDER)
+                        && menuItems(p).get(4).getCount() >= 2),
+                new QuickCase("nether wart into the bowl", 9, p -> inv(p, 9).isEmpty() && holds(menuItems(p).get(3), Items.NETHER_WART, 2)),
+                new QuickCase("a bottle onto a foot", 10, p -> inv(p, 10).isEmpty() && menuItems(p).get(0).is(Items.POTION)),
+                new QuickCase("dirt stays put", 11, p -> holds(inv(p, 11), Items.DIRT, 4))));
+
+        quickStation("crafter", p -> {
+            p.getInventory().setItem(9, new ItemStack(Items.OAK_PLANKS, 7));
+        }, enterSmithy(CRAFTER), 90, p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("planks into the crafter's grid", 9, p -> inv(p, 9).isEmpty()
+                        && menuItems(p).stream().anyMatch(st -> st.is(Items.OAK_PLANKS)))));
+
+        quickStation("beacon", p -> {
+            p.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 5));
+            p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
+        }, enterAt(new Vec3(BEACON.getX() + 0.5, BEACON.getY(), BEACON.getZ() + 1.75), 180f, BEACON, new Vec3(0.5, 0.9, 0.5), Direction.UP), 120,
+                p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("dirt is no payment: it stays", 9, p -> holds(inv(p, 9), Items.DIRT, 4)),
+                new QuickCase("one ingot onto the beacon, the rest stays", 0, p -> holds(inv(p, 0), Items.IRON_INGOT, 4) && holds(menuItems(p).get(0), Items.IRON_INGOT, 1))));
+
+        quickStation("lectern", p -> {
+            p.getInventory().setItem(9, new ItemStack(Items.WRITABLE_BOOK));
+        }, enterAt(new Vec3(LECTERN.getX() + 0.5, -60, LECTERN.getZ() + 2.6), 180f, LECTERN, new Vec3(0.5, 0.9, 0.6), Direction.UP), 110,
+                p -> describeAll(menuItems(p)), List.of(
+                new QuickCase("a lectern holding its book takes no other", 9, p -> holds(inv(p, 9), Items.WRITABLE_BOOK, 1))));
+
+        quickStation("chiseled bookshelf", p -> {
+            if (p.serverLevel().getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf) {
+                for (int i = 0; i < 6; i++) shelf.setItem(i, i == 1 ? new ItemStack(Items.BOOK) : ItemStack.EMPTY);
+            }
+            p.getInventory().setItem(9, new ItemStack(Items.BOOK, 3));
+            p.getInventory().setItem(10, new ItemStack(Items.DIRT, 4));
+        }, enterAt(new Vec3(SHELF.getX() + 0.5, -60, SHELF.getZ() + 3.0), 180f, SHELF, SHELF_SLOTS[1], Direction.SOUTH), 90, p -> {
+            List<ItemStack> books = new ArrayList<>();
+            if (p.serverLevel().getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf)
+                for (int i = 0; i < 6; i++) books.add(shelf.getItem(i));
+            return describeAll(books);
+        }, List.of(
+                new QuickCase("dirt is no book: it stays", 10, p -> holds(inv(p, 10), Items.DIRT, 4)),
+                new QuickCase("a book from the pack into the first empty place", p -> {}, 9, p -> holds(inv(p, 9), Items.BOOK, 2)
+                        && p.serverLevel().getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf
+                        && shelf.getItem(0).is(Items.BOOK), 30),
+                new QuickCase("the next one skips the taken places", p -> {}, 9, p -> holds(inv(p, 9), Items.BOOK, 1)
+                        && p.serverLevel().getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf
+                        && shelf.getItem(2).is(Items.BOOK), 30),
+                new QuickCase("a full shelf takes nothing", q -> {
+                    if (q.serverLevel().getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf)
+                        for (int i = 0; i < 6; i++) if (shelf.getItem(i).isEmpty()) shelf.setItem(i, new ItemStack(Items.BOOK));
+                }, 9, p -> holds(inv(p, 9), Items.BOOK, 1), 30)));
+
+        quickStation("campfire", p -> {
+            if (p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                fire.getItems().set(0, new ItemStack(Items.CHICKEN));
+                // a spot with no cooking time is done at once in vanilla's tick: give the chicken its time
+                fire.cookingTime[0] = 600;
+                fire.cookingProgress[0] = 0;
+                for (int i = 1; i < 4; i++) fire.getItems().set(i, ItemStack.EMPTY);
+                fire.setChanged();
+                p.serverLevel().sendBlockUpdated(CAMPFIRE, fire.getBlockState(), fire.getBlockState(), 3);
+            }
+            p.getInventory().setItem(0, new ItemStack(Items.BEEF, 5));
+            p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
+        }, () -> {
+            step(2, () -> server(p -> p.teleportTo(p.serverLevel(), CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.9, 180f, 24f)));
+            step(30, () -> net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey()));
+        }, 120, p -> p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire
+                ? describeAll(fire.getItems()) : "-", List.of(
+                new QuickCase("dirt does not cook: it stays", 9, p -> holds(inv(p, 9), Items.DIRT, 4)),
+                new QuickCase("beef, one piece to each free spot, the rest stays", 0, p -> holds(inv(p, 0), Items.BEEF, 2)
+                        && p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire
+                        && fire.getItems().stream().filter(st -> st.is(Items.BEEF)).count() == 3 && fire.getItems().get(0).is(Items.CHICKEN))));
+
+        quickStation("jukebox", p -> {
+            if (p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box) box.popOutTheItem();
+            p.getInventory().setItem(9, new ItemStack(Items.MUSIC_DISC_CAT));
+            p.getInventory().setItem(10, new ItemStack(Items.DIRT, 4));
+        }, () -> {
+            step(2, () -> standLooking(new Vec3(JUKEBOX.getX() - 1.6, -60, JUKEBOX.getZ() + 0.5), Vec3.atCenterOf(JUKEBOX)));
+            step(20, () -> useAt(JUKEBOX, new Vec3(0.5, 1, 0.5), Direction.UP));
+        }, 90, p -> p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box
+                ? describe(box.getTheItem()) : "-", List.of(
+                new QuickCase("dirt is no record: it stays", 10, p -> holds(inv(p, 10), Items.DIRT, 4)),
+                new QuickCase("a record from the pack slides in and plays", p -> {}, 9, p -> inv(p, 9).isEmpty()
+                        && p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box
+                        && box.getTheItem().is(Items.MUSIC_DISC_CAT), 50)));
+        step(2, () -> server(p -> {
+            if (p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box) box.popOutTheItem();
+        }));
+        step(10, () -> finish(Minecraft.getInstance()));
+    }
+
+    // ---- the anvil's rules: an armour-only book on a sword, in the scene and in the plain window -----------
+
+    private static final Map<String, String> ANVIL_RESULTS = new java.util.LinkedHashMap<>();
+
+    private static boolean hasThorns(ItemStack stack) {
+        var thorns = Minecraft.getInstance().level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+                .getOrThrow(net.minecraft.world.item.enchantment.Enchantments.THORNS);
+        return net.minecraft.world.item.enchantment.EnchantmentHelper.getItemEnchantmentLevel(thorns, stack) > 0;
+    }
+
+    private static void anvilRound(boolean creative, boolean scene) {
+        String tag = (creative ? "creative" : "survival") + (scene ? " scene" : " window");
+        step(4, () -> {
+            Settings.SCENES.get(StationKind.ANVIL).set(scene);
+            server(p -> {
+                p.setGameMode(creative ? net.minecraft.world.level.GameType.CREATIVE : net.minecraft.world.level.GameType.SURVIVAL);
+                p.setExperienceLevels(30);
+                p.getInventory().clearOrCountMatchingItems(st -> st.is(Items.IRON_SWORD) || st.is(Items.ENCHANTED_BOOK), -1, p.inventoryMenu.getCraftSlots());
+                var thorns = p.serverLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+                        .getOrThrow(net.minecraft.world.item.enchantment.Enchantments.THORNS);
+                p.getInventory().add(new ItemStack(Items.IRON_SWORD));
+                p.getInventory().add(net.minecraft.world.item.EnchantedBookItem.createForEnchantment(
+                        new net.minecraft.world.item.enchantment.EnchantmentInstance(thorns, 3)));
+                p.teleportTo(p.serverLevel(), ANVIL.getX() + 0.5, -60, ANVIL.getZ() + 3.4, 180f, 20f);
+            });
+        });
+        step(20, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atLowerCornerOf(ANVIL).add(0.5, 1.0, 0.5), Direction.UP, ANVIL, false));
+        });
+        step(scene ? 80 : 20, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            boolean open = mc.player.containerMenu instanceof net.minecraft.world.inventory.AnvilMenu
+                    && (scene ? Scene.phase == Scene.Phase.ACTIVE : mc.screen instanceof net.minecraft.client.gui.screens.inventory.AnvilScreen);
+            check(tag + ": the anvil is open", open, "phase=" + Scene.phase + " screen=" + mc.screen);
+            // sword first, then the book: as the scene and the window both put them, item first
+            var menu = mc.player.containerMenu;
+            for (net.minecraft.world.item.Item item : List.of(Items.IRON_SWORD, Items.ENCHANTED_BOOK)) {
+                for (int i = 0; i < menu.slots.size(); i++) {
+                    if (menu.slots.get(i).container == mc.player.getInventory() && menu.slots.get(i).getItem().is(item)) {
+                        mc.gameMode.handleInventoryMouseClick(menu.containerId, i, 0, ClickType.QUICK_MOVE, mc.player);
+                        break;
+                    }
+                }
+            }
+        });
+        step(12, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            ItemStack client = mc.player.containerMenu.getSlot(2).getItem().copy();
+            server(p -> {
+                ItemStack result = p.containerMenu instanceof net.minecraft.world.inventory.AnvilMenu menu ? menu.getSlot(2).getItem() : ItemStack.EMPTY;
+                int cost = p.containerMenu instanceof net.minecraft.world.inventory.AnvilMenu menu ? menu.getCost() : -1;
+                String line = (result.isEmpty() ? "no result" : describe(result) + (hasThorns(result) ? " with Thorns" : " without Thorns")) + ", cost " + cost;
+                ANVIL_RESULTS.put(tag, line);
+                REPORT.add("anvil " + tag + ": server " + line + "; client shows " + (client.isEmpty() ? "nothing" : describe(client)
+                        + (hasThorns(client) ? " with Thorns" : "")) + "; mods " + loadedEnchantMods());
+            });
+            shot("av_" + (creative ? "creative" : "survival") + "_" + (scene ? "scene" : "window"));
+        });
+        step(4, () -> {
+            if (scene) Scene.leave();
+            else if (Minecraft.getInstance().screen != null) Minecraft.getInstance().screen.onClose();
+        });
+        step(scene ? 50 : 10, () -> {});
+    }
+
+    private static String loadedEnchantMods() {
+        List<String> found = new ArrayList<>();
+        for (String id : List.of("penchant", "apotheosis", "apothic_enchanting", "enchdesc", "easymagic", "enchantmentlevelcapindicator"))
+            if (net.neoforged.fml.ModList.get().isLoaded(id)) found.add(id);
+        return found.isEmpty() ? "none" : String.join(",", found);
+    }
+
+    private static void anvilRulesAct() {
+        for (boolean creative : new boolean[]{false, true}) {
+            anvilRound(creative, true);
+            anvilRound(creative, false);
+        }
+        step(4, () -> {
+            for (String mode : List.of("survival", "creative")) {
+                String inScene = ANVIL_RESULTS.get(mode + " scene"), inWindow = ANVIL_RESULTS.get(mode + " window");
+                check("anvil, " + mode + ": the scene gives what the plain window gives", inScene != null && inScene.equals(inWindow),
+                        "scene=" + inScene + " | window=" + inWindow);
+            }
+            Settings.SCENES.get(StationKind.ANVIL).set(true);
+            server(p -> p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL));
+        });
+        step(4, () -> finish(Minecraft.getInstance()));
+    }
+
+    // ---- a mod's own enchanting menu (Penchant): its window opens, the scene steps aside ---------------------
+
+    private static boolean penchantWindow() {
+        Screen screen = Minecraft.getInstance().screen;
+        return screen != null && screen.getClass().getName().startsWith("archives.tater.penchant");
+    }
+
+    private static void penchantAct() {
+        boolean penchant = net.neoforged.fml.ModList.get().isLoaded("penchant");
+        step(2, () -> server(p -> {
+            p.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            p.teleportTo(p.serverLevel(), -4.5, -60, 11.6, 180f, 20f);
+        }));
+        step(30, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atLowerCornerOf(ENCHANT).add(0.5, 0.75, 0.6), Direction.UP, ENCHANT, false));
+        });
+        if (!penchant) {
+            // the scene plays as before
+            step(60, () -> check("without Penchant the enchanting scene plays", Scene.phase != Scene.Phase.NONE
+                    && Scene.station != null && Scene.station.kind() == StationKind.ENCHANTING, "phase=" + Scene.phase));
+            step(4, Scene::leave);
+            step(40, () -> finish(Minecraft.getInstance()));
+            return;
+        }
+        step(30, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            check("Penchant's own window opens at the enchanting table", penchantWindow(), "screen=" + mc.screen);
+            check("the scene stepped aside for it", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+            server(p -> {
+                check("no session is left on the server", dev.dyslexic.cinematic.station.Sessions.get(p) == null, "session");
+                check("the server keeps Penchant's menu open", p.containerMenu.getClass().getName().startsWith("archives.tater.penchant"),
+                        "menu=" + p.containerMenu.getClass().getSimpleName());
+            });
+            shot("pn1_penchant_window");
+        });
+        // a sword into the table: the slot change that called into a window that never opened
+        step(4, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player.containerMenu;
+            for (int i = 0; i < menu.slots.size(); i++) {
+                if (menu.slots.get(i).container == mc.player.getInventory() && menu.slots.get(i).getItem().is(Items.IRON_SWORD)) {
+                    mc.gameMode.handleInventoryMouseClick(menu.containerId, i, 0, ClickType.QUICK_MOVE, mc.player);
+                    break;
+                }
+            }
+        });
+        step(20, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player.containerMenu;
+            boolean placed = false;
+            for (var slot : menu.slots) placed |= slot.container != mc.player.getInventory() && slot.getItem().is(Items.IRON_SWORD);
+            check("the sword went into Penchant's table and its window lives on", placed && penchantWindow(), "screen=" + mc.screen);
+            shot("pn2_sword_in");
+            mc.screen.onClose();
+        });
+        step(10, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            check("closing gives the sword back", mc.screen == null && mc.player.containerMenu == mc.player.inventoryMenu
+                    && mc.player.getInventory().countItem(Items.IRON_SWORD) == 1, "screen=" + mc.screen);
+            server(p -> check("the server closed it too", p.containerMenu == p.inventoryMenu && dev.dyslexic.cinematic.station.Sessions.get(p) == null, "menu"));
+        });
+        // used again: straight to its window, no scene starting first
+        step(10, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            mc.gameMode.useItemOn(mc.player, InteractionHand.MAIN_HAND,
+                    new BlockHitResult(Vec3.atLowerCornerOf(ENCHANT).add(0.5, 0.75, 0.6), Direction.UP, ENCHANT, false));
+            check("used again, no scene starts", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+        });
+        step(20, () -> {
+            check("Penchant's window opens again", penchantWindow(), "screen=" + Minecraft.getInstance().screen);
+            if (penchantWindow()) Minecraft.getInstance().screen.onClose();
+        });
+        step(10, () -> server(p -> check("nothing left open", p.containerMenu == p.inventoryMenu && dev.dyslexic.cinematic.station.Sessions.get(p) == null, "menu")));
+        step(4, () -> finish(Minecraft.getInstance()));
+    }
+
+    // ---- the field guide with JEI (and JER / JEP when installed) -------------------------------------
+
+    private static double devSpineY;
+
+    private static FieldGuide guide() {
+        return Minecraft.getInstance().screen instanceof SceneScreen screen ? screen.guide : null;
+    }
+
+    private static void typeText(String text) {
+        for (char c : text.toCharArray()) Minecraft.getInstance().screen.charTyped(c, 0);
+    }
+
+    private static boolean viewerOpen() {
+        Screen screen = Minecraft.getInstance().screen;
+        return screen != null && !(screen instanceof SceneScreen) && screen.getClass().getName().startsWith("mezz.jei");
+    }
+
+    private static void guideFind(String query, net.minecraft.world.item.Item item) {
+        step(3, () -> { double[] at = guide().searchPoint(); pointGui(at[0], at[1]); screenClick(0); });
+        step(3, () -> {
+            double[] at = guide().searchPoint();
+            pointGui(at[0], at[1]);
+            // EditBox reads Ctrl from the keyboard itself, so the old query goes key by key
+            for (int i = 0; i < 24; i++) Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_BACKSPACE, 0, 0);
+            typeText(query);
+        });
+        step(6, () -> {
+            int index = guide().indexOf(item);
+            check("guide finds " + query, index >= 0 && index < 24, "index=" + index + " items=" + guide().itemCount());
+            if (index >= 0) { double[] at = guide().entryPoint(index); pointGui(at[0], at[1]); }
+        });
+        step(3, () -> screenClick(0));
+    }
+
+    private static void guideButton(String key) {
+        double[] at = guide().buttonPoint(key);
+        check("guide button " + key, at != null, "drawn");
+        if (at != null) { pointGui(at[0], at[1]); screenClick(0); }
+    }
+
+    private static void fieldGuideScript() {
+        if (dev.dyslexic.cinematic.client.guide.RecipeViewers.get() == null) {
+            // without JEI there is no guide: the scenes and the table's own reference work as before
+            step(10, () -> {
+                check("no recipe viewer: no field guide", guide() == null || !guide().present(), "absent");
+                check("no recipe viewer: the table's reference is still there", Scene.station instanceof TableStation t
+                        && t.recipeBook.guide.entries.size() > 100, "entries");
+            });
+            step(3, () -> finish(Minecraft.getInstance()));
+            return;
+        }
+        if (Scene.station instanceof TableStation) {
+            // developer mode puts the layout editor's gear on the guide's spot: the spine moves above it, and back
+            boolean originalDev = Settings.developerMode();
+            step(10, () -> { Settings.DEVELOPER_MODE.set(true); pointAside(); });
+            step(6, () -> {
+                double[] spine = guide().togglePoint(), gear = table().gridEditor.togglePoint();
+                check("developer mode: the guide sits above the gear", gear[1] - spine[1] >= 20 && Math.abs(gear[0] - spine[0]) < 2,
+                        "spine=" + Math.round(spine[1]) + " gear=" + Math.round(gear[1]));
+                devSpineY = spine[1];
+                pointGui(spine[0], spine[1]);
+            });
+            step(4, () -> { shot("ji0_dev_toggles"); screenClick(0); });
+            step(16, () -> {
+                check("developer mode: the spine opens the guide, not the editor", guide().opened() && !table().gridEditor.visible(), "opened");
+                double[] at = guide().closePoint();
+                pointGui(at[0], at[1]);
+            });
+            step(3, () -> screenClick(0));
+            step(16, () -> {
+                Settings.DEVELOPER_MODE.set(originalDev);
+                pointAside();
+            });
+            step(4, () -> {
+                double[] spine = guide().togglePoint(), gear = table().gridEditor.togglePoint();
+                // the gear is hidden now; its spot is where the spine always stood
+                check("without developer mode the guide is back in place", !guide().opened() && spine[1] - devSpineY >= 20
+                        && Math.abs(spine[1] - gear[1]) < 3, "spine=" + Math.round(spine[1]) + " before=" + Math.round(devSpineY));
+                shot("ji0_plain_toggle");
+            });
+            step(10, () -> { double[] at = guide().togglePoint(); pointGui(at[0], at[1]); shot("ji0_toggle"); screenClick(0); });
+            step(16, () -> check("guide opens beside the table", guide().opened(), "opened"));
+            guideFind("torch", Items.TORCH);
+            step(8, () -> {
+                check("guide: torch recipes at the table", guide().recipeCount() >= 1, "recipes=" + guide().recipeCount());
+                pointAside();
+                shot("ji1_guide_recipe");
+            });
+            step(3, () -> guideButton("show_table"));
+            step(12, () -> {
+                var chosen = table().recipeBook.guide.selected;
+                check("guide shows the torch on the tabletop", chosen != null && chosen.holder.id().getPath().equals("torch"),
+                        "selected=" + (chosen == null ? "-" : chosen.holder.id()));
+                server(p -> check("looking a recipe up moves nothing", TableStore.get(p.serverLevel()).get(TABLE) == null
+                        || TableStore.get(p.serverLevel()).get(TABLE).items.stream().allMatch(ItemStack::isEmpty), "table empty"));
+                pointAside();
+                shot("ji2_table_hint");
+            });
+            step(3, () -> guideButton("how_to_get"));
+            step(14, () -> {
+                check("JEI's page opens over the scene, which holds", viewerOpen() && Scene.phase == Scene.Phase.ACTIVE && Scene.consulting,
+                        "screen=" + Minecraft.getInstance().screen + " phase=" + Scene.phase);
+                server(p -> check("the session stays while JEI is open", dev.dyslexic.cinematic.station.Sessions.get(p) != null, "session"));
+                shot("ji3_jei_page");
+                if (viewerOpen()) Minecraft.getInstance().screen.onClose();
+            });
+            step(10, () -> {
+                check("back from JEI to the work", Minecraft.getInstance().screen instanceof SceneScreen && Scene.phase == Scene.Phase.ACTIVE
+                        && !Scene.consulting, "screen=" + Minecraft.getInstance().screen);
+                pointAside();
+                shot("ji4_back");
+            });
+            // JEI's own "show recipe" key over an entry, pressed through the game's keyboard handler as a real key is:
+            // JEI's screen listener and the guide must not both open a page
+            step(4, () -> { double[] at = guide().entryPoint(guide().indexOf(Items.TORCH)); pointGui(at[0], at[1]); });
+            step(4, () -> {
+                Minecraft mc = Minecraft.getInstance();
+                int scan = GLFW.glfwGetKeyScancode(GLFW.GLFW_KEY_R);
+                mc.keyboardHandler.keyPress(mc.getWindow().getWindow(), GLFW.GLFW_KEY_R, scan, GLFW.GLFW_PRESS, 0);
+                mc.keyboardHandler.keyPress(mc.getWindow().getWindow(), GLFW.GLFW_KEY_R, scan, GLFW.GLFW_RELEASE, 0);
+            });
+            step(12, () -> {
+                check("JEI's recipe key over the guide opens one page", viewerOpen() && Scene.consulting && Scene.phase == Scene.Phase.ACTIVE,
+                        "screen=" + Minecraft.getInstance().screen);
+                if (viewerOpen()) Minecraft.getInstance().screen.onClose();
+            });
+            step(10, () -> check("one close brings the work back", Minecraft.getInstance().screen instanceof SceneScreen
+                    && Scene.phase == Scene.Phase.ACTIVE, "screen=" + Minecraft.getInstance().screen));
+            if (net.neoforged.fml.ModList.get().isLoaded("jeresources")) {
+                guideFind("rotten", Items.ROTTEN_FLESH);
+                step(8, () -> {
+                    check("JER knows where rotten flesh comes from", guide().sourceCount() >= 1, "sources=" + guide().sourceCount());
+                    double[] at = guide().tabPoint("sources");
+                    pointGui(at[0], at[1]);
+                    screenClick(0);
+                });
+                step(8, () -> {
+                    check("guide: sources page", guide().tabName().equals("SOURCES"), "tab=" + guide().tabName());
+                    pointAside();
+                    shot("ji5_sources");
+                    double[] at = guide().sourcePoint(0);
+                    pointGui(at[0], at[1]);
+                    screenClick(0);
+                });
+                step(14, () -> {
+                    check("JER's own page opens over the scene", viewerOpen() && Scene.phase == Scene.Phase.ACTIVE, "screen=" + Minecraft.getInstance().screen);
+                    shot("ji6_jer_page");
+                    if (viewerOpen()) Minecraft.getInstance().screen.onClose();
+                });
+                step(10, () -> check("back from JER to the work", Minecraft.getInstance().screen instanceof SceneScreen
+                        && Scene.phase == Scene.Phase.ACTIVE, "screen=" + Minecraft.getInstance().screen));
+                step(3, () -> { double[] at = guide().tabPoint("recipes"); pointGui(at[0], at[1]); screenClick(0); });
+            }
+            // the scene ends while JEI covers it: no hanging screen, nothing lost
+            guideFind("torch", Items.TORCH);
+            step(16, () -> guideButton("uses"));
+            step(14, () -> server(p -> p.teleportTo(p.serverLevel(), 0.5, -60, 12.5, 180f, 20f)));
+            step(60, () -> {
+                check("the scene let go under JEI", Scene.phase == Scene.Phase.NONE && viewerOpen(), "phase=" + Scene.phase);
+                if (viewerOpen()) Minecraft.getInstance().screen.onClose();
+            });
+            step(10, () -> {
+                check("JEI hands back nothing stale", Minecraft.getInstance().screen == null && !Scene.active(),
+                        "screen=" + Minecraft.getInstance().screen);
+                server(p -> check("no session left behind", dev.dyslexic.cinematic.station.Sessions.get(p) == null, "session"));
+            });
+            nextAct("ji", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
+        } else if (Scene.station != null && Scene.station.kind() == StationKind.FURNACE) {
+            step(10, () -> { double[] at = guide().togglePoint(); pointGui(at[0], at[1]); screenClick(0); });
+            step(16, () -> check("guide opens beside the furnace", guide().opened(), "opened"));
+            guideFind("iron ingot", Items.IRON_INGOT);
+            step(8, () -> check("guide: iron ingot smelts here", guide().recipeCount() >= 1, "recipes=" + guide().recipeCount()));
+            step(3, () -> guideButton("show_furnace"));
+            step(16, () -> {
+                check("the raw item shows in the furnace", !furnace().guideHint().isEmpty(), "hint=" + describe(furnace().guideHint()));
+                pointAside();
+                shot("ji7_furnace_hint");
+            });
+            step(4, Scene::leave);
+            step(45, () -> {});
+            nextAct("ji", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+        } else {
+            step(10, () -> { double[] at = guide().togglePoint(); pointGui(at[0], at[1]); screenClick(0); });
+            step(16, () -> check("the smoker's villager: butcher", guide().profession() != null
+                    && guide().profession().getString().equals(Component.translatable("entity.minecraft.villager.butcher").getString()),
+                    "profession=" + guide().profession()));
+            if (net.neoforged.fml.ModList.get().isLoaded("justenoughprofessions")) {
+                step(4, () -> {
+                    check("JEP has the profession's page", guide().professionPageReady(), "page");
+                    double[] at = guide().tabPoint("profession");
+                    pointGui(at[0], at[1]);
+                    screenClick(0);
+                });
+                step(8, () -> { pointAside(); shot("ji8_profession"); });
+                step(3, () -> guideButton("open_jep"));
+                step(14, () -> {
+                    check("JEP's page opens over the scene", viewerOpen() && Scene.phase == Scene.Phase.ACTIVE, "screen=" + Minecraft.getInstance().screen);
+                    shot("ji9_jep_page");
+                    if (viewerOpen()) Minecraft.getInstance().screen.onClose();
+                });
+                step(10, () -> check("back from JEP to the work", Minecraft.getInstance().screen instanceof SceneScreen
+                        && Scene.phase == Scene.Phase.ACTIVE, "screen=" + Minecraft.getInstance().screen));
+            } else {
+                step(4, () -> check("without JEP the profession tab stays hidden", !guide().professionPageReady(), "hidden"));
+            }
+            step(4, () -> { double[] at = guide().closePoint(); pointGui(at[0], at[1]); });
+            step(4, () -> { shot("ji10_close_hover"); screenClick(0); });
+            step(16, () -> {
+                check("the ribbon folds the guide away", !guide().opened(), "closed");
+                check("folding the guide leaves the work on", Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase);
+                pointAside();
+                shot("ji11_closed");
+            });
+            step(4, Scene::leave);
+            step(45, () -> finish(Minecraft.getInstance()));
+        }
     }
 
     // ---- the crafting table -------------------------------------------------------------------------
@@ -1270,7 +2004,9 @@ public final class Showcase {
         if (station == null || station.hoverCell != expected) {
             REPORT.add("cursor missed cell r" + row + "c" + col + ": hover=" + (station == null ? "-" : station.hoverCell) + " expected=" + expected);
         }
+        // A whole click: a held stack is put down when the button comes up, as over vanilla slots.
         screenClick(button);
+        screenRelease(button);
     }
 
     private static void clickResult() {
@@ -1811,8 +2547,8 @@ public final class Showcase {
     }
     private static void verifyProfileControls() {
         List<Object> selectors = new ArrayList<>(); profileWidgets(Minecraft.getInstance().screen, selectors);
-        check("settings have a profile for every station", selectors.size() == StationKind.values().length, "selectors=" + selectors.size());
-        if (selectors.size() != StationKind.values().length) return;
+        check("settings have a profile for every built-in station", selectors.size() == StationKind.values().length - 1, "selectors=" + selectors.size());
+        if (selectors.size() != StationKind.values().length - 1) return;
         int selected = LayoutProfiles.selected(StationKind.TABLE), next = (selected + 1) % 3;
         Object first = selectors.getFirst();
         try {
@@ -2605,7 +3341,7 @@ public final class Showcase {
             }
             check("stand's own bottle pictures left out", withBottles == without, "quads with bottles=" + withBottles + " without=" + without);
             boolean known = mc.level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand
-                    && stand.getItem(0).is(Items.POTION) && stand.getItem(2).is(Items.POTION);
+                    && ClientBrewing.item(stand, 0).is(Items.POTION) && ClientBrewing.item(stand, 2).is(Items.POTION);
             check("client knows the potions in the stand", known, "");
         });
         step(100, () -> shot("b8_brewing_mid"));
@@ -2626,6 +3362,23 @@ public final class Showcase {
                 check("three awkward potions brewed", awkward == 3, "awkward=" + awkward + " wart=" + stand.getItem(3));
             }
         }));
+        // the brew changed the potions in place: watchers are told without anyone touching the stand
+        step(4, () -> {
+            int awkward = 0;
+            if (Minecraft.getInstance().level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand) {
+                for (int i = 0; i < 3; i++) {
+                    var contents = ClientBrewing.item(stand, i).get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
+                    if (contents != null && contents.is(net.minecraft.world.item.alchemy.Potions.AWKWARD)) awkward++;
+                }
+            }
+            check("client sees the brewed potions", awkward == 3, "awkward=" + awkward);
+            if (net.neoforged.fml.ModList.get().isLoaded("amendments")
+                    && Minecraft.getInstance().level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand) {
+                // Amendments syncs the stand through its own update packet: that data still reaches the client
+                check("Amendments' own stand data reaches the client", stand.getItem(0).is(Items.POTION) && stand.getItem(2).is(Items.POTION),
+                        "slot0=" + describe(stand.getItem(0)));
+            }
+        });
         step(2, () -> pointAt(brewing().handle(0)));
         step(6, () -> clickBrewing(BrewingStation.Target.ITEM, 0));
         step(8, () -> shot("b9_bottle_in_hand"));
@@ -2634,6 +3387,31 @@ public final class Showcase {
         step(4, () -> report("brewing before leaving"));
         step(2, Scene::leave);
         step(50, () -> shot("b9_after"));
+        // far away the chunk is dropped; coming back, the stand's contents arrive with the chunk again
+        step(2, () -> server(p -> p.teleportTo(p.serverLevel(), 600.5, -60, 600.5, 0f, 20f)));
+        step(80, () -> check("brewing stand forgotten with its chunk",
+                !(Minecraft.getInstance().level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity), "unloaded"));
+        step(2, () -> server(p -> p.teleportTo(p.serverLevel(), BREWING.getX() + 0.5, -60, BREWING.getZ() + 3.5, 180f, 20f)));
+        step(80, () -> {
+            String client = "-";
+            int potions = 0;
+            if (Minecraft.getInstance().level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand) {
+                client = "";
+                for (int i = 0; i < 3; i++) {
+                    client += describe(ClientBrewing.item(stand, i)) + " ";
+                    if (ClientBrewing.item(stand, i).is(Items.POTION)) potions++;
+                }
+            }
+            int seen = potions;
+            String shown = client;
+            server(p -> {
+                int real = 0;
+                if (p.serverLevel().getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand)
+                    for (int i = 0; i < 3; i++) if (stand.getItem(i).is(Items.POTION)) real++;
+                check("the stand's potions come back with its chunk", real > 0 && seen == real, "server=" + real + " client=" + shown);
+            });
+        });
+        step(4, () -> shot("b9_chunk_back"));
         smithyAct("r", CRAFTER);
     }
 
@@ -3841,7 +4619,253 @@ public final class Showcase {
         });
         step(2, () -> recipeControl(113, 194));
         step(2, () -> recipeControl(113, 12));
+        tableSpreadScript();
+        tableLayAllScript();
         lookAct();
+    }
+
+    // ---- sharing a stack with a left-drag, and laying out every set at once ---------------------------
+
+    private static final List<ItemStack> savedInventory = new ArrayList<>();
+
+    /** Puts the inventory aside and gives exactly {@code stacks}, so that the counts below are known. */
+    private static void testInventory(ItemStack... stacks) {
+        server(p -> {
+            if (savedInventory.isEmpty()) {
+                for (int i = 0; i < 36; i++) savedInventory.add(p.getInventory().getItem(i).copy());
+            }
+            for (int i = 0; i < 36; i++) p.getInventory().setItem(i, i < stacks.length ? stacks[i].copy() : ItemStack.EMPTY);
+            p.inventoryMenu.setCarried(ItemStack.EMPTY);
+            p.inventoryMenu.broadcastChanges();
+        });
+    }
+
+    private static void restoreInventory() {
+        server(p -> {
+            for (int i = 0; i < 36 && i < savedInventory.size(); i++) p.getInventory().setItem(i, savedInventory.get(i));
+            savedInventory.clear();
+            p.inventoryMenu.setCarried(ItemStack.EMPTY);
+            p.inventoryMenu.broadcastChanges();
+        });
+    }
+
+    /** Clears the table without spilling (spilt items would be picked up again and spoil the counts). */
+    private static void wipeTable(ServerPlayer p) {
+        TableStore.get(p.serverLevel()).remove(TABLE);
+        dev.dyslexic.cinematic.table.TableActions.sync(p.serverLevel(), TABLE);
+    }
+
+    private static void putOnTable(ServerPlayer p, int row, int col, ItemStack stack) {
+        TableStore store = TableStore.get(p.serverLevel());
+        store.getOrCreate(TABLE).items.set(TableGrid.worldIndex(Scene.station.sideDirection(), row, col), stack.copy());
+        store.setDirty();
+        dev.dyslexic.cinematic.table.TableActions.sync(p.serverLevel(), TABLE);
+    }
+
+    private static ItemStack onTable(ServerPlayer p, int row, int col) {
+        TableStore.Table stored = TableStore.get(p.serverLevel()).get(TABLE);
+        return stored == null ? ItemStack.EMPTY : stored.items.get(TableGrid.worldIndex(Scene.station.sideDirection(), row, col));
+    }
+
+    /** Every item of a kind the player can account for: inventory, hand and table top. */
+    private static int heldEverywhere(ServerPlayer p, net.minecraft.world.item.Item item) {
+        int total = p.inventoryMenu.getCarried().is(item) ? p.inventoryMenu.getCarried().getCount() : 0;
+        for (int i = 0; i < 36; i++) if (p.getInventory().getItem(i).is(item)) total += p.getInventory().getItem(i).getCount();
+        TableStore.Table stored = TableStore.get(p.serverLevel()).get(TABLE);
+        for (int i = 0; stored != null && i < TableGrid.CELLS; i++) if (stored.items.get(i).is(item)) total += stored.items.get(i).getCount();
+        return total;
+    }
+
+    private static void screenPress(int button) { screenClick(button); }
+
+    private static void screenDrag(int button) {
+        double[] at = Picking.mouseGui();
+        Minecraft.getInstance().screen.mouseDragged(at[0], at[1], button, 1, 0);
+    }
+
+    private static void screenRelease(int button) {
+        double[] at = Picking.mouseGui();
+        Minecraft.getInstance().screen.mouseReleased(at[0], at[1], button);
+    }
+
+    private static void tableSpreadScript() {
+        // singleplayer never encodes packets: the new SPREAD mask and PLACE count go through the codec here
+        step(2, () -> {
+            var spread = new dev.dyslexic.cinematic.net.StationActionPayload(TABLE, StationKind.TABLE,
+                    dev.dyslexic.cinematic.net.StationActionPayload.Action.SPREAD, 0b111111111, 0, false, 0);
+            var place = new dev.dyslexic.cinematic.net.StationActionPayload(TABLE, StationKind.TABLE,
+                    dev.dyslexic.cinematic.net.StationActionPayload.Action.PLACE, 8, -1, true, 99);
+            var quick = new dev.dyslexic.cinematic.net.StationActionPayload(TABLE, StationKind.BREWING,
+                    dev.dyslexic.cinematic.net.StationActionPayload.Action.QUICK, 35, 0, true, 0);
+            for (var sent : List.of(spread, place, quick)) {
+                var buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+                dev.dyslexic.cinematic.net.StationActionPayload.CODEC.encode(buf, sent);
+                var read = dev.dyslexic.cinematic.net.StationActionPayload.CODEC.decode(buf);
+                check("station action " + sent.action() + " survives the codec", read.equals(sent) && buf.readableBytes() == 0,
+                        "read=" + read);
+                buf.release();
+            }
+        });
+        // ten planks dragged over three cells: three each, one stays in hand; passing a cell again adds nothing
+        step(4, () -> {
+            testInventory();
+            server(p -> {
+                wipeTable(p);
+                p.inventoryMenu.setCarried(new ItemStack(Items.BIRCH_PLANKS, 10));
+                p.inventoryMenu.broadcastChanges();
+            });
+        });
+        step(8, () -> point(0, 0));
+        step(4, () -> screenPress(0));
+        step(3, () -> point(0, 1));
+        step(3, () -> screenDrag(0));
+        step(3, () -> point(0, 2));
+        step(3, () -> screenDrag(0));
+        step(3, () -> point(0, 1));
+        step(3, () -> screenDrag(0));
+        step(6, () -> {
+            check("spread: three cells gathered, three each", Integer.bitCount(table().spreadCells()) == 3 && table().spreadShare() == 3,
+                    "cells=" + Integer.bitCount(table().spreadCells()) + " share=" + table().spreadShare());
+            shot("y5_spread_preview");
+        });
+        step(2, () -> screenRelease(0));
+        step(16, () -> {
+            server(p -> check("spread: 3 + 3 + 3 on the table, 1 in hand, nothing made or lost",
+                    onTable(p, 0, 0).getCount() == 3 && onTable(p, 0, 1).getCount() == 3 && onTable(p, 0, 2).getCount() == 3
+                            && p.inventoryMenu.getCarried().getCount() == 1 && heldEverywhere(p, Items.BIRCH_PLANKS) == 10,
+                    describe(onTable(p, 0, 0)) + " " + describe(onTable(p, 0, 1)) + " " + describe(onTable(p, 0, 2))
+                            + " hand=" + describe(p.inventoryMenu.getCarried()) + " total=" + heldEverywhere(p, Items.BIRCH_PLANKS)));
+            shot("y6_spread_done");
+        });
+        // an almost full stack takes only what fits; a cell with another item is passed over
+        step(4, () -> server(p -> {
+            wipeTable(p);
+            putOnTable(p, 1, 0, new ItemStack(Items.BIRCH_PLANKS, 62));
+            putOnTable(p, 1, 1, new ItemStack(Items.STICK));
+            p.inventoryMenu.setCarried(new ItemStack(Items.BIRCH_PLANKS, 10));
+            p.inventoryMenu.broadcastChanges();
+        }));
+        step(10, () -> point(1, 0));
+        step(4, () -> screenPress(0));
+        step(3, () -> point(1, 1));
+        step(3, () -> screenDrag(0));
+        step(3, () -> point(1, 2));
+        step(3, () -> screenDrag(0));
+        step(4, () -> check("spread: the other item is passed over", Integer.bitCount(table().spreadCells()) == 2,
+                "cells=" + Integer.bitCount(table().spreadCells())));
+        step(2, () -> screenRelease(0));
+        step(16, () -> server(p -> check("spread: 62 + 2 = a full stack, 5 beside it, 3 in hand, the stick untouched",
+                onTable(p, 1, 0).getCount() == 64 && onTable(p, 1, 2).getCount() == 5 && onTable(p, 1, 1).is(Items.STICK)
+                        && onTable(p, 1, 1).getCount() == 1 && p.inventoryMenu.getCarried().getCount() == 3
+                        && heldEverywhere(p, Items.BIRCH_PLANKS) == 72,
+                describe(onTable(p, 1, 0)) + " " + describe(onTable(p, 1, 1)) + " " + describe(onTable(p, 1, 2))
+                        + " hand=" + describe(p.inventoryMenu.getCarried()))));
+        // a plain click still puts the whole stack down
+        step(4, () -> server(p -> {
+            wipeTable(p);
+            p.inventoryMenu.setCarried(new ItemStack(Items.BIRCH_PLANKS, 10));
+            p.inventoryMenu.broadcastChanges();
+        }));
+        step(10, () -> point(2, 2));
+        step(4, () -> clickCell(2, 2, 0));
+        step(16, () -> server(p -> check("spread: a plain click lays the whole stack, as before",
+                onTable(p, 2, 2).getCount() == 10 && p.inventoryMenu.getCarried().isEmpty(),
+                describe(onTable(p, 2, 2)) + " hand=" + describe(p.inventoryMenu.getCarried()))));
+        // two items cannot be shared between three cells: the third is not taken in
+        step(4, () -> server(p -> {
+            wipeTable(p);
+            p.inventoryMenu.setCarried(new ItemStack(Items.BIRCH_PLANKS, 2));
+            p.inventoryMenu.broadcastChanges();
+        }));
+        step(10, () -> point(0, 0));
+        step(4, () -> screenPress(0));
+        step(3, () -> point(0, 1));
+        step(3, () -> screenDrag(0));
+        step(3, () -> point(0, 2));
+        step(3, () -> screenDrag(0));
+        step(2, () -> screenRelease(0));
+        step(16, () -> server(p -> check("spread: no more cells than items", onTable(p, 0, 0).getCount() == 1
+                && onTable(p, 0, 1).getCount() == 1 && onTable(p, 0, 2).isEmpty() && p.inventoryMenu.getCarried().isEmpty(),
+                describe(onTable(p, 0, 0)) + " " + describe(onTable(p, 0, 1)) + " " + describe(onTable(p, 0, 2)))));
+        step(4, () -> server(Showcase::wipeTable));
+    }
+
+    private static void tableLayAllScript() {
+        // torches: the top cell takes the kind of coal there is more of, every set is whole
+        step(6, () -> testInventory(new ItemStack(Items.COAL, 5), new ItemStack(Items.CHARCOAL, 7), new ItemStack(Items.STICK, 20)));
+        step(10, () -> {
+            var at = table().recipeBook.togglePoint();
+            pointGui(at[0], at[1]);
+            screenClick(0);
+        });
+        step(15, () -> recipeSearch("torch"));
+        step(4, () -> pointRecipe("torch"));
+        step(3, () -> screenClick(0));
+        step(6, () -> {
+            var max = table().recipeBook.guide.maxLayout();
+            check("lay out all: seven torch sets offered", max.sets() == 7 && max.current() == 0, "sets=" + max.sets() + " moves=" + max.moves().size());
+            table().recipeBook.layOut(true);
+        });
+        step(8, () -> shot("y7_lay_all_moving"));
+        step(40, () -> {
+            server(p -> check("lay out all: 7 charcoal over 7 sticks, the coal stays", heldEverywhere(p, Items.CHARCOAL) == 7
+                    && heldEverywhere(p, Items.COAL) == 5 && heldEverywhere(p, Items.STICK) == 20
+                    && TableStore.get(p.serverLevel()).get(TABLE) != null
+                    && TableStore.get(p.serverLevel()).get(TABLE).items.stream().mapToInt(s -> s.is(Items.CHARCOAL) || s.is(Items.STICK) ? s.getCount() : 0).sum() == 14,
+                    "charcoal=" + heldEverywhere(p, Items.CHARCOAL) + " sticks=" + heldEverywhere(p, Items.STICK)));
+            check("lay out all: the table shows the torch", table().result.is(Items.TORCH), "result=" + describe(table().result));
+            pointAside();
+            shot("y8_lay_all_torches");
+        });
+        step(4, () -> table().craft(true));
+        step(30, () -> server(p -> check("lay out all: a real craft of every set gives 28 torches", heldEverywhere(p, Items.TORCH) == 28
+                && heldEverywhere(p, Items.CHARCOAL) == 0 && heldEverywhere(p, Items.STICK) == 13,
+                "torches=" + heldEverywhere(p, Items.TORCH) + " sticks=" + heldEverywhere(p, Items.STICK))));
+        // eyes of ender: one set first, then every set up to the pearl's stack limit of sixteen
+        step(4, () -> {
+            testInventory(new ItemStack(Items.ENDER_PEARL, 16), new ItemStack(Items.ENDER_PEARL, 16), new ItemStack(Items.ENDER_PEARL, 8),
+                    new ItemStack(Items.BLAZE_POWDER, 40));
+            server(Showcase::wipeTable);
+        });
+        step(10, () -> recipeSearch("ender_eye"));
+        step(4, () -> pointRecipe("ender_eye"));
+        step(3, () -> screenClick(0));
+        step(6, () -> table().recipeBook.layOut(false));
+        step(30, () -> {
+            var max = table().recipeBook.guide.maxLayout();
+            check("lay out all: one set lies, sixteen offered", max.current() == 1 && max.sets() == 16, "current=" + max.current() + " sets=" + max.sets());
+            table().recipeBook.layOut(true);
+        });
+        step(40, () -> server(p -> {
+            TableStore.Table stored = TableStore.get(p.serverLevel()).get(TABLE);
+            int pearls = 0, powder = 0;
+            for (int i = 0; stored != null && i < TableGrid.CELLS; i++) {
+                if (stored.items.get(i).is(Items.ENDER_PEARL)) pearls = Math.max(pearls, stored.items.get(i).getCount());
+                if (stored.items.get(i).is(Items.BLAZE_POWDER)) powder = Math.max(powder, stored.items.get(i).getCount());
+            }
+            check("lay out all: topped up to the pearl's stack limit, nothing lost", pearls == 16 && powder == 16
+                    && heldEverywhere(p, Items.ENDER_PEARL) == 40 && heldEverywhere(p, Items.BLAZE_POWDER) == 40,
+                    "pearls=" + pearls + " powder=" + powder + " total=" + heldEverywhere(p, Items.ENDER_PEARL));
+        }));
+        step(2, () -> shot("y9_lay_all_pearls"));
+        // nothing to promise: no diamonds for a single pickaxe
+        step(4, () -> {
+            testInventory(new ItemStack(Items.STICK, 10));
+            server(Showcase::wipeTable);
+        });
+        step(10, () -> recipeSearch("diamond_pickaxe"));
+        step(4, () -> pointRecipe("diamond_pickaxe"));
+        step(3, () -> screenClick(0));
+        step(8, () -> {
+            var max = table().recipeBook.guide.maxLayout();
+            check("lay out all: no full set, nothing offered", max.moves().isEmpty() && max.current() == 0, "sets=" + max.sets());
+            table().recipeBook.layOut(true);
+        });
+        step(20, () -> server(p -> check("lay out all: nothing laid without a full set", TableStore.get(p.serverLevel()).get(TABLE) == null
+                && heldEverywhere(p, Items.STICK) == 10, "sticks=" + heldEverywhere(p, Items.STICK))));
+        step(2, () -> recipeControl(113, 194));
+        step(2, () -> recipeControl(113, 12));
+        step(4, Showcase::restoreInventory);
     }
 
     // ---- looking round from behind while at work ----------------------------------------------------

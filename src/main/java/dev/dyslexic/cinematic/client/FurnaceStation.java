@@ -18,7 +18,6 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -81,7 +80,66 @@ public final class FurnaceStation extends ClientStation {
     @Override public boolean busy() { return gridEditor.editing(); }
     @Override public boolean showsInventory() { return !gridEditor.visible(); }
     @Override public void beforeFrame() { gridEditor.frame(); }
-    @Override public void onEnd() { gridEditor.cancel(); }
+    @Override public void onEnd() {
+        gridEditor.cancel();
+        hint = ItemStack.EMPTY;
+    }
+
+    // ---- the field guide's hint ------------------------------------------------------------------------
+
+    /** The raw item of a recipe chosen in the field guide, shown faintly in its opening until something goes in. */
+    private ItemStack hint = ItemStack.EMPTY;
+    private double hintAt;
+
+    /**
+     * The raw item of a recipe when it is this furnace's own kind of cooking, else null: one the player carries if any
+     * fits, so the hint shows what they would actually put in.
+     */
+    @Nullable
+    ItemStack cookingInput(net.minecraft.resources.ResourceLocation id) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return null;
+        var holder = mc.level.getRecipeManager().byKey(id).orElse(null);
+        if (holder == null || holder.value().getType() != layout.recipeType || holder.value().getIngredients().isEmpty()) return null;
+        var ingredient = holder.value().getIngredients().get(0);
+        if (mc.player != null) {
+            for (ItemStack stack : mc.player.getInventory().items) if (ingredient.test(stack)) return stack.copyWithCount(1);
+        }
+        ItemStack[] choices = ingredient.getItems();
+        return choices.length == 0 ? null : choices[0].copyWithCount(1);
+    }
+
+    ItemStack guideHint() { return hint; }
+
+    void showHint(@Nullable ItemStack stack) {
+        hint = stack == null ? ItemStack.EMPTY : stack.copyWithCount(1);
+        hintAt = Scene.clock();
+    }
+
+    private void drawHint(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        if (hint.isEmpty() || Minecraft.getInstance().level == null) return;
+        ClientFurnaces.Entry entry = ClientFurnaces.get(pos);
+        ItemStack inside = entry == null ? ItemStack.EMPTY : entry.items[FurnaceZones.INPUT];
+        if (!inside.isEmpty()) {
+            // the raw item went in: the hint has done its work
+            if (ItemStack.isSameItem(inside, hint)) hint = ItemStack.EMPTY;
+            return;
+        }
+        FurnaceLayout.Bed bed = null;
+        for (FurnaceLayout.Bed b : layout.beds) if (b.slot() == FurnaceZones.INPUT) bed = b;
+        if (bed == null) return;
+        Direction facing = Minecraft.getInstance().level.getBlockState(pos).getValue(AbstractFurnaceBlock.FACING);
+        FurnaceAppearance appearance = geometry();
+        double u = (bed.u0() + bed.u1()) / 2;
+        Vec3 base = appearance.point(layout, pos, facing, bed.slot(), u, bed.face() == Face.FRONT ? bed.floor() + 0.002 : bed.floor(),
+                -bed.depth(), true);
+        float appear = (float) Anim.smoother((Scene.clock() - hintAt) / 0.3);
+        float opacity = appear * (0.3f + 0.07f * (float) Math.sin(Scene.clock() * 3));
+        if (buffers instanceof MultiBufferSource.BufferSource source) source.endBatch();
+        ItemPlacer.render(pose, buffers, camera, hint, base, facing, 7L, 0.95f * (float) appearance.region(bed.slot()).itemScale(),
+                bed.tilt(), light, opacity);
+        if (buffers instanceof MultiBufferSource.BufferSource source) source.endBatch();
+    }
 
     @Override public List<Vec3> workSamples() {
         if (geometry().equals(FurnaceAppearance.VANILLA)) return super.workSamples();
@@ -385,12 +443,13 @@ public final class FurnaceStation extends ClientStation {
     @Override
     public void renderWorld(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
         FurnaceAppearance appearance = geometry();
-        VertexConsumer glow = buffers.getBuffer(RenderType.lightning());
+        VertexConsumer glow = buffers.getBuffer(Fx.flatGlow());
         double flicker = 0.9 + 0.1 * Math.sin(Scene.clock() * 9.0);
         gauge(pose, glow, camera, appearance.rect(layout, 3, false), Mth.lerp(gridEditor.amount(), cook(), 0.7), new int[]{255, 196, 90}, flicker, appearance.region(3).out() / 16);
         gauge(pose, glow, camera, appearance.rect(layout, 4, false), Mth.lerp(gridEditor.amount(), burn(), 0.5), new int[]{255, 92, 30}, flicker, appearance.region(4).out() / 16);
         gridEditor.renderWorld(pose, buffers, camera, light);
         if (gridEditor.visible()) return;
+        drawHint(pose, buffers, camera, light);
         FurnaceLayout.Zone zone = hoverZone < 0 ? null : layout.zone(hoverZone);
         if (zone == null) {
             return;
@@ -405,11 +464,30 @@ public final class FurnaceStation extends ClientStation {
     /** A thin glowing line on the front, lit up to {@code fill}; the rest is a faint track. */
     private void gauge(PoseStack pose, VertexConsumer glow, Vec3 camera, double[] strip, double fill, int[] rgb, double flicker, double out) {
         int[] track = {(int) (rgb[0] * 0.12), (int) (rgb[1] * 0.12), (int) (rgb[2] * 0.12)};
-        quad(pose, glow, camera, pos, side, Face.FRONT, strip, out + 0.003, track, track, 255);
+        glowQuad(pose, glow, camera, pos, side, Face.FRONT, strip, out + 0.003, track, track);
         if (fill > 0.001) {
             int[] lit = {(int) (rgb[0] * 0.75 * flicker), (int) (rgb[1] * 0.75 * flicker), (int) (rgb[2] * 0.75 * flicker)};
-            quad(pose, glow, camera, pos, side, Face.FRONT, new double[]{strip[0], strip[0] + (strip[1] - strip[0]) * fill, strip[2], strip[3]},
-                    out + 0.0035, lit, lit, 255);
+            glowQuad(pose, glow, camera, pos, side, Face.FRONT, new double[]{strip[0], strip[0] + (strip[1] - strip[0]) * fill, strip[2], strip[3]},
+                    out + 0.0035, lit, lit);
+        }
+    }
+
+    /** The same rectangle as {@link #quad}, but as light added on a {@link Fx#flatGlow()} layer. */
+    static void glowQuad(PoseStack pose, VertexConsumer buffer, Vec3 camera, BlockPos pos, Direction facing, Face face, double[] rect,
+            double out, int[] near, int[] far) {
+        Matrix4f m = pose.last().pose();
+        Vec3[] corners = {
+                FurnaceZones.point(pos, facing, face, rect[0], rect[2], out), FurnaceZones.point(pos, facing, face, rect[1], rect[2], out),
+                FurnaceZones.point(pos, facing, face, rect[1], rect[3], out), FurnaceZones.point(pos, facing, face, rect[0], rect[3], out)};
+        Vec3 normal = face == Face.TOP ? new Vec3(0, 1, 0) : Vec3.atLowerCornerOf(facing.getNormal());
+        // wound both ways: the layer culls, and which winding faces out depends on the face
+        for (int[] order : BOTH_WAYS) {
+            for (int i : order) {
+                Vec3 c = corners[i];
+                int[] rgb = i < 2 ? near : far;
+                Fx.glowVertex(buffer, m, (float) (c.x - camera.x), (float) (c.y - camera.y), (float) (c.z - camera.z),
+                        rgb[0], rgb[1], rgb[2], normal);
+            }
         }
     }
 

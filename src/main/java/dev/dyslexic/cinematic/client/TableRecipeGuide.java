@@ -85,6 +85,13 @@ final class TableRecipeGuide {
         revision++;
     }
 
+    /** The reference's entry for a recipe id, if it has a diagram the table can show (shaped or shapeless). */
+    @Nullable
+    Entry entry(net.minecraft.resources.ResourceLocation id) {
+        for (Entry e : entries) if (e.holder.id().equals(id)) return e;
+        return null;
+    }
+
     void select(@Nullable Entry entry) {
         selected = entry;
         Arrays.fill(grid, Ingredient.EMPTY);
@@ -221,10 +228,168 @@ final class TableRecipeGuide {
         for (int n = 0; n < cells.size(); n++) {
             if (assignment[n] >= 0) {
                 int logical = cells.get(n);
-                moves.add(new int[]{TableGrid.worldIndex(station.side, logical / 3, logical % 3), slots.get(assignment[n])});
+                moves.add(new int[]{TableGrid.worldIndex(station.side, logical / 3, logical % 3), slots.get(assignment[n]), 1});
             }
         }
         return moves;
+    }
+
+    /**
+     * Shift + "Lay out": every cell of the diagram brought up to {@code sets} items, the most whole sets the items at
+     * hand allow. Each cell holds a single kind of item, so a tag ingredient picks the kinds that go furthest, and
+     * no cell passes its kind's stack limit. {@code current} is how many whole sets already lie on the table; when
+     * {@code sets} is not more than that, there is nothing to lay. Cells holding a wrong item are left alone.
+     */
+    record MaxLayout(int sets, int current, List<int[]> moves) {}
+
+    MaxLayout maxLayout() {
+        if (maxRevision == revision && maxCache != null) {
+            return maxCache;
+        }
+        maxRevision = revision;
+        maxCache = workOutMax();
+        return maxCache;
+    }
+
+    @Nullable
+    private MaxLayout maxCache;
+    private int maxRevision = -1;
+    /** Gives up on a pathological assignment search instead of stalling a frame; real recipes take a few dozen steps. */
+    private static final int SEARCH_STEPS = 20_000;
+
+    private MaxLayout workOutMax() {
+        Minecraft mc = Minecraft.getInstance();
+        if (selected == null || mc.player == null) {
+            return new MaxLayout(0, 0, List.of());
+        }
+        // The kinds of item at hand (same item and components), how many of each, and which slots hold them.
+        List<ItemStack> kinds = new ArrayList<>();
+        List<Integer> stock = new ArrayList<>();
+        List<List<Integer>> kindSlots = new ArrayList<>();
+        for (int slot = -1; slot < 36; slot++) {
+            ItemStack stack = slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot);
+            if (stack.isEmpty()) continue;
+            int kind = kindOf(kinds, stack);
+            if (kind < 0) {
+                kinds.add(stack);
+                stock.add(0);
+                kindSlots.add(new ArrayList<>());
+                kind = kinds.size() - 1;
+            }
+            stock.set(kind, stock.get(kind) + stack.getCount());
+            kindSlots.get(kind).add(slot);
+        }
+        // The diagram's cells: those already holding the right item keep that kind; empty ones choose a kind.
+        List<Integer> cells = new ArrayList<>();
+        List<Integer> fixedKind = new ArrayList<>();
+        List<Integer> have = new ArrayList<>();
+        List<Integer> limit = new ArrayList<>();
+        List<int[]> choices = new ArrayList<>();
+        int current = Integer.MAX_VALUE;
+        int upper = Integer.MAX_VALUE;
+        for (int logical = 0; logical < 9; logical++) {
+            if (grid[logical].isEmpty()) continue;
+            ItemStack lying = actual(logical);
+            if (!lying.isEmpty() && !grid[logical].test(lying)) continue;
+            cells.add(logical);
+            if (!lying.isEmpty()) {
+                fixedKind.add(kindOf(kinds, lying));
+                have.add(lying.getCount());
+                limit.add(lying.getMaxStackSize());
+                choices.add(new int[0]);
+                current = Math.min(current, lying.getCount());
+                upper = Math.min(upper, lying.getMaxStackSize());
+            } else {
+                List<Integer> accepted = new ArrayList<>();
+                int best = 0;
+                for (int k = 0; k < kinds.size(); k++) if (grid[logical].test(kinds.get(k))) {
+                    accepted.add(k);
+                    best = Math.max(best, kinds.get(k).getMaxStackSize());
+                }
+                fixedKind.add(-1);
+                have.add(0);
+                limit.add(best);
+                choices.add(accepted.stream().mapToInt(Integer::intValue).toArray());
+                current = 0;
+                upper = Math.min(upper, best);
+            }
+        }
+        if (cells.isEmpty()) {
+            return new MaxLayout(0, 0, List.of());
+        }
+        int[] chosen = new int[cells.size()];
+        for (int sets = upper; sets > current; sets--) {
+            if (!assign(sets, cells.size(), fixedKind, have, limit, choices, kinds, stock, chosen)) continue;
+            int[] left = new int[36 + 1];
+            for (int slot = -1; slot < 36; slot++) {
+                ItemStack stack = slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot);
+                left[slot + 1] = stack.getCount();
+            }
+            List<int[]> moves = new ArrayList<>();
+            for (int i = 0; i < cells.size(); i++) {
+                int need = sets - have.get(i);
+                if (need <= 0) continue;
+                int logical = cells.get(i);
+                int world = TableGrid.worldIndex(station.side, logical / 3, logical % 3);
+                for (int slot : kindSlots.get(chosen[i])) {
+                    if (need <= 0) break;
+                    int take = Math.min(need, left[slot + 1]);
+                    if (take <= 0) continue;
+                    left[slot + 1] -= take;
+                    need -= take;
+                    moves.add(new int[]{world, slot, take});
+                }
+            }
+            return new MaxLayout(sets, current, moves);
+        }
+        return new MaxLayout(current, current, List.of());
+    }
+
+    private static int kindOf(List<ItemStack> kinds, ItemStack stack) {
+        for (int k = 0; k < kinds.size(); k++) if (ItemStack.isSameItemSameComponents(kinds.get(k), stack)) return k;
+        return -1;
+    }
+
+    /** Whether every cell can reach {@code sets} items; {@code chosen} receives each cell's kind. */
+    private static boolean assign(int sets, int count, List<Integer> fixedKind, List<Integer> have, List<Integer> limit,
+            List<int[]> choices, List<ItemStack> kinds, List<Integer> stock, int[] chosen) {
+        int[] left = stock.stream().mapToInt(Integer::intValue).toArray();
+        List<Integer> open = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            int need = sets - have.get(i);
+            if (fixedKind.get(i) >= 0 || have.get(i) > 0) {
+                if (need <= 0) { chosen[i] = Math.max(0, fixedKind.get(i)); continue; }
+                int kind = fixedKind.get(i);
+                if (kind < 0 || sets > limit.get(i) || left[kind] < need) return false;
+                left[kind] -= need;
+                chosen[i] = kind;
+            } else {
+                if (choices.get(i).length == 0) return false;
+                open.add(i);
+            }
+        }
+        // The cells with the fewest usable kinds first: they decide fastest whether this many sets fit.
+        open.sort(Comparator.comparingInt(i -> choices.get(i).length));
+        int[] steps = {0};
+        return place(0, open, sets, choices, kinds, left, chosen, steps);
+    }
+
+    private static boolean place(int at, List<Integer> open, int sets, List<int[]> choices, List<ItemStack> kinds, int[] left,
+            int[] chosen, int[] steps) {
+        if (at == open.size()) return true;
+        if (++steps[0] > SEARCH_STEPS) return false;
+        int cell = open.get(at);
+        int[] options = choices.get(cell).clone();
+        // the most plentiful kind first: it leaves the most for the cells still to come
+        Integer[] order = Arrays.stream(options).boxed().sorted((a, b) -> left[b] - left[a]).toArray(Integer[]::new);
+        for (int kind : order) {
+            if (left[kind] < sets || kinds.get(kind).getMaxStackSize() < sets) continue;
+            left[kind] -= sets;
+            chosen[cell] = kind;
+            if (place(at + 1, open, sets, choices, kinds, left, chosen, steps)) return true;
+            left[kind] += sets;
+        }
+        return false;
     }
 
     ItemStack ghost(int logical) {

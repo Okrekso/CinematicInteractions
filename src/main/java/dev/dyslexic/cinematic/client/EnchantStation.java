@@ -540,8 +540,13 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         glow = Anim.approach(glow, target, target > glow ? 6 : 2.5, Scene.frameDt);
         double spin = clock * 0.25 + (t >= 0 ? 4 * Anim.smoother(t) : 0);
         float g = (float) glow;
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, spin, 0.62f * g, 0.4f * g, 1.0f * g);
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -spin * 1.7, 0.4f * g, 0.7f * g, 1.0f * g);
+        boolean canEnchant = item().isEmpty() || t >= 0;
+        for (int k = 0; k < 3 && !canEnchant; k++) {
+            canEnchant = offered(k) && affordable(k);
+        }
+        EnchantFx.CirclePalette tablePalette = canEnchant ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED;
+        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, spin, tablePalette, 0.85f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -spin * 1.7, tablePalette, 0.55f * g);
 
         boolean outro = Scene.phase == Scene.Phase.OUTRO;
         double fade = outro ? 1 - Anim.smoother(Scene.time / 0.45) : 1;
@@ -563,7 +568,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
             float socket = (float) ((0.50 + 0.42 * lapisFocus) * presence);
             boolean wrong = this.target == Target.LAPIS && !Hands.carried().isEmpty() && !Hands.carried().is(Items.LAPIS_LAZULI);
             EnchantFx.circle(pose, buffers, cam, corner().add(0, 0.006, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
-                    wrong ? socket : socket * 0.2f, wrong ? socket * 0.2f : socket * 0.55f, wrong ? socket * 0.2f : socket);
+                    wrong ? EnchantFx.CirclePalette.RED : EnchantFx.CirclePalette.LAPIS, socket);
             if (lapis == 0 && t < 0) {
                 EnchantFx.lapisGhost(pose, buffers, camera, corner().add(0, 0.052 + Math.sin(clock * 1.5) * 0.004, 0), socket, geometry().scale(1), (float) -geometry().rotation(1));
             }
@@ -619,7 +624,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         if (target == Target.SURFACE && !Hands.carried().isEmpty() && aim != null) {
             float p = (float) (0.25 + 0.1 * Math.sin(clock * 5));
-            EnchantFx.circle(pose, buffers, camera, top.add(0, 0.006, 0), 0.16, -clock, p * 0.8f, p * 0.7f, p);
+            EnchantFx.circle(pose, buffers, camera, top.add(0, 0.006, 0), 0.16, -clock,
+                    EnchantFx.CirclePalette.VIOLET, p);
         }
     }
 
@@ -653,7 +659,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         float bl = affordable ? 1.0f : 0.16f;
         EnchantFx.billboard(pose, buffers, camera, at, size * 1.8, 0, EnchantFx.GLOW, r * b * 0.35f, g * b * 0.35f, bl * b * 0.35f);
         double turn = clock * (hovered ? 1.8 : 0.5) * (k % 2 == 0 ? 1 : -1);
-        EnchantFx.billboard(pose, buffers, camera, at, size, turn + Math.toRadians(geometry().rotation(k + 2)), EnchantFx.CIRCLE, r * b, g * b, bl * b);
+        EnchantFx.circleBillboard(pose, buffers, camera, at, size, turn + Math.toRadians(geometry().rotation(k + 2)),
+                affordable ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED, b);
 
         Font font = Minecraft.getInstance().font;
         Vec3 cam = camera.getPosition();

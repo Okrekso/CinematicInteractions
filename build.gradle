@@ -63,7 +63,7 @@ neoForge {
         // A real vanilla dedicated server on 127.0.0.1:25586, with no Cinematic Interactions installed.
         clientOnlySmoke {
             client()
-            gameDirectory = project.file('run-showcase')
+            gameDirectory = project.file(project.findProperty('clientOnlySmokeDir') ?: 'run-showcase')
             systemProperty 'cinematic.clientOnlySmoke', 'true'
             programArguments.addAll '--width', '1280', '--height', '720'
         }
@@ -79,6 +79,8 @@ neoForge {
                 client()
                 gameDirectory = project.file('run-join-client')
                 programArguments.addAll '--quickPlayMultiplayer', '127.0.0.1:25589'
+                // -PserverSmoke: shift-clicks into stations over the real connection (client/ServerSmoke)
+                if (project.hasProperty('serverSmoke')) systemProperty 'cinematic.serverSmoke', 'true'
             }
         }
 
@@ -106,6 +108,8 @@ dependencies {
     // Optional integrations: these jars are never bundled or required to run Cinematic Interactions.
     compileOnly 'maven.modrinth:inventory-particles:tIeIGFCs'
     compileOnly 'maven.modrinth:inventory-interactions:U3SO7tDA'
+    // JEI 19.57.0.451, the version in Southware's pack; JER and JEP are reached only through JEI's recipe categories.
+    compileOnly 'maven.modrinth:jei:RI8WCow6'
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
