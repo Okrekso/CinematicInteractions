@@ -78,6 +78,14 @@ Fabric API is required. Mod Menu and Cloth Config are optional settings integrat
 
 Cloth Config is optional. See [installation and dependencies](docs/wiki/Installation.md) for loader requirements.
 
+### Forge
+
+| Minecraft | Release |
+| --- | --- |
+| 1.20.1 | [**0.18.11 beta**](https://github.com/dcvke/CinematicInteractions/releases/tag/v0.18.11-forge-1.20.1-beta) |
+
+Forge 47.1 or newer is required. The Crafter scene is unavailable because Minecraft 1.20.1 does not have that block. [Forge 1.20.1 source and notes](forge/1.20.1/README.md).
+
 ## 🎮 Start playing
 
 1. Right-click a supported station with room to stand beside it.
