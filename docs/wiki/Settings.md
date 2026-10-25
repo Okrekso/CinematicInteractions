@@ -38,4 +38,4 @@ If the camera motion feels too strong, turn on **Reduce motion** or pick the **M
 - **Client-only mode:** local scenes over vanilla menus on servers without the mod. Change it from the main menu; it applies on the next connection.
 - **Developer mode:** the layout editors and their **G** shortcut. With it on, the layout profile of every station can be chosen here.
 
-Both English and Russian translations are included.
+Translations: English, Russian, Spanish (Spain) and Latin American Spanish (Mexico, Argentina, Chile, Ecuador, Uruguay and Venezuela).
