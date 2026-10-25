@@ -7,9 +7,8 @@ import java.util.Map;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
- * The player's own settings (config/cinematic-client.toml). Without Cloth Config they are edited on NeoForge's own
- * settings screen; with it, on {@link ClothScreen}. The client-only choice is captured on connection; other values
- * are read where they are used.
+ * The player's own settings (config/cinematic-client.toml), edited on {@link SettingsScreen}. The client-only choice
+ * is captured on connection; other values are read where they are used.
  */
 public final class Settings {
     private Settings() {}
@@ -31,6 +30,7 @@ public final class Settings {
     static final ModConfigSpec.BooleanValue LIVING_CAMERA;
     static final ModConfigSpec.BooleanValue CAMERA_SHAKE;
     static final ModConfigSpec.BooleanValue SCREEN_FLASH;
+    static final ModConfigSpec.BooleanValue REDUCE_MOTION;
     static final ModConfigSpec.BooleanValue CLIENT_ONLY_MODE;
     static final ModConfigSpec.BooleanValue DEVELOPER_MODE;
 
@@ -78,6 +78,8 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        REDUCE_MOTION = b.comment("Turns the letterbox bars, the breathing camera, the shake and the flashes off at once, whatever they are set to.")
+                .translation("cinematic.configuration.reduceMotion").define("reduceMotion", false);
         b.pop();
         b.translation("cinematic.configuration.multiplayer").push("multiplayer");
         CLIENT_ONLY_MODE = b.comment("On a server without Cinematic Interactions, show local scenes over supported vanilla menus. "
@@ -163,19 +165,20 @@ public final class Settings {
         return get(LOOK_TOGGLES);
     }
 
+    // (reduce motion turns every effect off, whatever each is set to)
     public static boolean letterbox() {
-        return get(LETTERBOX);
+        return get(LETTERBOX) && !get(REDUCE_MOTION);
     }
 
     public static boolean livingCamera() {
-        return get(LIVING_CAMERA);
+        return get(LIVING_CAMERA) && !get(REDUCE_MOTION);
     }
 
     public static boolean cameraShake() {
-        return get(CAMERA_SHAKE);
+        return get(CAMERA_SHAKE) && !get(REDUCE_MOTION);
     }
 
     public static boolean screenFlash() {
-        return get(SCREEN_FLASH);
+        return get(SCREEN_FLASH) && !get(REDUCE_MOTION);
     }
 }

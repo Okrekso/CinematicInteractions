@@ -19,7 +19,6 @@ import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.ModList;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.CalculatePlayerTurnEvent;
@@ -64,10 +63,7 @@ public final class CinematicClient {
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.CHISELED_BOOKSHELF,
                 ShelfLayoutBooks::new));
         container.registerConfig(ModConfig.Type.CLIENT, Settings.SPEC);
-        // the settings screen: Cloth Config's when it is installed, NeoForge's own otherwise
-        container.registerExtensionPoint(IConfigScreenFactory.class, ModList.get().isLoaded("cloth_config")
-                ? (IConfigScreenFactory) (mod, parent) -> ClothScreen.create(parent)
-                : DeveloperConfiguration::create);
+        container.registerExtensionPoint(IConfigScreenFactory.class, (mod, parent) -> new SettingsScreen(parent));
         NeoForge.EVENT_BUS.register(Events.class);
     }
 
