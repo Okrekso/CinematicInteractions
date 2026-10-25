@@ -243,8 +243,10 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
     }
 
     private boolean affordable() {
+        // The result slot owns the pickup rule. Other anvil mods may allow valid work at cost 0.
+        AnvilMenu menu = menu();
         LocalPlayer player = Minecraft.getInstance().player;
-        return player != null && cost() > 0 && (player.getAbilities().instabuild || player.experienceLevel >= cost());
+        return menu != null && player != null && menu.getSlot(menu.getResultSlot()).mayPickup(player);
     }
 
     /** Both pieces are there but vanilla refuses: the work would cost 40 levels or more. */

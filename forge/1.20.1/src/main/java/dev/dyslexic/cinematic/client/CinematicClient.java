@@ -1,6 +1,7 @@
 package dev.dyslexic.cinematic.client;
 
 import dev.dyslexic.cinematic.ClientBridge;
+import dev.dyslexic.cinematic.client.compat.FirstPersonBodyCompat;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.HashSet;
 import java.util.Set;
@@ -55,6 +56,7 @@ public final class CinematicClient {
         modBus.addListener(BrewingBottles::hideVanillaBottles);
         modBus.addListener(ShelfBooks::emptySlots);
         modBus.addListener(PropLayer::addTo);
+        modBus.addListener(KneeLayer::addTo);
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.BREWING_STAND,
                 BrewingBottles::new));
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.CHISELED_BOOKSHELF,
@@ -67,6 +69,7 @@ public final class CinematicClient {
                 () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> ModList.get().isLoaded("cloth_config")
                         ? ClothScreen.create(parent) : new SettingsScreen(parent)));
         MinecraftForge.EVENT_BUS.register(Events.class);
+        FirstPersonBodyCompat.register();
     }
 
     public static final class Events {
@@ -93,6 +96,7 @@ public final class CinematicClient {
             Scene.tick();
             ClientOnlySmoke.tick();
             ServerSmoke.tick();
+            FurnaceBreakSmoke.tick();
             CampfireHint.tick();
             Minecraft mc = Minecraft.getInstance();
             if (mc.level != null && mc.level.getGameTime() % 40 == 0) {
@@ -214,20 +218,21 @@ public final class CinematicClient {
             }
             LocalPlayer player = Minecraft.getInstance().player;
             // (the lectern's window is a book screen, not a container screen, but it holds the menu all the same)
-            if (next instanceof MenuAccess<?> window && Scene.station.kind().usesMenu() && player != null
-                    && window.getMenu() == player.containerMenu) {
-                if (dev.dyslexic.cinematic.station.MenuActions.isOpen(Scene.station.kind(), window.getMenu())) {
-                    // the server opened the block's menu for us: keep the menu, the scene stands in for its window
-                    event.setCanceled(true);
-                } else {
-                    // the block opened a menu the scene does not know (a mod replaced it): its own window must open, or
-                    // the window built for it is left half-made and the mod's menu calls into it on the next slot change
-                    Scene.yieldToWindow();
+            if (next instanceof MenuAccess<?> window && player != null
+                    && window.getMenu() == player.containerMenu && window.getMenu() != player.inventoryMenu) {
+                switch (Scene.answer(window.getMenu())) {
+                    case OURS -> { event.setCanceled(true); return; }
+                    case LATE -> {
+                        event.setCanceled(true);
+                        player.containerMenu = player.inventoryMenu;
+                        return;
+                    }
+                    case FOREIGN -> { Scene.yieldToWindow(); return; }
+                    case UNRELATED -> {}
                 }
-                return;
             }
             if (next instanceof InventoryScreen) {
-                event.setCanceled(true);
+                if (Scene.phase != Scene.Phase.OUTRO) event.setCanceled(true);
             } else if (Scene.phase == Scene.Phase.ACTIVE && next != null && !next.isPauseScreen() && !Scene.consulting) {
                 // something else took over the screen (a server menu, another mod): drop the scene at once
                 Scene.drop();
@@ -238,6 +243,7 @@ public final class CinematicClient {
         public static void onScreenInit(ScreenEvent.Init.Post event) {
             Showcase.onScreen(event.getScreen());
             ClientOnlySmoke.onScreen(event.getScreen());
+            ServerListHint.onScreenInit(event);
         }
 
         @SubscribeEvent

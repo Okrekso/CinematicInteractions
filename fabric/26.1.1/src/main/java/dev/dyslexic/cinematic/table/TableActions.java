@@ -16,6 +16,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 import dev.dyslexic.cinematic.net.PacketDistributor;
@@ -29,7 +30,8 @@ public final class TableActions {
             case CLICK -> click(player, level, session, action.index(), action.button(), action.shift());
             case PAINT -> paint(player, level, session, action.index());
             case CRAFT -> craft(player, level, session, action.shift());
-            case PLACE -> place(player, level, session, action.index(), action.button());
+            case PLACE -> place(player, level, session, action.index(), action.button(), action.side() == 0 ? 1 : action.side());
+            case SPREAD -> spread(player, level, session, action.index());
             default -> {}
         }
     }
@@ -136,12 +138,48 @@ public final class TableActions {
         }
     }
 
+    /** Share the carried stack between the selected table cells, checking every cell on the server. */
+    private static void spread(ServerPlayer player, ServerLevel level, Session session, int mask) {
+        ItemStack carried = player.inventoryMenu.getCarried();
+        if (carried.isEmpty() || mask <= 0 || mask >= 1 << TableGrid.CELLS) return;
+        TableStore store = TableStore.get(level);
+        TableStore.Table table = store.getOrCreate(session.pos());
+        List<Integer> cells = new ArrayList<>();
+        for (int cell = 0; cell < TableGrid.CELLS; cell++) {
+            ItemStack onCell = table.items.get(cell);
+            if ((mask & 1 << cell) != 0 && (onCell.isEmpty() || ItemStack.isSameItemSameComponents(carried, onCell)))
+                cells.add(cell);
+        }
+        int share = cells.isEmpty() ? 0 : carried.getCount() / cells.size();
+        boolean placed = false;
+        for (int cell : cells) {
+            ItemStack onCell = table.items.get(cell);
+            int move = Math.min(share, carried.getMaxStackSize() - onCell.getCount());
+            if (move <= 0) continue;
+            if (onCell.isEmpty()) table.items.set(cell, carried.split(move));
+            else {
+                onCell.grow(move);
+                carried.shrink(move);
+            }
+            table.facing[cell] = (byte) session.side().get2DDataValue();
+            placed = true;
+        }
+        if (!placed) {
+            store.cleanup(session.pos());
+            return;
+        }
+        if (carried.isEmpty()) player.inventoryMenu.setCarried(ItemStack.EMPTY);
+        finish(player, level, store, session.pos());
+        level.playSound(null, session.pos(), SoundEvents.WOOD_HIT, SoundSource.PLAYERS, 0.35f,
+                1.15f + level.getRandom().nextFloat() * 0.25f);
+    }
+
     /**
      * Laying out a recipe: one item from inventory slot {@code slot} (-1: the item in hand) into an empty cell, or onto
      * the same item there.
      */
-    private static void place(ServerPlayer player, ServerLevel level, Session session, int cell, int slot) {
-        if (cell < 0 || cell >= TableGrid.CELLS || slot < -1 || slot >= 36) {
+    private static void place(ServerPlayer player, ServerLevel level, Session session, int cell, int slot, int count) {
+        if (cell < 0 || cell >= TableGrid.CELLS || slot < -1 || slot >= 36 || count < 1 || count > 64) {
             return;
         }
         ItemStack source = slot < 0 ? player.inventoryMenu.getCarried() : player.getInventory().getItem(slot);
@@ -150,10 +188,13 @@ public final class TableActions {
         }
         TableStore store = TableStore.get(level);
         TableStore.Table table = store.getOrCreate(session.pos());
-        if (!placeOne(table, cell, source)) {
+        int laid = 0;
+        while (laid < count && !source.isEmpty() && placeOne(table, cell, source)) laid++;
+        if (laid == 0) {
             store.cleanup(session.pos());
             return;
         }
+        if (slot >= 0) player.getInventory().setChanged();
         if (slot < 0 && source.isEmpty()) {
             player.inventoryMenu.setCarried(ItemStack.EMPTY);
         }
@@ -183,7 +224,8 @@ public final class TableActions {
             return;
         }
         List<ItemStack> consumed = new ArrayList<>();
-        ItemStack first = TableCrafting.match(level, table.items, session.side()).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+        var chosen = dev.dyslexic.cinematic.station.RecipeChoices.chosen(player);
+        ItemStack first = TableCrafting.match(level, table.items, session.side(), chosen).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
         int crafts = 0;
         do {
             List<ItemStack> used = TableCrafting.craftOnce(player, level, table, session.side(), all);
@@ -195,7 +237,7 @@ public final class TableActions {
             if (!all) {
                 break;
             }
-            ItemStack next = TableCrafting.match(level, table.items, session.side()).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+            ItemStack next = TableCrafting.match(level, table.items, session.side(), chosen).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
             if (!ItemStack.isSameItemSameComponents(first, next)) {
                 break;
             }
@@ -237,6 +279,30 @@ public final class TableActions {
 
     public static void sync(ServerLevel level, BlockPos pos) {
         PacketDistributor.sendToPlayersTrackingChunk(level, ChunkPos.containing(pos), contents(pos, TableStore.get(level).get(pos)));
+    }
+
+    /** Move tabletop items into any ordinary crafting window opened at this table. */
+    public static void intoWindow(ServerPlayer player, CraftingMenu menu) {
+        ServerLevel level = player.level();
+        BlockPos pos = ((dev.dyslexic.cinematic.mixin.CraftingMenuAccess) menu).cinematic$access()
+                .evaluate((at, where) -> at == level ? where : null).orElse(null);
+        if (pos == null || !TableGrid.isTable(level.getBlockState(pos))) return;
+        TableStore store = TableStore.get(level);
+        TableStore.Table table = store.get(pos);
+        if (table == null || table.isEmpty()) return;
+        for (ServerPlayer other : level.players()) {
+            Session session = Sessions.get(other);
+            if (session != null && session.pos().equals(pos)) return;
+        }
+        for (int i = 0; i < TableGrid.CELLS; i++) {
+            if (menu.getSlot(i + 1).hasItem()) return;
+        }
+        List<ItemStack> grid = TableGrid.oriented(table.items, TableGrid.sideFacing(pos, player.getX(), player.getZ()));
+        store.remove(pos);
+        store.setDirty();
+        for (int i = 0; i < TableGrid.CELLS; i++) menu.getSlot(i + 1).set(grid.get(i));
+        sync(level, pos);
+        menu.broadcastChanges();
     }
 
     /** Spills everything lying on a table that no longer exists. */

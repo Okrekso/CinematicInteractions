@@ -2,6 +2,7 @@ package dev.dyslexic.cinematic.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.dyslexic.cinematic.client.ClientPayloads;
+import dev.dyslexic.cinematic.client.KneeLayer;
 import dev.dyslexic.cinematic.client.PropLayer;
 import dev.dyslexic.cinematic.station.StationKind;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -18,6 +19,8 @@ public abstract class PlayerRendererMixin {
     @Inject(method = "<init>", at = @At("TAIL"))
     private void cinematic$layer(EntityRendererProvider.Context context, boolean slim, CallbackInfo ci) {
         ((AvatarRenderer<?>) (Object) this).addLayer(new PropLayer((AvatarRenderer<?>) (Object) this));
+        ((AvatarRenderer<?>) (Object) this).addLayer(new KneeLayer((AvatarRenderer<?>) (Object) this,
+                context.getEquipmentRenderer()));
     }
 
     @Inject(method = "getRenderOffset(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;)Lnet/minecraft/world/phys/Vec3;", at = @At("RETURN"), cancellable = true)

@@ -1,10 +1,15 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import java.util.ArrayList;
+import java.util.List;
+import net.minecraftforge.fml.ModList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.PlayerModelPart;
@@ -15,7 +20,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
 /**
- * The player's own arms, drawn in the world with their skin. They come up from below the frame, settle where
+ * The player's own arms, drawn in the world with their skin or active player model. They come up from below the frame, settle where
  * the station rests them, reach for whatever the cursor points at (the hand nearer to it does the work), and
  * sink out of the frame again when the player steps away.
  */
@@ -23,6 +28,9 @@ public final class Hands {
     private Hands() {}
 
     static final float ARM_SCALE = 0.55f;
+    private static final boolean YSM_PRESENT = ModList.get().isLoaded("yes_steve_model");
+    private static final double NATURAL_SEGMENT = ArmMesh.UPPER / 16.0 * ARM_SCALE;
+    private static final double FLOATING_LENGTH = (ArmMesh.HAND + ArmMesh.UPPER * 0.4) / 16.0 * ARM_SCALE;
 
     private static final Anim.Spring3 RIGHT = new Anim.Spring3();
     private static final Anim.Spring3 LEFT = new Anim.Spring3();
@@ -67,9 +75,61 @@ public final class Hands {
 
     /** Where the arm comes from: beside and below the eyes, just outside the bottom corner of the frame. */
     static Vec3 shoulder(boolean right, Vec3 camera, float cameraYaw) {
+        if (Settings.armStyle() == 1) {
+            // Keep the natural arm's shoulder below the view, even when the scene camera
+            // pitches down or another camera mod adds roll. A world-down shoulder can
+            // end up inside the station and leave only a detached forearm visible.
+            var view = Minecraft.getInstance().gameRenderer.getMainCamera();
+            var left = view.getLeftVector();
+            var up = view.getUpVector();
+            var look = view.getLookVector();
+            return camera.add(new Vec3(-left.x(), -left.y(), -left.z()).scale(right ? 0.38 : -0.38))
+                    .subtract(new Vec3(up.x(), up.y(), up.z()).scale(0.46))
+                    .add(new Vec3(look.x(), look.y(), look.z()).scale(0.08));
+        }
         Vec3 forward = Scene.yawForward(cameraYaw);
         Vec3 rightVec = new Vec3(-forward.z, 0, forward.x);
         return camera.add(rightVec.scale(right ? 0.38 : -0.38)).add(0, -0.46, 0).add(forward.scale(0.08));
+    }
+
+    /** Half the width of an arm as drawn (blocks), a little more for the knuckles and sleeve. */
+    private static final double ARM_RADIUS = 4.0 / 16 * ARM_SCALE / 2 + 0.01;
+
+    /**
+     * Does one of the arms hide {@code point} from the eyes? Each arm is taken as the round bar it is drawn as, from the
+     * shoulder to just past the fist: whatever the scene shows over the frame as interface (the beacon's icons) asks this,
+     * so a hand reaching in front of it covers it as it would cover anything in the world.
+     */
+    static boolean hides(Vec3 camera, float cameraYaw, Vec3 point) {
+        for (boolean right : new boolean[]{true, false}) {
+            Vec3 shoulder = shoulder(right, camera, cameraYaw), hand = position(right);
+            Vec3 along = hand.subtract(shoulder);
+            if (along.lengthSqr() < 1e-6) continue;
+            if (Settings.armStyle() == 1 && along.lengthSqr() >= 0.04) {
+                Vec3[] bent = bentPoints(shoulder, hand, right, Scene.yawForward(cameraYaw));
+                if (closest(camera, point, bent[0], bent[1]) < ARM_RADIUS
+                        || closest(camera, point, bent[1], hand) < ARM_RADIUS) return true;
+                continue;
+            }
+            if (Settings.armStyle() == 2) shoulder = hand.subtract(along.normalize().scale(FLOATING_LENGTH));
+            Vec3 fist = hand.add(along.normalize().scale(0.05));
+            if (closest(camera, point, shoulder, fist) < ARM_RADIUS) return true;
+        }
+        return false;
+    }
+
+    /** The distance between the sight line cameraв†’point (not past the point) and the segment aв†’b. */
+    private static double closest(Vec3 camera, Vec3 point, Vec3 a, Vec3 b) {
+        Vec3 d1 = point.subtract(camera), d2 = b.subtract(a), r = camera.subtract(a);
+        double aa = d1.dot(d1), ee = d2.dot(d2), f = d2.dot(r), c = d1.dot(r), bb = d1.dot(d2);
+        double denom = aa * ee - bb * bb;
+        double s = denom > 1e-9 ? net.minecraft.util.Mth.clamp((bb * f - c * ee) / denom, 0, 1) : 0;
+        double t = (bb * s + f) / ee;
+        if (t < 0) { t = 0; s = net.minecraft.util.Mth.clamp(-c / aa, 0, 1); }
+        else if (t > 1) { t = 1; s = net.minecraft.util.Mth.clamp((bb - c) / aa, 0, 1); }
+        // only what lies between the eyes and the point hides it
+        if (s > 0.98) return Double.MAX_VALUE;
+        return camera.add(d1.scale(s)).distanceTo(a.add(d2.scale(t)));
     }
 
     /** Below the bottom edge of the frame. */
@@ -220,7 +280,7 @@ public final class Hands {
     }
 
     /**
-     * One of the player's own arms in the world, with their skin, from the shoulder to the hand ({@code forward} only
+     * One of the player's own arms in the world, from the shoulder to the hand ({@code forward} only
      * settles which way the palm turns when the arm points straight up or down).
      */
     static void drawArm(PoseStack pose, MultiBufferSource buffers, Vec3 camera, Vec3 hand, Vec3 shoulder, boolean right, int light, Vec3 forward) {
@@ -228,8 +288,166 @@ public final class Hands {
         if (player == null) {
             return;
         }
+        int style = Settings.armStyle();
+        if (YSM_PRESENT) {
+            drawModelArm(pose, buffers, camera, hand, shoulder, right, light, forward, player);
+            return;
+        }
+        if (style == 1) {
+            drawBentArm(pose, buffers, camera, player.getSkinTextureLocation(), "slim".equals(player.getModelName()),
+                    player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE),
+                    hand, shoulder, right, light, forward);
+            return;
+        }
         drawArm(pose, buffers, camera, player.getSkinTextureLocation(), "slim".equals(player.getModelName()),
                 player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE), hand, shoulder, right, light, forward);
+    }
+
+    /** YSM hooks PlayerRenderer's first-person arm methods; use that same model at the scene's hand anchors. */
+    private static void drawModelArm(PoseStack pose, MultiBufferSource buffers, Vec3 camera, Vec3 hand, Vec3 shoulder,
+            boolean right, int light, Vec3 forward, LocalPlayer player) {
+        if (!(Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(player) instanceof PlayerRenderer renderer)) {
+            return;
+        }
+        Vec3 d = hand.subtract(shoulder);
+        if (d.lengthSqr() < 1e-8) {
+            return;
+        }
+        double length = d.length() + 0.18;
+        d = d.normalize();
+        int style = Settings.armStyle();
+        if (style == 1) {
+            length = Math.min(length, NATURAL_SEGMENT * 2 + 0.18);
+            shoulder = hand.subtract(d.scale(length - 0.18));
+        }
+        Vec3 up = new Vec3(0, 1, 0);
+        Vec3 upPerp = up.subtract(d.scale(up.dot(d)));
+        if (upPerp.lengthSqr() < 1e-6) upPerp = forward;
+        upPerp = upPerp.normalize();
+        Vec3 x = right ? upPerp.scale(-1) : upPerp;
+        Vec3 z = x.cross(d);
+        Quaternionf rotation = new Matrix3f(
+                new Vector3f((float) x.x, (float) x.y, (float) x.z),
+                new Vector3f((float) d.x, (float) d.y, (float) d.z),
+                new Vector3f((float) z.x, (float) z.y, (float) z.z)).getNormalizedRotation(new Quaternionf());
+        pose.pushPose();
+        pose.translate(shoulder.x - camera.x, shoulder.y - camera.y, shoulder.z - camera.z);
+        pose.mulPose(rotation);
+        pose.scale(ARM_SCALE, (float) (length * 16 / 12), ARM_SCALE);
+        pose.translate((right ? 5 : -5) / 16f, -0.5f / 16f, 0);
+        // Custom YSM models can contain much more than an arm in this hook. Keep only the model geometry
+        // immediately around the hand for the floating style, without replacing its chosen model or texture.
+        List<NearHandConsumer> clipped = style == 2 ? new ArrayList<>() : List.of();
+        Vec3 clipAxis = d;
+        MultiBufferSource armBuffers = style == 2
+                ? type -> {
+                    NearHandConsumer consumer = new NearHandConsumer(buffers.getBuffer(type), hand.subtract(camera), clipAxis, FLOATING_LENGTH);
+                    clipped.add(consumer);
+                    return consumer;
+                }
+                : buffers;
+        if (right) renderer.renderRightHand(pose, armBuffers, light, player);
+        else renderer.renderLeftHand(pose, armBuffers, light, player);
+        for (NearHandConsumer consumer : clipped) consumer.flushPending();
+        pose.popPose();
+    }
+
+    /** Clips model quads in camera-relative space, so a YSM forearm can float without its distant body. */
+    private static final class NearHandConsumer implements VertexConsumer {
+        private final VertexConsumer out;
+        private final Vec3 hand;
+        private final Vec3 axis;
+        private final double length;
+        private final Vertex[] quad = {new Vertex(), new Vertex(), new Vertex(), new Vertex()};
+        private int count;
+
+        private NearHandConsumer(VertexConsumer out, Vec3 hand, Vec3 axis, double length) {
+            this.out = out;
+            this.hand = hand;
+            this.axis = axis;
+            this.length = length;
+        }
+
+        @Override public VertexConsumer vertex(double x, double y, double z) {
+            if (count == 4) flush();
+            Vertex vertex = quad[count];
+            vertex.x = (float) x; vertex.y = (float) y; vertex.z = (float) z;
+            vertex.color = -1; vertex.u = vertex.v = 0;
+            vertex.overlayU = vertex.overlayV = vertex.lightU = vertex.lightV = 0;
+            vertex.nx = vertex.ny = vertex.nz = 0;
+            count++;
+            return this;
+        }
+
+        @Override public void endVertex() { if (count == 4) flush(); }
+        @Override public void defaultColor(int red, int green, int blue, int alpha) {
+            out.defaultColor(red, green, blue, alpha);
+        }
+        @Override public void unsetDefaultColor() { out.unsetDefaultColor(); }
+
+        private Vertex current() { return quad[Math.max(0, count - 1)]; }
+        @Override public VertexConsumer color(int red, int green, int blue, int alpha) {
+            current().color = (alpha << 24) | (red << 16) | (green << 8) | blue;
+            return this;
+        }
+        @Override public VertexConsumer uv(float u, float v) { current().u = u; current().v = v; return this; }
+        @Override public VertexConsumer overlayCoords(int u, int v) { current().overlayU = u; current().overlayV = v; return this; }
+        @Override public VertexConsumer uv2(int u, int v) { current().lightU = u; current().lightV = v; return this; }
+        @Override public VertexConsumer normal(float x, float y, float z) { current().nx = x; current().ny = y; current().nz = z; return this; }
+
+        private void flushPending() { if (count == 4) flush(); }
+
+        private void flush() {
+            count = 0;
+            List<Vertex> polygon = new ArrayList<>(6);
+            Vertex previous = quad[3];
+            double previousDistance = distance(previous);
+            for (Vertex current : quad) {
+                double currentDistance = distance(current);
+                if ((previousDistance >= 0) != (currentDistance >= 0)) {
+                    polygon.add(Vertex.between(previous, current, (float) (previousDistance / (previousDistance - currentDistance))));
+                }
+                if (currentDistance >= 0) polygon.add(current);
+                previous = current;
+                previousDistance = currentDistance;
+            }
+            if (polygon.size() < 3) return;
+            // Minecraft's entity buffers use quads; repeat the last vertex to submit each clipped triangle.
+            for (int i = 1; i + 1 < polygon.size(); i++) {
+                emit(polygon.get(0)); emit(polygon.get(i)); emit(polygon.get(i + 1)); emit(polygon.get(i + 1));
+            }
+        }
+
+        private double distance(Vertex v) {
+            return (v.x - hand.x) * axis.x + (v.y - hand.y) * axis.y + (v.z - hand.z) * axis.z + length;
+        }
+
+        private void emit(Vertex v) {
+            out.vertex(v.x, v.y, v.z).color(v.color).uv(v.u, v.v)
+                    .overlayCoords(v.overlayU, v.overlayV).uv2(v.lightU, v.lightV).normal(v.nx, v.ny, v.nz).endVertex();
+        }
+
+        private static final class Vertex {
+            float x, y, z, u, v, nx, ny, nz;
+            int color, overlayU, overlayV, lightU, lightV;
+
+            static Vertex between(Vertex a, Vertex b, float t) {
+                Vertex v = new Vertex();
+                v.x = mix(a.x, b.x, t); v.y = mix(a.y, b.y, t); v.z = mix(a.z, b.z, t);
+                v.u = mix(a.u, b.u, t); v.v = mix(a.v, b.v, t);
+                v.nx = mix(a.nx, b.nx, t); v.ny = mix(a.ny, b.ny, t); v.nz = mix(a.nz, b.nz, t);
+                v.overlayU = a.overlayU; v.overlayV = a.overlayV;
+                v.lightU = a.lightU; v.lightV = a.lightV;
+                int ac = a.color, bc = b.color;
+                v.color = ((int) mix(ac >>> 24 & 255, bc >>> 24 & 255, t) << 24)
+                        | ((int) mix(ac >>> 16 & 255, bc >>> 16 & 255, t) << 16)
+                        | ((int) mix(ac >>> 8 & 255, bc >>> 8 & 255, t) << 8)
+                        | (int) mix(ac & 255, bc & 255, t);
+                return v;
+            }
+
+            private static float mix(float a, float b, float t) { return a + (b - a) * t; }
+        }
     }
 
     private static void drawArm(PoseStack pose, MultiBufferSource buffers, Vec3 camera, ResourceLocation texture, boolean slim,
@@ -260,10 +478,84 @@ public final class Hands {
         pose.mulPose(rotation);
         pose.scale(ARM_SCALE, ARM_SCALE, ARM_SCALE);
         pose.translate(-centerX / 16f, 0, 0);
-        ArmMesh.arm(right, slim).render(pose, buffers.getBuffer(RenderType.entitySolid(texture)), light, OverlayTexture.NO_OVERLAY, stretch);
+        if (Settings.armStyle() == 2) ArmMesh.arm(right, slim).renderFloating(pose, buffers.getBuffer(RenderType.entitySolid(texture)), light, OverlayTexture.NO_OVERLAY);
+        else ArmMesh.arm(right, slim).render(pose, buffers.getBuffer(RenderType.entitySolid(texture)), light, OverlayTexture.NO_OVERLAY, stretch);
         if (sleeveShown) {
-            ArmMesh.sleeve(right, slim).render(pose, buffers.getBuffer(RenderType.entityTranslucent(texture)), light,
+            if (Settings.armStyle() == 2) ArmMesh.sleeve(right, slim).renderFloating(pose, buffers.getBuffer(RenderType.entityTranslucent(texture)), light, OverlayTexture.NO_OVERLAY);
+            else ArmMesh.sleeve(right, slim).render(pose, buffers.getBuffer(RenderType.entityTranslucent(texture)), light,
                     OverlayTexture.NO_OVERLAY, stretch);
+        }
+        pose.popPose();
+    }
+
+    /** Two normally proportioned arm pieces meet at an elbow instead of stretching one long texture. */
+    private static void drawBentArm(PoseStack pose, MultiBufferSource buffers, Vec3 camera, ResourceLocation texture,
+            boolean slim, boolean sleeveShown, Vec3 hand, Vec3 shoulder, boolean right, int light, Vec3 forward) {
+        Vec3 toward = hand.subtract(shoulder);
+        if (toward.lengthSqr() < 0.04) {
+            drawArm(pose, buffers, camera, texture, slim, sleeveShown, hand, shoulder, right, light, forward);
+            return;
+        }
+        Vec3[] points = bentPoints(shoulder, hand, right, forward);
+        drawBentPiece(pose, buffers, camera, texture, slim, sleeveShown, points[0], points[1], right, light, forward, false);
+        drawBentPiece(pose, buffers, camera, texture, slim, sleeveShown, points[1], points[2], right, light, forward, true);
+    }
+
+    /** Shoulder, elbow, fingertip. The first segment always starts at the player's shoulder. */
+    private static Vec3[] bentPoints(Vec3 shoulder, Vec3 hand, boolean right, Vec3 forward) {
+        Vec3 toward = hand.subtract(shoulder);
+        double span = toward.length();
+        Vec3 axis = toward.scale(1.0 / span);
+        Vec3 side = new Vec3(-forward.z, 0, forward.x).scale(right ? 1 : -1);
+        side = side.subtract(axis.scale(side.dot(axis)));
+        if (side.lengthSqr() < 1e-6) side = forward.subtract(axis.scale(forward.dot(axis)));
+        if (side.lengthSqr() < 1e-6) side = new Vec3(1, 0, 0);
+        side = side.normalize();
+        double upper = NATURAL_SEGMENT;
+        double forearm = (ArmMesh.UPPER + ArmMesh.HAND) / 16.0 * ARM_SCALE;
+        if (span >= upper + forearm) {
+            // A far cell can be beyond a normally sized arm. Extend the upper segment only;
+            // never detach it from the shoulder or stretch the textured hand.
+            Vec3 elbow = hand.subtract(axis.scale(forearm)).add(side.scale(0.035));
+            return new Vec3[]{shoulder, elbow, hand};
+        }
+        if (span <= forearm - upper) {
+            return new Vec3[]{shoulder, shoulder.add(axis.scale(span * 0.4)).add(side.scale(0.06)), hand};
+        }
+        double along = (span * span + upper * upper - forearm * forearm) / (2 * span);
+        double bend = Math.sqrt(Math.max(0, upper * upper - along * along));
+        return new Vec3[]{shoulder, shoulder.add(axis.scale(along)).add(side.scale(bend)), hand};
+    }
+
+    private static void drawBentPiece(PoseStack pose, MultiBufferSource buffers, Vec3 camera, ResourceLocation texture,
+            boolean slim, boolean sleeveShown, Vec3 start, Vec3 end, boolean right, int light, Vec3 forward, boolean forearm) {
+        Vec3 axis = end.subtract(start).normalize();
+        Vec3 up = new Vec3(0, 1, 0);
+        Vec3 upPerp = up.subtract(axis.scale(up.dot(axis)));
+        if (upPerp.lengthSqr() < 1e-6) upPerp = forward;
+        upPerp = upPerp.normalize();
+        Vec3 x = right ? upPerp.scale(-1) : upPerp;
+        Vec3 z = x.cross(axis);
+        Quaternionf rotation = new Matrix3f(
+                new Vector3f((float) x.x, (float) x.y, (float) x.z),
+                new Vector3f((float) axis.x, (float) axis.y, (float) axis.z),
+                new Vector3f((float) z.x, (float) z.y, (float) z.z)).getNormalizedRotation(new Quaternionf());
+        float centerX = slim ? (right ? -0.5f : 0.5f) : (right ? -1f : 1f);
+        float modelLength = forearm ? ArmMesh.UPPER + ArmMesh.HAND : ArmMesh.UPPER;
+        float lengthScale = (float) (end.distanceTo(start) * 16.0 / modelLength);
+        Vec3 origin = start.add(axis.scale(2.0 / 16.0 * lengthScale));
+        pose.pushPose();
+        pose.translate(origin.x - camera.x, origin.y - camera.y, origin.z - camera.z);
+        pose.mulPose(rotation);
+        pose.scale(ARM_SCALE, lengthScale, ARM_SCALE);
+        pose.translate(-centerX / 16f, 0, 0);
+        var solid = buffers.getBuffer(RenderType.entitySolid(texture));
+        if (forearm) ArmMesh.arm(right, slim).renderForearm(pose, solid, light, OverlayTexture.NO_OVERLAY);
+        else ArmMesh.arm(right, slim).renderUpper(pose, solid, light, OverlayTexture.NO_OVERLAY);
+        if (sleeveShown) {
+            var translucent = buffers.getBuffer(RenderType.entityTranslucent(texture));
+            if (forearm) ArmMesh.sleeve(right, slim).renderForearm(pose, translucent, light, OverlayTexture.NO_OVERLAY);
+            else ArmMesh.sleeve(right, slim).renderUpper(pose, translucent, light, OverlayTexture.NO_OVERLAY);
         }
         pose.popPose();
     }

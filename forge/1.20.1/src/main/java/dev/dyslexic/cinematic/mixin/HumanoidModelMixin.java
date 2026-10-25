@@ -68,9 +68,13 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
             }
             case CAMPFIRE -> {
                 // sitting on the ground by the fire, right knee drawn up with the hand on it, leaning on the left hand
-                rightLeg.xRot = -2.0f;
+                rightLeg.xRot = dev.dyslexic.cinematic.client.KneeLayer.THIGH;
                 rightLeg.yRot = 0.12f;
                 rightLeg.zRot = 0.05f;
+                rightLeg.visible = false;
+                if ((Object) this instanceof net.minecraft.client.model.PlayerModel<?> playerModel) {
+                    playerModel.rightPants.visible = false;
+                }
                 leftLeg.xRot = -1.45f;
                 leftLeg.yRot = -0.22f;
                 leftLeg.zRot = 0f;

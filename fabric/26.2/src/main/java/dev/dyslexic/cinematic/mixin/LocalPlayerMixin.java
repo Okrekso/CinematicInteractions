@@ -13,4 +13,12 @@ public abstract class LocalPlayerMixin {
     @Inject(method = "tick", at = @At("TAIL"))
     private void cinematic$steer(CallbackInfo ci) { Scene.steer((LocalPlayer) (Object) this); }
 
+    @Inject(method = "swing", at = @At("HEAD"), cancellable = true)
+    private void cinematic$noSwingIntoScene(CallbackInfo ci) {
+        if (ClientBridge.swallowSwing) {
+            ClientBridge.swallowSwing = false;
+            ci.cancel();
+        }
+    }
+
 }

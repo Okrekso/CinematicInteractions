@@ -18,6 +18,6 @@ abstract class SceneExtractionMixin {
     @Inject(method = "extract", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/Gui;extractRenderState(Lnet/minecraft/client/DeltaTracker;ZZ)V"))
     private void cinematic$extract(DeltaTracker tracker, boolean advance, CallbackInfo ci) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level != null && mc.gameRenderer.gameRenderState().shouldRenderLevel) SceneRenderer.extract();
+        if (mc.isGameLoadFinished() && advance && mc.level != null) SceneRenderer.extract();
     }
 }

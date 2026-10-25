@@ -180,9 +180,65 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
     }
 
     public Vec3 shapePoint(int k) {
-        double a = Math.toRadians(angle(k));
         double bob = 0.008 * Math.sin(Scene.clock() * 1.7 + k * 1.3);
-        Vec3 original = top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.04 + Math.sin(a) * DIAL_HIGH + bob, 0);
+        return dialPoint(angle(k), 0.04 + bob, fit());
+    }
+
+    /**
+     * Ways for the dial to make room for blocks standing beside the stonecutter: {width, lift, towards the player}. The
+     * full dial reaches 0.72 to either side, into the neighbouring blocks; then it closes in over the blade, rises above
+     * them and comes forward, where the player stands and nothing is in the way.
+     */
+    private static final double[][] DIAL_FITS = {{DIAL_WIDE, 0, 0}, {0.5, 0.08, 0.04}, {0.42, 0.14, 0.26}, {0.34, 0.2, 0.42}};
+    /** Room a shape needs round its middle (blocks): its own size, give or take. */
+    private static final double SHAPE_ROOM = 0.07;
+    /** Seconds between looks at the blocks around (one may be placed or broken while working). */
+    private static final double FIT_EVERY = 0.5;
+    /** For the walkthrough's before/after: the dial as it was, whatever stands beside. */
+    static boolean fitsDial = true;
+    private int fitIndex;
+    private double fitAt = -10;
+
+    private double[] fit() {
+        if (Scene.clock() - fitAt > FIT_EVERY) {
+            fitAt = Scene.clock();
+            fitIndex = DIAL_FITS.length - 1;
+            for (int i = 0; i < DIAL_FITS.length; i++) {
+                if (!fitsDial || free(DIAL_FITS[i])) {
+                    fitIndex = i;
+                    break;
+                }
+            }
+        }
+        return DIAL_FITS[fitIndex];
+    }
+
+    int dialFit() {
+        return fitIndex;
+    }
+
+    /** No shape of this dial, all the way round, inside a block (the stonecutter itself has nothing up there). */
+    private boolean free(double[] fit) {
+        var level = Minecraft.getInstance().level;
+        if (level == null) return true;
+        for (double a = 4; a <= 176; a += 8) {
+            Vec3 at = dialPoint(a, 0.04, fit);
+            net.minecraft.core.BlockPos block = net.minecraft.core.BlockPos.containing(at);
+            for (int dx = -1; dx <= 1; dx++) for (int dy = -1; dy <= 1; dy++) for (int dz = -1; dz <= 1; dz++) {
+                net.minecraft.core.BlockPos near = block.offset(dx, dy, dz);
+                if (near.equals(pos)) continue;
+                for (net.minecraft.world.phys.AABB box : level.getBlockState(near).getShape(level, near).toAabbs()) {
+                    if (box.move(near).inflate(SHAPE_ROOM).contains(at)) return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private Vec3 dialPoint(double degrees, double up, double[] fit) {
+        double a = Math.toRadians(degrees);
+        Vec3 original = top.add(side().scale(-0.06 + fit[2])).add(right().scale(Math.cos(a) * fit[0]))
+                .add(0, up + fit[1] + Math.sin(a) * DIAL_HIGH, 0);
         return RemainingLayouts.transform(kind(), top, side, 2, original);
     }
 
@@ -596,7 +652,7 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
         Vec3 cam = camera.position();
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-        pose.rotate(camera.rotation());
+        pose.mulPose(new org.joml.Matrix4f().rotation(camera.rotation()));
         float s = 0.0065f;
         pose.scale(s, -s, s);
         int a = Math.max(8, (int) (alpha * 255));

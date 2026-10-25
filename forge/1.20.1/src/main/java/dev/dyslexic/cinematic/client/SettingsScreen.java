@@ -104,10 +104,29 @@ public final class SettingsScreen extends Screen {
                 rows.add(invite);
             }
             case "camera" -> {
-                rows.add(percent("approachSpeed", Settings.APPROACH_SPEED, 50, 200));
-                rows.add(toggle("quickReturn", Settings.QUICK_RETURN, onOff));
-                rows.add(new IntSlider("quickWindow", Settings.QUICK_WINDOW, 5, 30, v -> Component.translatable("cinematic.settings.seconds", v)));
+                IntSlider approach = percent("approachSpeed", Settings.APPROACH_SPEED, 50, 200);
+                IntSlider window = new IntSlider("quickWindow", Settings.QUICK_WINDOW, 5, 30,
+                        v -> Component.translatable("cinematic.settings.seconds", v));
+                CycleButton<Integer> quick = CycleButton.<Integer>builder(v -> Component.translatable("cinematic.settings.quickMode." + v))
+                        .withValues(0, 1, 2).withInitialValue(Settings.quickMode())
+                        .create(0, 0, 150, 20, Component.translatable("cinematic.configuration.quickMode"), (b, v) -> {
+                            Settings.set(Settings.QUICK_MODE, v);
+                            approach.active = v != 2;
+                            window.active = v == 1;
+                        });
+                quick.setTooltip(Tooltip.create(Component.translatable("cinematic.configuration.quickMode.tooltip")));
+                approach.active = Settings.quickMode() != 2;
+                window.active = Settings.quickMode() == 1;
+                rows.add(approach);
+                rows.add(quick);
+                rows.add(window);
                 rows.add(percent("leaveSpeed", Settings.LEAVE_SPEED, 50, 200));
+                CycleButton<Integer> arms = CycleButton.<Integer>builder(v -> Component.translatable("cinematic.settings.armStyle." + v))
+                        .withValues(0, 1, 2).withInitialValue(Settings.armStyle())
+                        .create(0, 0, 150, 20, Component.translatable("cinematic.configuration.armStyle"),
+                                (b, v) -> Settings.set(Settings.ARM_STYLE, v));
+                arms.setTooltip(Tooltip.create(Component.translatable("cinematic.configuration.armStyle.tooltip")));
+                rows.add(arms);
                 rows.add(percent("leanStrength", Settings.LEAN_STRENGTH, 0, 100));
                 rows.add(percent("sceneZoom", Settings.SCENE_ZOOM, 0, 100));
                 rows.add(toggle("lookToggles", Settings.LOOK_TOGGLES,
@@ -129,6 +148,7 @@ public final class SettingsScreen extends Screen {
             default -> {
                 rows.add(toggle("developerMode", Settings.DEVELOPER_MODE, onOff));
                 for (StationKind kind : StationKind.values()) {
+                    if (!LayoutProfiles.supports(kind)) continue;
                     CycleButton<Integer> selector = CycleButton.<Integer>builder(LayoutProfiles::value)
                             .withValues(0, 1, 2).withInitialValue(LayoutProfiles.selected(kind))
                             .create(0, 0, 150, 20, LayoutProfiles.name(kind), (button, profile) -> {

@@ -25,14 +25,15 @@ public final class LegMesh {
     private final ModelPart.Cube shin;
 
     private static final float HALF = 6f;
+    private static final float KNEE_OVERLAP = 2f;
+    private static final float INSET = 0.02f;
 
     private LegMesh(int u, int v, float grow) {
-        EnumSet<Direction> sides = EnumSet.of(Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST);
-        EnumSet<Direction> thighFaces = EnumSet.copyOf(sides);
-        thighFaces.add(Direction.UP);
-        thigh = new ModelPart.Cube(u, v, -2f, 0f, -2f, 4f, HALF, 4f, grow, grow, grow, false, 64f, 64f, thighFaces);
+        EnumSet<Direction> closed = EnumSet.allOf(Direction.class);
+        thigh = new ModelPart.Cube(u, v, -2f, 0f, -2f, 4f, HALF, 4f, grow, grow, grow, false, 64f, 64f, closed);
         // sampled HALF px further down the skin: the lower half of the leg's sides
-        shin = new ModelPart.Cube(u, v + (int) HALF, -2f, 0f, -2f, 4f, HALF, 4f, grow, grow, grow, false, 64f, 64f, sides);
+        shin = new ModelPart.Cube(u, v + (int) HALF, -2f, 0f, -2f, 4f, HALF, 4f,
+                grow - INSET, grow, grow - INSET, false, 64f, 64f, closed);
     }
 
     private static final LegMesh RIGHT = new LegMesh(0, 16, 0f);
@@ -47,10 +48,12 @@ public final class LegMesh {
         LegMesh leg = right ? RIGHT : LEFT;
         LegMesh pants = right ? RIGHT_PANTS : LEFT_PANTS;
         boolean pantsShown = player.isModelPartShown(right ? PlayerModelPart.RIGHT_PANTS_LEG : PlayerModelPart.LEFT_PANTS_LEG);
-        segment(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture)), camera, leg.thigh, hip, knee, outward, light);
+        Vec3 along = knee.subtract(hip);
+        Vec3 past = along.lengthSqr() < 1e-8 ? knee : knee.add(along.normalize().scale(KNEE_OVERLAP / 16 * Hands.ARM_SCALE));
+        segment(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture)), camera, leg.thigh, hip, past, outward, light);
         segment(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture)), camera, leg.shin, knee, foot, outward, light);
         if (pantsShown) {
-            segment(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(texture)), camera, pants.thigh, hip, knee, outward, light);
+            segment(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(texture)), camera, pants.thigh, hip, past, outward, light);
             segment(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(texture)), camera, pants.shin, knee, foot, outward, light);
         }
     }

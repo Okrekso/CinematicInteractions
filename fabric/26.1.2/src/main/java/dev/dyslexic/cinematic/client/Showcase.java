@@ -1358,6 +1358,9 @@ public final class Showcase {
                     Picking.cursorOnPlane(TABLE.getY() + 1.0));
         }
         screenClick(button);
+        Minecraft.getInstance().screen.mouseReleased(new net.minecraft.client.input.MouseButtonEvent(
+                Picking.mouseGui()[0], Picking.mouseGui()[1],
+                new net.minecraft.client.input.MouseButtonInfo(SceneScreen.physicalButton(button), 0)));
     }
 
     private static void clickResult() {
@@ -3740,7 +3743,7 @@ public final class Showcase {
         BlockPos flush = heightSpot(4).below();
         step(4, () -> {
             Settings.APPROACH_SPEED.set(200);
-            Settings.QUICK_RETURN.set(false);
+            Settings.QUICK_MODE.set(0);
         });
         paceCase("o9_pace_fast", atTable, flush, true);
         step(4, () -> Settings.APPROACH_SPEED.set(100));
@@ -3748,7 +3751,7 @@ public final class Showcase {
         // the camera's lean: none, the camera stays at the eyes and looks at the work
         step(4, () -> {
             Settings.LEAN_STRENGTH.set(0);
-            Settings.QUICK_RETURN.set(true);
+            Settings.QUICK_MODE.set(1);
         });
         step(2, () -> {
             act = "o8_lean_0";
@@ -4148,13 +4151,13 @@ public final class Showcase {
         // turned off: always the usual way
         step(30, () -> {
             Settings.QUICK_WINDOW.set(12);
-            Settings.QUICK_RETURN.set(false);
+            Settings.QUICK_MODE.set(0);
             useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP);
         });
         step(20, () -> check("quick return turned off: the usual way in", !Scene.quick && Scene.phase == Scene.Phase.INTRO,
                 "quick=" + Scene.quick + " phase=" + Scene.phase));
         step(70, () -> {
-            Settings.QUICK_RETURN.set(true);
+            Settings.QUICK_MODE.set(1);
             Scene.leave();
         });
         watchAct();

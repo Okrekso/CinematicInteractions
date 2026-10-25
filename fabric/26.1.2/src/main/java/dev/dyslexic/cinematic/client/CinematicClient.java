@@ -1,6 +1,7 @@
 package dev.dyslexic.cinematic.client;
 
 import dev.dyslexic.cinematic.ClientBridge;
+import dev.dyslexic.cinematic.client.compat.FirstPersonBodyCompat;
 import dev.dyslexic.cinematic.net.*;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
@@ -26,6 +27,8 @@ public final class CinematicClient implements ClientModInitializer {
         ClientBridge.useStation = Scene::begin;
         ClientBridge.vanillaUse = ClientOnly::onVanillaUse;
         Settings.SPEC.load();
+        FirstPersonBodyCompat.register();
+        net.fabricmc.fabric.api.client.screen.v1.ScreenEvents.AFTER_INIT.register((mc, screen, width, height) -> ServerListHint.onScreenInit(mc, screen));
         KeyMappingHelper.registerKeyMapping(CampfireHint.SIT);
         KeyMappingHelper.registerKeyMapping(FreeLook.LOOK);
         ModelLoadingPlugin.register(context -> {
@@ -33,9 +36,11 @@ public final class CinematicClient implements ClientModInitializer {
         });
         BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityType.BREWING_STAND, BrewingBottles::new);
         BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityType.CHISELED_BOOKSHELF, ShelfLayoutBooks::new);
-        net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register(
-                context -> new LoomFlags.Renderer(context.bufferSource(), context.submitNodeCollector()));
+        net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register(context -> new LoomFlags.Renderer(context.bufferSource(), context.submitNodeCollector()));
         ClientPlayNetworking.registerGlobalReceiver(RecipeSyncPayload.TYPE, (p, c) -> ClientRecipes.accept(p));
+        ClientPlayNetworking.registerGlobalReceiver(ProtocolPayload.TYPE, (p, c) -> {});
+        ClientPlayNetworking.registerGlobalReceiver(RecipeChoicePayload.TYPE, (p, c) -> ClientPayloads.recipeChoices(p));
+        ClientPlayNetworking.registerGlobalReceiver(BrewingContentsPayload.TYPE, (p, c) -> ClientBrewing.apply(p));
         ClientPlayNetworking.registerGlobalReceiver(TableContentsPayload.TYPE, (p, c) -> ClientPayloads.tableContents(p));
         ClientPlayNetworking.registerGlobalReceiver(FurnaceContentsPayload.TYPE, (p, c) -> ClientPayloads.furnaceContents(p));
         ClientPlayNetworking.registerGlobalReceiver(FurnaceStatePayload.TYPE, (p, c) -> ClientPayloads.furnaceState(p));
@@ -48,6 +53,7 @@ public final class CinematicClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(AtStationPayload.TYPE, (p, c) -> ClientPayloads.atStation(p));
         ClientTickEvents.END_CLIENT_TICK.register(mc -> {
             Scene.tick();
+            ClientPayloads.faceStations(mc.level);
             CampfireHint.tick();
             if (mc.level != null && mc.level.getGameTime() % 40 == 0) ClientFurnaces.prune(mc.level);
             Showcase.tick();
@@ -58,6 +64,7 @@ public final class CinematicClient implements ClientModInitializer {
         ClientChunkEvents.CHUNK_UNLOAD.register((level, chunk) -> {
             ClientTables.unloadChunk(chunk.getPos());
             ClientFurnaces.unloadChunk(chunk.getPos());
+            ClientBrewing.unloadChunk(chunk.getPos());
             ClientEnchants.unloadChunk(chunk.getPos());
             ClientMenus.unloadChunk(chunk.getPos());
             ShelfBooks.unloadChunk(chunk.getPos());
@@ -90,6 +97,7 @@ public final class CinematicClient implements ClientModInitializer {
         ClientRecipes.clear();
         ClientTables.clear();
         ClientFurnaces.clear();
+        ClientBrewing.clear();
         ClientEnchants.clear();
         ClientMenus.clear();
         ShelfBooks.clear();

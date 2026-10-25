@@ -63,6 +63,8 @@ public final class FurnaceStation extends ClientStation {
 
     // what the vanilla menu would show; refreshed by the server every few ticks and run on locally in between
     private int litTime, litDuration, cookingProgress, cookingTotalTime;
+    private ItemStack guideHint = ItemStack.EMPTY;
+    private double guideHintAt;
 
     public FurnaceStation(BlockPos pos, Direction facing, StationKind kind) {
         super(pos, facing);
@@ -70,6 +72,49 @@ public final class FurnaceStation extends ClientStation {
         this.layout = FurnaceLayout.of(kind);
         this.staging = kind == StationKind.BLAST_FURNACE ? TALL : LOW;
         this.gridEditor = new FurnaceGridEditor(this);
+    }
+
+    @Nullable
+    ItemStack cookingInput(java.util.List<ItemStack> inputs) {
+        Minecraft mc = Minecraft.getInstance();
+        if (inputs.isEmpty()) return null;
+        if (mc.player != null) {
+            for (int slot = 0; slot < 36; slot++) {
+                ItemStack stack = mc.player.getInventory().getItem(slot);
+                for (ItemStack input : inputs) {
+                    if (ItemStack.isSameItem(stack, input)) return stack.copyWithCount(1);
+                }
+            }
+        }
+        return inputs.get(0).copyWithCount(1);
+    }
+
+    void showHint(@Nullable ItemStack stack) {
+        guideHint = stack == null ? ItemStack.EMPTY : stack.copyWithCount(1);
+        guideHintAt = Scene.clock();
+    }
+
+    private void drawHint(PoseStack pose, SceneBuffers buffers, Vec3 camera, int light) {
+        if (guideHint.isEmpty() || Minecraft.getInstance().level == null) return;
+        ItemStack inside = ClientFurnaces.item(pos, FurnaceZones.INPUT);
+        if (!inside.isEmpty()) {
+            if (ItemStack.isSameItem(inside, guideHint)) guideHint = ItemStack.EMPTY;
+            return;
+        }
+        FurnaceLayout.Bed bed = null;
+        for (FurnaceLayout.Bed b : layout.beds) if (b.slot() == FurnaceZones.INPUT) bed = b;
+        if (bed == null) return;
+        Direction facing = Minecraft.getInstance().level.getBlockState(pos).getValue(AbstractFurnaceBlock.FACING);
+        FurnaceAppearance appearance = geometry();
+        double u = (bed.u0() + bed.u1()) / 2;
+        Vec3 base = appearance.point(layout, pos, facing, bed.slot(), u,
+                bed.face() == Face.FRONT ? bed.floor() + 0.002 : bed.floor(), -bed.depth(), true);
+        float appear = (float) Anim.smoother((Scene.clock() - guideHintAt) / 0.3);
+        float opacity = appear * (0.3f + 0.07f * (float) Math.sin(Scene.clock() * 3));
+        if (buffers instanceof SceneBuffers.BufferSource source) source.endBatch();
+        ItemPlacer.render(pose, buffers, camera, guideHint, base, facing, 7L,
+                0.95f * (float) appearance.region(bed.slot()).itemScale(), bed.tilt(), light, opacity);
+        if (buffers instanceof SceneBuffers.BufferSource source) source.endBatch();
     }
 
     @Override
@@ -385,12 +430,13 @@ public final class FurnaceStation extends ClientStation {
     @Override
     public void renderWorld(PoseStack pose, SceneBuffers buffers, Vec3 camera, int light) {
         FurnaceAppearance appearance = geometry();
-        VertexConsumer glow = buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.lightning());
+        VertexConsumer glow = buffers.getBuffer(Fx.flatGlow());
         double flicker = 0.9 + 0.1 * Math.sin(Scene.clock() * 9.0);
         gauge(pose, glow, camera, appearance.rect(layout, 3, false), Mth.lerp(gridEditor.amount(), cook(), 0.7), new int[]{255, 196, 90}, flicker, appearance.region(3).out() / 16);
         gauge(pose, glow, camera, appearance.rect(layout, 4, false), Mth.lerp(gridEditor.amount(), burn(), 0.5), new int[]{255, 92, 30}, flicker, appearance.region(4).out() / 16);
         gridEditor.renderWorld(pose, buffers, camera, light);
         if (gridEditor.visible()) return;
+        drawHint(pose, buffers, camera, light);
         FurnaceLayout.Zone zone = hoverZone < 0 ? null : layout.zone(hoverZone);
         if (zone == null) {
             return;
@@ -405,11 +451,29 @@ public final class FurnaceStation extends ClientStation {
     /** A thin glowing line on the front, lit up to {@code fill}; the rest is a faint track. */
     private void gauge(PoseStack pose, VertexConsumer glow, Vec3 camera, double[] strip, double fill, int[] rgb, double flicker, double out) {
         int[] track = {(int) (rgb[0] * 0.12), (int) (rgb[1] * 0.12), (int) (rgb[2] * 0.12)};
-        quad(pose, glow, camera, pos, side, Face.FRONT, strip, out + 0.003, track, track, 255);
+        glowQuad(pose, glow, camera, pos, side, Face.FRONT, strip, out + 0.003, track, track);
         if (fill > 0.001) {
             int[] lit = {(int) (rgb[0] * 0.75 * flicker), (int) (rgb[1] * 0.75 * flicker), (int) (rgb[2] * 0.75 * flicker)};
-            quad(pose, glow, camera, pos, side, Face.FRONT, new double[]{strip[0], strip[0] + (strip[1] - strip[0]) * fill, strip[2], strip[3]},
-                    out + 0.0035, lit, lit, 255);
+            glowQuad(pose, glow, camera, pos, side, Face.FRONT, new double[]{strip[0], strip[0] + (strip[1] - strip[0]) * fill, strip[2], strip[3]},
+                    out + 0.0035, lit, lit);
+        }
+    }
+
+    /** Textured emissive quad for the furnace gauges and the light inside its openings. */
+    static void glowQuad(PoseStack pose, VertexConsumer buffer, Vec3 camera, BlockPos pos, Direction facing, Face face, double[] rect,
+            double out, int[] near, int[] far) {
+        Matrix4f m = pose.last().pose();
+        Vec3[] corners = {
+                FurnaceZones.point(pos, facing, face, rect[0], rect[2], out), FurnaceZones.point(pos, facing, face, rect[1], rect[2], out),
+                FurnaceZones.point(pos, facing, face, rect[1], rect[3], out), FurnaceZones.point(pos, facing, face, rect[0], rect[3], out)};
+        Vec3 normal = face == Face.TOP ? new Vec3(0, 1, 0) : Vec3.atLowerCornerOf(facing.getUnitVec3i());
+        for (int[] order : BOTH_WAYS) {
+            for (int i : order) {
+                Vec3 c = corners[i];
+                int[] rgb = i < 2 ? near : far;
+                Fx.glowVertex(buffer, m, (float) (c.x - camera.x), (float) (c.y - camera.y), (float) (c.z - camera.z),
+                        rgb[0], rgb[1], rgb[2], normal);
+            }
         }
     }
 

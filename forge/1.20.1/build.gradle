@@ -135,6 +135,7 @@ def testMods = [
         withShaders          : ['local:embeddium:0.3.31+mc1.20.1', 'local:oculus-mc1.20.1:1.8.0'],
         withAmendments       : ['local:amendments-1.20:2.2.6', 'local:moonlight-1.20:2.16.37-forge'],
         withEasyMods         : ['local:EasyMagic:v8.0.1-1.20.1-Forge', 'local:EasyAnvils:v8.0.2-1.20.1-Forge', 'local:PuzzlesLib:v8.1.36-1.20.1-Forge'],
+        withPolymorph        : ['local:polymorph-forge:0.49.11+1.20.1'],
         withProfile          : ['local:entity_model_features:3.2.4-1.20.1-forge', 'local:entity_texture_features_1.20.1-forge:7.1',
                                 'local:entityculling-forge:1.10.5-mc1.20.1', 'local:ferritecore:6.0.1-forge', 'local:xaeroworldmap-forge-1.20.1:1.45.0'],
 ]
@@ -147,6 +148,7 @@ dependencies {
     modCompileOnly 'local:InventoryParticles:3.2.0+1.20.1+forge'
     modCompileOnly 'local:InventoryInteractions:2.2.0+1.20.1+forge'
     modCompileOnly 'local:MossyLib:1.6.0+1.20.1+forge'
+    modCompileOnly 'local:polymorph-forge:0.49.11+1.20.1'
     def wanted = [] as LinkedHashSet
     testMods.each { flag, jars -> if (project.hasProperty(flag)) wanted.addAll(jars) }
     wanted.each { modRuntimeOnly it }

@@ -15,7 +15,11 @@ public final class Network {
     }
 
     public static void register() {
+        PayloadTypeRegistry.serverboundPlay().register(ProtocolPayload.TYPE, ProtocolPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(ProtocolPayload.TYPE, ProtocolPayload.CODEC);
+        ServerPlayNetworking.registerGlobalReceiver(ProtocolPayload.TYPE, (payload, context) -> {});
         PayloadTypeRegistry.clientboundPlay().register(RecipeSyncPayload.TYPE, RecipeSyncPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(RecipeChoicePayload.TYPE, RecipeChoicePayload.CODEC);
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resources, success) -> {
             if (success) server.getPlayerList().getPlayers().forEach(RecipeSyncPayload::send);
         });
@@ -23,6 +27,7 @@ public final class Network {
         PayloadTypeRegistry.clientboundPlay().register(TableContentsPayload.TYPE, TableContentsPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(FurnaceContentsPayload.TYPE, FurnaceContentsPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(FurnaceStatePayload.TYPE, FurnaceStatePayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(BrewingContentsPayload.TYPE, BrewingContentsPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(CampfireProgressPayload.TYPE, CampfireProgressPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EnchantDisplayPayload.TYPE, EnchantDisplayPayload.CODEC);
         PayloadTypeRegistry.clientboundPlay().register(EnchantFxPayload.TYPE, EnchantFxPayload.CODEC);

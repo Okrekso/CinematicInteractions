@@ -392,8 +392,8 @@ public final class CartographyStation extends SurfaceStation<CartographyTableMen
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y + 0.004 - cam.y, at.z - cam.z);
         // the map's quad faces -Z: tipped over this way it faces up, its top away from the player
-        pose.rotate(Axis.YP.rotationDegrees(yaw));
-        pose.rotate(Axis.XP.rotationDegrees(90f));
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees(yaw)));
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.XP.rotationDegrees(90f)));
         float s = size / 128f;
         pose.scale(s, s, s);
         pose.translate(-64f, -64f, 0f);

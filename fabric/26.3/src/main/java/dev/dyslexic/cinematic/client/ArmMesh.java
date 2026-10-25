@@ -59,4 +59,31 @@ public final class ArmMesh {
         upper.compile(pose.last(), buffer, light, overlay, -1);
         pose.popPose();
     }
+
+    /** Upper arm, with a closed shoulder end; the lower segment is placed separately at the elbow. */
+    public void renderUpper(PoseStack pose, VertexConsumer buffer, int light, int overlay) {
+        upper.compile(pose.last(), buffer, light, overlay, -1);
+        cap.compile(pose.last(), buffer, light, overlay, -1);
+    }
+
+    /** Forearm and hand; the same skin and sleeve layers as the original straight arm. */
+    public void renderForearm(PoseStack pose, VertexConsumer buffer, int light, int overlay) {
+        upper.compile(pose.last(), buffer, light, overlay, -1);
+        hand.compile(pose.last(), buffer, light, overlay, -1);
+    }
+
+    /** A short, closed forearm floating near the work; its hand keeps its normal proportions. */
+    public void renderFloating(PoseStack pose, VertexConsumer buffer, int light, int overlay) {
+        hand.compile(pose.last(), buffer, light, overlay, -1);
+        pose.pushPose();
+        pose.translate(0, 6f / 16, 0);
+        pose.scale(1, 0.4f, 1);
+        pose.translate(0, -6f / 16, 0);
+        upper.compile(pose.last(), buffer, light, overlay, -1);
+        pose.popPose();
+        pose.pushPose();
+        pose.translate(0, 8f * 0.6f / 16, 0);
+        cap.compile(pose.last(), buffer, light, overlay, -1);
+        pose.popPose();
+    }
 }

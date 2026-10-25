@@ -43,7 +43,7 @@ public final class ShelfActions {
 
     /**
      * CLICK: the book in slot {@code index} into the hand (shift: into the inventory). PLACE: one book from the hand
-     * ({@code button} -1) or hotbar slot {@code button} into empty slot {@code index}. CRAFT: the player starts
+     * ({@code button} -1) or inventory slot {@code button} (0..35) into empty slot {@code index}. CRAFT: the player starts
      * ({@code button} 1) or stops reading the book in slot {@code index}.
      */
     public static void handle(ServerPlayer player, ServerLevel level, Session session, StationActionPayload action) {
@@ -84,7 +84,7 @@ public final class ShelfActions {
         }
         cue(player, session, MenuFxPayload.Cue.PULL, slot, book);
         if (toInventory) {
-            player.getInventory().placeItemBackInInventory(book, true);
+            player.getInventory().placeItemBackInInventory(book);
         } else if (carried.isEmpty()) {
             player.inventoryMenu.setCarried(book);
         } else {
@@ -95,7 +95,7 @@ public final class ShelfActions {
     }
 
     private static void put(ServerPlayer player, ServerLevel level, Session session, ChiseledBookShelfBlockEntity shelf, int slot, int from) {
-        ItemStack source = from < 0 ? player.inventoryMenu.getCarried() : from < 9 ? player.getInventory().getItem(from) : ItemStack.EMPTY;
+        ItemStack source = from < 0 ? player.inventoryMenu.getCarried() : from < 36 ? player.getInventory().getItem(from) : ItemStack.EMPTY;
         if (source.isEmpty() || !source.is(ItemTags.BOOKSHELF_BOOKS) || !shelf.getItem(slot).isEmpty()) {
             show(player, session);
             return;

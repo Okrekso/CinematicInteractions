@@ -75,6 +75,12 @@ public final class ClientOnlySmoke {
                 ticks = 0;
             }
             case 2 -> {
+                // The first synthetic use can race the server's final spawn/chunk packets.
+                // Repeat the normal use-key path once the connection has settled.
+                if (ticks == 40 && mc.player.containerMenu == mc.player.inventoryMenu && !Scene.active()) {
+                    clickAsPlayer(mc, new BlockHitResult(new Vec3(0.5, 65, 1.5), Direction.UP, TABLE, false));
+                    Cinematic.LOGGER.info("[ClientOnlySmoke] retried table use after spawn settled");
+                }
                 if (ticks == 80) Cinematic.LOGGER.info("[ClientOnlySmoke] waiting: screen={}, menu={}, scene={}, refused={}",
                         mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(),
                         mc.player.containerMenu.getClass().getSimpleName(), Scene.phase, Scene.refused);
@@ -159,6 +165,8 @@ public final class ClientOnlySmoke {
                 // the hands are still pressing the last craft together: laying out waits, as the button does
                 if (table.busy()) return;
                 var guide = table.recipeBook.guide;
+                // The normal UI indexes lazily when the recipe book opens; this smoke test selects directly.
+                guide.tick();
                 var stick = guide.entries.stream().filter(e -> e.holder.id().getPath().equals("stick")).findFirst();
                 if (stick.isEmpty()) return;
                 guide.select(stick.get());

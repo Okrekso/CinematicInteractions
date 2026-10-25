@@ -1,0 +1,121 @@
+plugins {
+    id 'fabric-loom' version '1.16.3'
+}
+
+version = mod_version
+group = 'dev.dyslexic.cinematic'
+base.archivesName = 'Cinematic Interaction-Fabric-1.21.1'
+
+repositories {
+    maven { url = 'https://maven.parchmentmc.org/' }
+    maven { url = 'https://maven.shedaniel.me/' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // Mojang names with Parchment parameters: exactly the names of the NeoForge 1.21.1 sources this port follows.
+    mappings loom.layered {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${minecraft_version}:${parchment_mappings_version}@zip")
+    }
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    // Optional: the settings screen of Cloth Config and Mod Menu's button. Neither is bundled or required.
+    modCompileOnly "me.shedaniel.cloth:cloth-config-fabric:${cloth_config_version}"
+    modCompileOnly "com.terraformersmc:modmenu:${modmenu_version}"
+    if (project.hasProperty('withSettings')) {
+        modRuntimeOnly "me.shedaniel.cloth:cloth-config-fabric:${cloth_config_version}"
+        modRuntimeOnly "com.terraformersmc:modmenu:${modmenu_version}"
+    }
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    // JEI's API is the same on every loader; its NeoForge JAR (Southware's pack, 19.57.0.451) gives the Mojang names to
+    // compile against. Nothing of JEI is bundled; on Fabric the plugin is found through the "jei_mod_plugin" entrypoint.
+    if (project.hasProperty('jeiFabric')) {
+        // a check that the adapter also compiles against the Fabric build used by the tests (test-mods/jei)
+        modCompileOnly fileTree('test-mods/jei') { include 'jei-*.jar' }
+    } else {
+        compileOnly 'maven.modrinth:jei:RI8WCow6'
+    }
+    // Inventory Particles 3.2 / Inventory Interactions 2.2 (NeoForge 1.21.1 builds): the same API on both loaders.
+    if (project.hasProperty('inventoryFabric')) {
+        // a check against the Fabric builds the tests run (test-mods/inventory, checked against Modrinth's SHA-512)
+        modCompileOnly fileTree('test-mods/inventory') { include 'Inventory*.jar' }
+    } else {
+        compileOnly 'maven.modrinth:inventory-particles:tIeIGFCs'
+        compileOnly 'maven.modrinth:inventory-interactions:U3SO7tDA'
+    }
+    // Polymorph 1.1.0 for Fabric 1.21.1 (a local copy, test-mods/polymorph): its API only, nothing of it is bundled.
+    modCompileOnly files('test-mods/polymorph/polymorph-fabric-1.1.0+1.21.1.jar')
+    // Local test mods for a run (Iris, Sodium, JEI ...): nothing in this folder goes into the release JAR.
+    if (project.hasProperty('withTestMods')) {
+        modRuntimeOnly fileTree("test-mods/${project.findProperty('withTestMods')}") { include '*.jar' }
+    }
+}
+
+loom {
+    accessWidenerPath = file('src/main/resources/cinematic.accesswidener')
+    runs {
+        client { client(); runDir 'run/client' }
+        server { server(); runDir 'run/server'; programArg '--nogui' }
+        clientOnlySmoke {
+            client()
+            runDir "run/${project.findProperty('clientOnlySmokeDir') ?: 'client-only-smoke'}"
+            vmArg '-Dcinematic.clientOnlySmoke=true'
+            programArgs '--width', '1280', '--height', '720'
+        }
+        if (project.hasProperty('joinTest')) {
+            // A real network join (packets are encoded, unlike singleplayer): run joinServer, then joinClient.
+            joinServer { server(); runDir 'run/join-server'; programArg '--nogui' }
+            joinClient {
+                client()
+                runDir 'run/join-client'
+                programArgs '--quickPlayMultiplayer', '127.0.0.1:25589'
+                if (project.hasProperty('serverSmoke')) vmArg '-Dcinematic.serverSmoke=true'
+            }
+        }
+        showcase {
+            client()
+            runDir "run/${project.findProperty('showcaseDir') ?: 'showcase'}"
+            vmArg '-Dcinematic.showcase=true'
+            if (project.hasProperty('traceMixins')) vmArg '-Dmixin.debug.export=true'
+            vmArg "-Dcinematic.showcase.world=${project.findProperty('showcaseWorld') ?: 'cinematic-showcase'}"
+            vmArg "-Dcinematic.showcase.from=${project.findProperty('from') ?: '0'}"
+            vmArg "-Dcinematic.showcase.only=${project.findProperty('only') ?: 'false'}"
+            vmArg "-Dcinematic.showcase.editorBatch=${project.findProperty('editorBatch') ?: 'false'}"
+            programArgs '--width', "${project.findProperty('showcaseWidth') ?: '1600'}", '--height', "${project.findProperty('showcaseHeight') ?: '900'}"
+        }
+    }
+}
+
+sourceSets.main.resources {
+    // textures, translations, the hammer model and the icon are shared with the NeoForge project
+    srcDirs = ['src/main/resources', '../../src/main/resources']
+    exclude 'META-INF/accesstransformer.cfg', 'META-INF/neoforge.mods.toml', 'cinematic.mixins.json'
+}
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+tasks.named('sourcesJar') { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
+jar { from('../../LICENSE') }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs += ['-Xmaxerrs', '1000']
+}
+
+// The add-on example of the NeoForge project compiles against this port too (it is loader-neutral); never packaged.
+sourceSets {
+    exampleAddon {
+        java.srcDirs = ['../../examples/addon-template']
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.main.output
+    }
+}
+tasks.named('check') { dependsOn 'compileExampleAddonJava' }

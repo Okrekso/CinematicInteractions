@@ -279,6 +279,21 @@ public abstract class ClientStation {
     /** The scene is over (stepping away or dropped): let go of whatever the station holds. */
     public void onEnd() {}
 
+    /** Shift-click a drawer item into a menu-backed station. */
+    public void quickMove(int inventorySlot, int menuSlot) {
+        var mc = net.minecraft.client.Minecraft.getInstance();
+        if (busy() || mc.player == null || mc.gameMode == null || mc.level == null) return;
+        if (Scene.clientOnly()) {
+            QuickMoves.sendVanilla(mc, mc.player.containerMenu, menuSlot);
+            return;
+        }
+        if (kind().usesMenu() || kind().isFurnace() || kind() == StationKind.CAMPFIRE) {
+            dev.dyslexic.cinematic.net.PacketDistributor.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(
+                    pos, kind(), dev.dyslexic.cinematic.net.StationActionPayload.Action.QUICK,
+                    inventorySlot, 0, true, 0));
+        }
+    }
+
     /** 0..1: how hard the camera is pulled in and shaken right now (a dramatic moment). */
     public double cameraKick() {
         return 0;
@@ -308,6 +323,14 @@ public abstract class ClientStation {
 
     /** Extras over the scene (progress indicators...). */
     public void renderScreen(GuiGraphicsExtractor graphics, Font font, float alpha) {}
+
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+
+    RecipeChoiceStrip choices() { return choiceStrip; }
+
+    void chose(int index) {
+        RecipeChoiceStrip.send(pos, kind(), index);
+    }
 
     /** Tooltip for what the cursor is over, or null. */
     @Nullable

@@ -173,8 +173,11 @@ public final class Showcase {
         } else if (t == 75) {
             switch (FROM) {
                 case "ip" -> nextAct("ip", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+                case "tw" -> nextAct("tw", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+                case "pm", "pf", "ps" -> polymorphAct(FROM);
                 case "ji" -> nextAct("ji", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
                 case "3" -> nextAct("3", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+                case "fb" -> nextAct("fb", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "4" -> nextAct("4", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "5" -> nextAct("5", new Vec3(4.5, -60, 5.4), 180f, BLAST, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "i", "r" -> {
@@ -289,6 +292,10 @@ public final class Showcase {
     private static void runScript() {
         switch (act) {
             case "ip" -> inventoryEffectsScript();
+            case "tw" -> tableWindowScript();
+            case "pm" -> polymorphScript();
+            case "pf" -> polymorphFurnaceScript();
+            case "ps" -> polymorphSmithingScript();
             case "ji" -> fieldGuideScript();
             case "0" -> tableScript();
             case "d" -> {
@@ -305,6 +312,7 @@ public final class Showcase {
                 else { developerOptionsScript(); step(3, () -> finish(Minecraft.getInstance())); }
             }
             case "3" -> furnaceScript();
+            case "fb" -> furnaceBreakScript();
             case "4" -> smokerScript();
             case "5" -> blastScript();
             case "6" -> enchantScript();
@@ -625,6 +633,126 @@ public final class Showcase {
     }
 
     // ---- recipes from a data pack: the table and the furnace work with what the server loaded ----------------
+
+    /** Only the disputed crafting recipe: avoids rerunning the full station walkthrough. */
+    private static void polymorphAct(String which) {
+        step(2, () -> server(p -> {
+            try {
+                java.nio.file.Path pack = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_polymorph_test");
+                java.nio.file.Path recipes = pack.resolve("data/cinematic_polymorph_test/recipes");
+                java.nio.file.Files.createDirectories(recipes);
+                java.nio.file.Files.writeString(pack.resolve("pack.mcmeta"),
+                        "{\"pack\": {\"pack_format\": 15, \"description\": \"Cinematic Polymorph test\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("a_barrel.json"),
+                        "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:cobblestone\"}],\"result\":{\"item\":\"minecraft:barrel\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("b_crafting_table.json"),
+                        "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:cobblestone\"}],\"result\":{\"item\":\"minecraft:crafting_table\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("c_nugget.json"),
+                        "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},\"result\":\"minecraft:gold_nugget\",\"experience\":0,\"cookingtime\":100}");
+                java.nio.file.Files.writeString(recipes.resolve("d_ingot.json"),
+                        "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},\"result\":\"minecraft:iron_ingot\",\"experience\":0,\"cookingtime\":100}");
+                java.nio.file.Files.writeString(recipes.resolve("e_gold_sword.json"),
+                        "{\"type\":\"minecraft:smithing_transform\",\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},"
+                        + "\"base\":{\"item\":\"minecraft:diamond_sword\"},\"addition\":{\"item\":\"minecraft:netherite_ingot\"},"
+                        + "\"result\":{\"item\":\"minecraft:golden_sword\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("f_iron_sword.json"),
+                        "{\"type\":\"minecraft:smithing_transform\",\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},"
+                        + "\"base\":{\"item\":\"minecraft:diamond_sword\"},\"addition\":{\"item\":\"minecraft:netherite_ingot\"},"
+                        + "\"result\":{\"item\":\"minecraft:iron_sword\"}}");
+            } catch (java.io.IOException e) {
+                check("polymorph: conflict pack written", false, e.toString());
+            }
+        }));
+        step(4, () -> cmd("datapack enable \"file/cinematic_polymorph_test\""));
+        step(4, () -> cmd("reload"));
+        step(60, () -> check("polymorph: both recipes loaded", Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new ResourceLocation("cinematic_polymorph_test", "a_barrel")).isPresent()
+                && Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new ResourceLocation("cinematic_polymorph_test", "b_crafting_table")).isPresent(), "recipe reload"));
+        if (which.equals("pf")) nextAct("pf", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+        else if (which.equals("ps")) smithyAct("ps", SMITHING);
+        else nextAct("pm", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+    }
+
+    private static void polymorphScript() {
+        step(3, () -> server(p -> {
+            var store = TableStore.get(p.serverLevel());
+            var table = store.getOrCreate(TABLE);
+            for (int i = 0; i < 9; i++) table.items.set(i, ItemStack.EMPTY);
+            table.items.set(4, new ItemStack(Items.COBBLESTONE));
+            store.setDirty();
+            dev.dyslexic.cinematic.table.TableActions.sync(p.serverLevel(), TABLE);
+        }));
+        step(15, () -> {
+            boolean loaded = dev.dyslexic.cinematic.station.RecipeChoices.available();
+            check("polymorph: expected test mod loaded", loaded, "loaded=" + loaded);
+            check("polymorph: two results offered", table().choices().active(),
+                    "selected=" + table().choices().selected());
+            table().chose(1);
+        });
+        step(12, () -> {
+            check("polymorph: second result preview", table().result.is(Items.CRAFTING_TABLE),
+                    "result=" + describe(table().result));
+            server(p -> check("polymorph: server records selection",
+                    new ResourceLocation("cinematic_polymorph_test", "b_crafting_table")
+                            .equals(dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)),
+                    "selected=" + dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)));
+        });
+        step(2, () -> ClientNet.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(TABLE,
+                StationKind.TABLE, dev.dyslexic.cinematic.net.StationActionPayload.Action.CRAFT, 0, 0, false, 0)));
+        step(20, () -> server(p -> check("polymorph: selected recipe crafted",
+                p.inventoryMenu.getCarried().is(Items.CRAFTING_TABLE),
+                "carried=" + describe(p.inventoryMenu.getCarried()))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void polymorphFurnaceScript() {
+        step(3, () -> server(p -> setFurnace(p, FURNACE, new ItemStack(Items.RAW_IRON, 2), new ItemStack(Items.COAL))));
+        step(18, () -> {
+            var strip = Scene.station.choices();
+            check("polymorph furnace: competing results offered", strip != null && strip.active(),
+                    "active=" + (strip != null && strip.active()));
+            Scene.station.chose(0);
+        });
+        step(14, () -> {
+            check("polymorph furnace: server choice reaches scene", Scene.station.choices().selected() == 0,
+                    "selected=" + Scene.station.choices().selected());
+            server(p -> check("polymorph furnace: block stores chosen recipe",
+                    p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace
+                            && "cinematic_polymorph_test:c_nugget".equals(dev.dyslexic.cinematic.station.RecipeChoices.furnaceChoice(furnace, StationKind.FURNACE)),
+                    "furnace selection"));
+        });
+        step(230, () -> server(p -> check("polymorph furnace: selected output smelted",
+                furnaceItems(p, FURNACE).get(2).is(Items.GOLD_NUGGET),
+                "output=" + describe(furnaceItems(p, FURNACE).get(2)))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void polymorphSmithingScript() {
+        step(3, () -> server(p -> {
+            if (p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu menu) {
+                menu.getSlot(0).set(new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+                menu.getSlot(1).set(new ItemStack(Items.DIAMOND_SWORD));
+                menu.getSlot(2).set(new ItemStack(Items.NETHERITE_INGOT));
+                menu.slotsChanged(menu.getSlot(0).container);
+                menu.broadcastChanges();
+            }
+        }));
+        step(18, () -> {
+            var strip = Scene.station.choices();
+            check("polymorph smithing: competing results offered", strip != null && strip.active(),
+                    "active=" + (strip != null && strip.active()));
+            Scene.station.chose(0);
+        });
+        step(14, () -> {
+            server(p -> check("polymorph smithing: selected result is in the real menu",
+                    p.containerMenu.getSlot(3).getItem().is(Items.GOLDEN_SWORD),
+                    "result=" + describe(p.containerMenu.getSlot(3).getItem())));
+            check("polymorph smithing: scene shows selected result", Scene.station.choices().selected() == 0,
+                    "selected=" + Scene.station.choices().selected());
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
 
     /** The world's own data pack: a shaped recipe whose result carries a name (NBT), and a smelting recipe of its own. */
     private static void customRecipesAct() {
@@ -1527,6 +1655,32 @@ public final class Showcase {
         Minecraft mc = Minecraft.getInstance();
         double scale = net.minecraft.util.Mth.clamp(mc.screen.height * 0.068 / 18, 0.6, 1.25);
         pointGui(mc.screen.width / 2.0 + (inventorySlot - 4) * 18 * scale, 6 + 14 * scale);
+    }
+
+    /** Targeted regression: opening a normal crafting menu must take ownership of items left on the table. */
+    private static void tableWindowScript() {
+        step(2, Scene::leave);
+        step(40, () -> server(player -> {
+            var level = player.serverLevel();
+            var store = TableStore.get(level);
+            var table = store.getOrCreate(TABLE);
+            table.items.set(4, new ItemStack(Items.DIAMOND, 3));
+            store.setDirty();
+            check("table window: scene ended", dev.dyslexic.cinematic.station.Sessions.get(player) == null,
+                    "session=" + dev.dyslexic.cinematic.station.Sessions.get(player));
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                    (id, inventory, owner) -> new net.minecraft.world.inventory.CraftingMenu(id, inventory,
+                            net.minecraft.world.inventory.ContainerLevelAccess.create(level, TABLE)),
+                    Component.translatable("container.crafting")));
+            check("table window: real crafting menu opened", player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu,
+                    "menu=" + player.containerMenu.getClass().getName());
+            check("table window: stack moved into center cell", player.containerMenu.slots.get(5).getItem().is(Items.DIAMOND)
+                            && player.containerMenu.slots.get(5).getItem().getCount() == 3,
+                    "center=" + player.containerMenu.slots.get(5).getItem());
+            check("table window: physical table cleared", store.get(TABLE) == null, "stored=" + store.get(TABLE));
+            player.closeContainer();
+        }));
+        step(8, () -> finish(Minecraft.getInstance()));
     }
 
     private static void tableScript() {
@@ -2698,8 +2852,8 @@ public final class Showcase {
     }
     private static void verifyProfileControls() {
         List<Object> selectors = new ArrayList<>(); profileWidgets(Minecraft.getInstance().screen, selectors);
-        check("settings have a profile for every station", selectors.size() == StationKind.values().length, "selectors=" + selectors.size());
-        if (selectors.size() != StationKind.values().length) return;
+        check("settings have a profile for every built-in station", selectors.size() == LayoutProfiles.supportedCount(), "selectors=" + selectors.size());
+        if (selectors.size() != LayoutProfiles.supportedCount()) return;
         int selected = LayoutProfiles.selected(StationKind.TABLE), next = (selected + 1) % 3;
         Object first = selectors.get(0);
         try {
@@ -2737,6 +2891,21 @@ public final class Showcase {
         Minecraft.getInstance().screen.mouseClicked(x, y, 0);
         Minecraft.getInstance().screen.mouseReleased(x, y, 0);
         return true;
+    }
+
+    /** Simulates another player's break packet reaching the server during the furnace scene. */
+    private static void furnaceBreakScript() {
+        step(10, () -> check("furnace break starts in the scene", Scene.phase == Scene.Phase.ACTIVE,
+                "phase=" + Scene.phase));
+        step(2, () -> server(p -> p.serverLevel().setBlockAndUpdate(FURNACE, Blocks.AIR.defaultBlockState())));
+        step(30, () -> {
+            check("removed furnace closes the scene", Scene.phase == Scene.Phase.NONE,
+                    "phase=" + Scene.phase);
+            server(p -> check("removed furnace ends the server session", dev.dyslexic.cinematic.station.Sessions.get(p) == null,
+                    "session=" + dev.dyslexic.cinematic.station.Sessions.get(p)));
+            shot("fb_removed");
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
     }
 
     private static void furnaceScript() {
@@ -3597,7 +3766,13 @@ public final class Showcase {
     private static void campfireAct() {
         step(2, () -> {
             act = "f";
-            server(p -> p.teleportTo(p.serverLevel(), CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.9, 180f, 24f));
+            server(p -> {
+                if ("f".equals(FROM)) {
+                    p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+                    p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+                }
+                p.teleportTo(p.serverLevel(), CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.9, 180f, 24f);
+            });
         });
         step(30, () -> shot("f0_hint"));
         campfireHintFadeScript("f");
@@ -5351,7 +5526,11 @@ public final class Showcase {
     // ---- how others see it --------------------------------------------------------------------------
 
     private static void thirdPersonShots() {
-        step(2, () -> server(p -> p.teleportTo(p.serverLevel(), -0.4, -60, 5.2, 168f, 12f)));
+        step(2, () -> server(p -> {
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            p.teleportTo(p.serverLevel(), -0.4, -60, 5.2, 168f, 12f);
+        }));
         step(30, () -> shot("80_workshop"));
         poseShot("81_pose_furnace", StationKind.FURNACE, FURNACE);
         poseShot("82_pose_table", StationKind.TABLE, TABLE);

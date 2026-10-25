@@ -32,7 +32,7 @@ public final class StationDisplayLayouts {
             Vec3 at = layout.point(frame, i).subtract(Vec3.atLowerCornerOf(pos));
             pose.pushPose();
             pose.translate(at.x, at.y, at.z);
-            pose.rotate(Axis.YP.rotationDegrees(-turn.toYRot() - (float) layout.rotation(i)).mul(Axis.XP.rotationDegrees(90)));
+            pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees(-turn.toYRot() - (float) layout.rotation(i)).mul(Axis.XP.rotationDegrees(90))));
             float size = 0.375f * layout.scale(i) * (item.usesBlockLight() ? 2 : 1);
             pose.scale(size, size, size);
             item.submit(pose, collector, fire.lightCoords, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY, 0);
@@ -48,7 +48,7 @@ public final class StationDisplayLayouts {
         Vec3 from = frame.base(0).subtract(Vec3.atLowerCornerOf(pos)), to = layout.point(frame, 0).subtract(Vec3.atLowerCornerOf(pos));
         Vec3 normal = frame.normal();
         pose.translate(to.x, to.y, to.z);
-        pose.rotate(new Quaternionf().rotationAxis((float) Math.toRadians(layout.rotation(0)), (float) normal.x, (float) normal.y, (float) normal.z));
+        pose.mulPose(new org.joml.Matrix4f().rotation(new Quaternionf().rotationAxis((float) Math.toRadians(layout.rotation(0)), (float) normal.x, (float) normal.y, (float) normal.z)));
         float scale = layout.scale(0); pose.scale(scale, scale, scale);
         pose.translate(-from.x, -from.y, -from.z);
     }

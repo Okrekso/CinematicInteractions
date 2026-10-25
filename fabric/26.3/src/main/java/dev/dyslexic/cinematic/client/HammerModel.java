@@ -76,7 +76,7 @@ public final class HammerModel {
                 (float) along.x, (float) along.y, (float) along.z,
                 (float) z.x, (float) z.y, (float) z.z).getNormalizedRotation(new Quaternionf());
         pose.pushPose();
-        pose.rotate(rotation);
+        pose.mulPose(new org.joml.Matrix4f().rotation(rotation));
         pose.scale(scale, scale, scale);
         pose.translate(-GRIP.x, -GRIP.y, -GRIP.z);
         // Item transforms now centre their geometry; preserve the imported model's original grip coordinates.

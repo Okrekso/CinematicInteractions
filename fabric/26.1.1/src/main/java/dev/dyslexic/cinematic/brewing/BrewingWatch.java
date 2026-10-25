@@ -1,22 +1,28 @@
 package dev.dyslexic.cinematic.brewing;
 
 import dev.dyslexic.cinematic.furnace.FurnaceWatch;
+import dev.dyslexic.cinematic.net.BrewingContentsPayload;
+import dev.dyslexic.cinematic.net.PacketDistributor;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.ContainerHelper;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.chunk.LevelChunk;
 
 /**
  * The brewing stand's bottles are drawn by the mod as the real potions (the stand's own bottle pictures are taken
- * out of its model), so clients need to know what stands in it. Vanilla sends nothing: the stand's update packet
- * carries its slots, and every server tick a cheap fingerprint of the bottles is compared; when it changes (a potion
- * put in or taken, a brew finished) the stand is sent again.
+ * out of its model), so clients need to know what stands in it. Vanilla sends nothing; every server tick a cheap
+ * fingerprint of the slots is compared, and when it changes (a potion put in or taken, a brew finished) the slots go
+ * to the players watching the chunk in the mod's own packet, as for furnaces. The stand's own update packet is left
+ * alone: other mods (Amendments) give the stand one of their own, and two mixins adding the same method to the block
+ * entity cannot both apply.
  */
 public final class BrewingWatch {
     private BrewingWatch() {}
@@ -33,13 +39,13 @@ public final class BrewingWatch {
 
     /** Called at the end of every server tick of a brewing stand. */
     public static void afterTick(Level level, BlockPos pos, BlockState state, BrewingStandBlockEntity stand) {
-        if (level.isClientSide() || !(stand instanceof Fingerprinted marked)) {
+        if (!(level instanceof ServerLevel server) || !(stand instanceof Fingerprinted marked)) {
             return;
         }
         int fingerprint = fingerprint(stand);
         if (fingerprint != marked.cinematic$fingerprint()) {
             marked.cinematic$setFingerprint(fingerprint);
-            level.sendBlockUpdated(pos, state, state, Block.UPDATE_CLIENTS);
+            PacketDistributor.sendToPlayersTrackingChunk(server, ChunkPos.containing(pos), contents(pos, stand));
         }
     }
 
@@ -48,15 +54,26 @@ public final class BrewingWatch {
         return FurnaceWatch.contentsFingerprint(stand, SLOTS);
     }
 
-    /** What a client is told about a stand: its slots, nothing else. */
-    public static CompoundTag updateTag(BrewingStandBlockEntity stand, HolderLookup.Provider registries) {
-        NonNullList<ItemStack> items = NonNullList.withSize(SLOTS, ItemStack.EMPTY);
+    public static BrewingContentsPayload contents(BlockPos pos, BrewingStandBlockEntity stand) {
+        List<ItemStack> items = new ArrayList<>(SLOTS);
+        boolean any = false;
         for (int slot = 0; slot < SLOTS; slot++) {
-            items.set(slot, stand.getItem(slot));
+            ItemStack stack = stand.getItem(slot);
+            any |= !stack.isEmpty();
+            items.add(stack.copy());
         }
-        net.minecraft.world.level.storage.TagValueOutput output = net.minecraft.world.level.storage.TagValueOutput.createWithContext(
-                net.minecraft.util.ProblemReporter.DISCARDING, registries);
-        ContainerHelper.saveAllItems(output, items, true);
-        return output.buildResult();
+        return new BrewingContentsPayload(pos, any ? items : List.of());
+    }
+
+    /** A chunk reached a player: tell them what stands in its brewing stands. */
+    public static void chunkSent(ServerPlayer player, LevelChunk chunk) {
+        for (BlockEntity entity : chunk.getBlockEntities().values()) {
+            if (entity instanceof BrewingStandBlockEntity stand) {
+                BrewingContentsPayload payload = contents(entity.getBlockPos(), stand);
+                if (!payload.items().isEmpty()) {
+                    PacketDistributor.sendToPlayer(player, payload);
+                }
+            }
+        }
     }
 }

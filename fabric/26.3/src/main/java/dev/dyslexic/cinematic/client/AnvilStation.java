@@ -243,8 +243,10 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
     }
 
     private boolean affordable() {
+        // The result slot owns the pickup rule. Other anvil mods may allow valid work at cost 0.
+        AnvilMenu menu = menu();
         LocalPlayer player = Minecraft.getInstance().player;
-        return player != null && cost() > 0 && (player.getAbilities().instabuild || player.experienceLevel >= cost());
+        return menu != null && player != null && menu.getSlot(menu.getResultSlot()).mayPickup(player);
     }
 
     /** Both pieces are there but vanilla refuses: the work would cost 40 levels or more. */
@@ -678,8 +680,8 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
         Vec3 cam = camera.position();
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-        pose.rotate(camera.rotation());
-        pose.rotate(com.mojang.math.Axis.ZP.rotationDegrees((float) SpatialLayouts.current(StationKind.ANVIL).rotation(2)));
+        pose.mulPose(new org.joml.Matrix4f().rotation(camera.rotation()));
+        pose.mulPose(new org.joml.Matrix4f().rotation(com.mojang.math.Axis.ZP.rotationDegrees((float) SpatialLayouts.current(StationKind.ANVIL).rotation(2))));
         scale *= geometryScale(2);
         pose.scale(scale, -scale, scale);
         int background = backdrop > 0 ? (int) (backdrop * 255) << 24 : 0;

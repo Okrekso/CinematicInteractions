@@ -98,6 +98,46 @@ public final class FurnaceActions {
         return outcome;
     }
 
+    /** Shift-click a stack into the cooking or fuel slot using the furnace's own placement rules. */
+    public static void quickMove(ServerPlayer player, ServerLevel level, Session session, int inventorySlot) {
+        if (!(level.getBlockEntity(session.pos()) instanceof AbstractFurnaceBlockEntity furnace)) return;
+        ItemStack source = player.getInventory().getItem(inventorySlot);
+        var recipes = level.recipeAccess().propertySet(switch (session.kind()) {
+            case SMOKER -> net.minecraft.world.item.crafting.RecipePropertySet.SMOKER_INPUT;
+            case BLAST_FURNACE -> net.minecraft.world.item.crafting.RecipePropertySet.BLAST_FURNACE_INPUT;
+            default -> net.minecraft.world.item.crafting.RecipePropertySet.FURNACE_INPUT;
+        });
+        int slot = recipes.test(source) ? FurnaceZones.INPUT
+                : level.fuelValues().isFuel(source) ? FurnaceZones.FUEL : -1;
+        BlockPos pos = session.pos();
+        if (slot < 0 || !furnace.canPlaceItem(slot, source)) {
+            level.playSound(null, pos, SoundEvents.STONE_BUTTON_CLICK_OFF, SoundSource.PLAYERS, 0.3f, 0.6f);
+            return;
+        }
+        ItemStack inside = furnace.getItem(slot);
+        int limit = Math.min(furnace.getMaxStackSize(source), source.getMaxStackSize());
+        int move;
+        if (inside.isEmpty()) {
+            move = Math.min(source.getCount(), limit);
+            furnace.setItem(slot, source.split(move));
+        } else if (ItemStack.isSameItemSameComponents(source, inside)) {
+            move = Math.max(0, Math.min(source.getCount(), Math.min(limit, inside.getMaxStackSize()) - inside.getCount()));
+            inside.grow(move);
+            source.shrink(move);
+        } else move = 0;
+        if (move <= 0) {
+            level.playSound(null, pos, SoundEvents.STONE_BUTTON_CLICK_OFF, SoundSource.PLAYERS, 0.3f, 0.6f);
+            return;
+        }
+        player.getInventory().setChanged();
+        furnace.setChanged();
+        FurnaceWatch.sync(level, pos, furnace);
+        sendState(player, session);
+        player.inventoryMenu.broadcastChanges();
+        level.playSound(null, pos, slot == FurnaceZones.FUEL ? SoundEvents.STONE_HIT : SoundEvents.DEEPSLATE_HIT,
+                SoundSource.PLAYERS, 0.4f, 1.1f);
+    }
+
     /** Taking smelted items: into the hand, or with shift straight into the inventory. */
     private static Outcome takeResult(ServerPlayer player, ServerLevel level, AbstractFurnaceBlockEntity furnace, int button, boolean shift) {
         AbstractContainerMenu menu = player.inventoryMenu;

@@ -1090,8 +1090,11 @@ public final class Showcase {
         step(6, () -> clickCell(2, 2, 0));
         step(8, () -> {
             var guide = table().recipeBook.guide;
+            var contents = ClientTables.get(table().pos);
             check("recipe shapeless follows placement", guide.placed[8] && TableRecipeGuide.empty(guide.grid[0]) && guide.missingCount == 0,
-                    "log at bottom right");
+                    "placed8=" + guide.placed[8] + " grid0Empty=" + TableRecipeGuide.empty(guide.grid[0])
+                            + " missing=" + guide.missingCount + " cell8=" + (contents == null ? "no contents" : contents.items[TableGrid.worldIndex(table().side, 2, 2)])
+                            + " carried=" + Minecraft.getInstance().player.containerMenu.getCarried());
             shot("0r7_shapeless_recipe");
         });
         step(2, () -> clickCell(2, 2, 0));
@@ -1358,6 +1361,12 @@ public final class Showcase {
                     Picking.cursorOnPlane(TABLE.getY() + 1.0));
         }
         screenClick(button);
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.gui.screen() != null) {
+            double[] at = Picking.mouseGui();
+            mc.gui.screen().mouseReleased(new net.minecraft.client.input.MouseButtonEvent(at[0], at[1],
+                    new net.minecraft.client.input.MouseButtonInfo(SceneScreen.physicalButton(button), 0)));
+        }
     }
 
     private static void clickResult() {
@@ -2277,6 +2286,32 @@ public final class Showcase {
             check("hammer engraving preserves the forged item", named.is(Items.IRON_PICKAXE) && named.isEnchanted()
                     && named.getHoverName().getString().equals("Кирка мастера"), "result=" + named.getHoverName().getString());
         }));
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("no-xp-anvils")) {
+            // A zero-cost repair must use the same real result slot as the book and rename operations above.
+            step(2, () -> invClick(28, 0));
+            step(3, () -> pointAt(anvil().restPoint(0)));
+            step(4, () -> clickAnvil(AnvilStation.Target.SURFACE, 0));
+            step(2, () -> invClickItem(Items.IRON_INGOT));
+            step(3, () -> pointAt(anvil().restPoint(1)));
+            step(4, () -> clickAnvil(AnvilStation.Target.SURFACE, 0));
+            step(3, () -> pointAt(anvil().restPoint(1)));
+            step(6, () -> {
+                var menu = anvil().menu();
+                ItemStack repaired = anvil().slot(2);
+                check("no-xp anvil offers repair at zero cost", menu != null && menu.getCost() == 0
+                        && repaired.is(Items.IRON_PICKAXE) && repaired.getDamageValue() < 140,
+                        "cost=" + (menu == null ? -1 : menu.getCost()) + " result=" + repaired);
+            });
+            step(2, () -> clickAnvil(AnvilStation.Target.STACK, 0));
+            moveShots("ah_repair", 0.25, 0.6, 0.9, 1.3, 1.85, 2.05);
+            step(6, () -> server(p -> {
+                ItemStack repaired = p.containerMenu.getCarried();
+                check("no-xp anvil repairs without spending levels", repaired.is(Items.IRON_PICKAXE)
+                        && repaired.getDamageValue() < 140 && p.experienceLevel == 30,
+                        "result=" + repaired + " xp=" + p.experienceLevel);
+            }));
+            step(2, () -> invClick(29, 0));
+        }
         step(2, restoreLayout);
         step(2, Scene::leave);
         step(50, () -> shot("a9_after"));
@@ -3740,7 +3775,7 @@ public final class Showcase {
         BlockPos flush = heightSpot(4).below();
         step(4, () -> {
             Settings.APPROACH_SPEED.set(200);
-            Settings.QUICK_RETURN.set(false);
+            Settings.QUICK_MODE.set(0);
         });
         paceCase("o9_pace_fast", atTable, flush, true);
         step(4, () -> Settings.APPROACH_SPEED.set(100));
@@ -3748,7 +3783,7 @@ public final class Showcase {
         // the camera's lean: none, the camera stays at the eyes and looks at the work
         step(4, () -> {
             Settings.LEAN_STRENGTH.set(0);
-            Settings.QUICK_RETURN.set(true);
+            Settings.QUICK_MODE.set(1);
         });
         step(2, () -> {
             act = "o8_lean_0";
@@ -4148,13 +4183,13 @@ public final class Showcase {
         // turned off: always the usual way
         step(30, () -> {
             Settings.QUICK_WINDOW.set(12);
-            Settings.QUICK_RETURN.set(false);
+            Settings.QUICK_MODE.set(0);
             useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP);
         });
         step(20, () -> check("quick return turned off: the usual way in", !Scene.quick && Scene.phase == Scene.Phase.INTRO,
                 "quick=" + Scene.quick + " phase=" + Scene.phase));
         step(70, () -> {
-            Settings.QUICK_RETURN.set(true);
+            Settings.QUICK_MODE.set(1);
             Scene.leave();
         });
         watchAct();

@@ -27,11 +27,21 @@ public final class TableCrafting {
 
     /** The recipe the table currently spells for a player on {@code side}; the result is a fresh copy. */
     public static Optional<Match> match(Level level, List<ItemStack> world, Direction side) {
+        return match(level, world, side, null);
+    }
+
+    public static Optional<Match> match(Level level, List<ItemStack> world, Direction side,
+            @javax.annotation.Nullable net.minecraft.resources.ResourceLocation chosen) {
         TableInput input = new TableInput(TableGrid.oriented(world, side));
         if (input.isEmpty()) {
             return Optional.empty();
         }
-        Optional<CraftingRecipe> found = level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, level);
+        Optional<CraftingRecipe> found = Optional.empty();
+        if (chosen != null) {
+            found = dev.dyslexic.cinematic.station.RecipeChoices.matching(level, RecipeType.CRAFTING, input)
+                    .stream().filter(recipe -> recipe.getId().equals(chosen)).findFirst();
+        }
+        if (found.isEmpty()) found = level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, level);
         if (found.isEmpty()) {
             return Optional.empty();
         }
@@ -48,7 +58,8 @@ public final class TableCrafting {
      */
     public static List<ItemStack> craftOnce(ServerPlayer player, ServerLevel level, TableStore.Table table, Direction side,
             boolean toInventory) {
-        Optional<Match> found = match(level, table.items, side);
+        Optional<Match> found = match(level, table.items, side,
+                dev.dyslexic.cinematic.station.RecipeChoices.chosen(player));
         if (found.isEmpty()) {
             return null;
         }

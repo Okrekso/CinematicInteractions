@@ -1,6 +1,6 @@
 package dev.dyslexic.cinematic.client;
 
-import dev.dyslexic.cinematic.net.StationActionPayload;
+import dev.dyslexic.cinematic.net.ProtocolPayload;
 import dev.dyslexic.cinematic.ClientBridge;
 import dev.dyslexic.cinematic.station.StationKind;
 import javax.annotation.Nullable;
@@ -37,7 +37,7 @@ public final class ClientOnly {
     }
 
     public static boolean serverHasMod() {
-        return Minecraft.getInstance().getConnection() != null && ClientPlayNetworking.canSend(StationActionPayload.TYPE);
+        return Minecraft.getInstance().getConnection() != null && ClientPlayNetworking.canSend(ProtocolPayload.TYPE);
     }
 
     /** True leaves the block use entirely to vanilla, even when a local scene may follow its menu. */

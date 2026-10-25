@@ -91,6 +91,14 @@ final class TableRecipeGuide {
         Arrays.fill(display, ItemStack.EMPTY);
     }
 
+    @Nullable
+    Entry entry(net.minecraft.resources.Identifier id) {
+        for (Entry entry : entries) {
+            if (entry.holder != null && entry.holder.id().identifier().equals(id)) return entry;
+        }
+        return null;
+    }
+
     void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -282,10 +290,291 @@ final class TableRecipeGuide {
         for (int n = 0; n < cells.size(); n++) {
             if (assignment[n] >= 0) {
                 int logical = cells.get(n);
-                moves.add(new int[]{TableGrid.worldIndex(station.side, logical / 3, logical % 3), slots.get(assignment[n])});
+                moves.add(new int[]{TableGrid.worldIndex(station.side, logical / 3, logical % 3), slots.get(assignment[n]), 1});
             }
         }
         return moves;
+    }
+
+    /**
+     * What lies where the chosen recipe has no place for it (a cell outside the diagram, or the wrong item in one), and
+     * fits back into the inventory: {world cell, {@link TableStation#TAKE}, count}. Laying out a recipe takes these back
+     * first, so the last recipe's leftovers never block the new one; what does not fit stays ({@link #stuck}).
+     */
+    List<int[]> takeBackMoves() {
+        if (takeRevision == revision && takeCache != null) {
+            return takeCache;
+        }
+        takeRevision = revision;
+        takeCache = new ArrayList<>();
+        stuckCount = 0;
+        Minecraft mc = Minecraft.getInstance();
+        if (selected == null || mc.player == null) {
+            return takeCache;
+        }
+        // the inventory as Inventory.add fills it: stacks of the same item first, then empty slots
+        ItemStack[] room = new ItemStack[36];
+        for (int slot = 0; slot < 36; slot++) room[slot] = mc.player.getInventory().getItem(slot).copy();
+        for (int logical = 0; logical < 9; logical++) {
+            if (!wrong(logical)) continue;
+            ItemStack lying = actual(logical);
+            if (fits(room, lying)) {
+                takeCache.add(new int[]{TableGrid.worldIndex(station.side, logical / 3, logical % 3), TableStation.TAKE, lying.getCount()});
+            } else {
+                stuckCount++;
+            }
+        }
+        return takeCache;
+    }
+
+    /** Cells holding the wrong item that the inventory has no room to take back (worked out by {@link #takeBackMoves}). */
+    int stuck() {
+        takeBackMoves();
+        return stuckCount;
+    }
+
+    @Nullable
+    private List<int[]> takeCache;
+    private int takeRevision = -1;
+    private int stuckCount;
+
+    /** Whether all of {@code stack} goes into {@code room}; if it does, it is put there. */
+    private static boolean fits(ItemStack[] room, ItemStack stack) {
+        int left = stack.getCount();
+        for (ItemStack slot : room) {
+            if (!slot.isEmpty() && ItemStack.isSameItemSameComponents(slot, stack)) left -= Math.max(0, slot.getMaxStackSize() - slot.getCount());
+        }
+        for (ItemStack slot : room) {
+            if (left > 0 && slot.isEmpty()) left -= stack.getMaxStackSize();
+        }
+        if (left > 0) return false;
+        int put = stack.getCount();
+        for (int i = 0; i < room.length && put > 0; i++) {
+            if (!room[i].isEmpty() && ItemStack.isSameItemSameComponents(room[i], stack)) {
+                int move = Math.min(put, room[i].getMaxStackSize() - room[i].getCount());
+                if (move > 0) { room[i].grow(move); put -= move; }
+            }
+        }
+        for (int i = 0; i < room.length && put > 0; i++) {
+            if (room[i].isEmpty()) {
+                int move = Math.min(put, stack.getMaxStackSize());
+                room[i] = stack.copyWithCount(move);
+                put -= move;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * How many cells of the diagram one "Lay out" fills once what lies in the way has been taken back: the items taken
+     * back count as being at hand, since they may belong in another cell of the new recipe.
+     */
+    int layableAfterTakingBack() {
+        Minecraft mc = Minecraft.getInstance();
+        if (selected == null || mc.player == null) return 0;
+        List<int[]> back = takeBackMoves();
+        List<ItemStack> stacks = new ArrayList<>();
+        for (int slot = -1; slot < 36; slot++) stacks.add(slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot));
+        List<Integer> cleared = new ArrayList<>();
+        for (int[] move : back) {
+            int logical = logicalOf(move[0]);
+            cleared.add(logical);
+            stacks.add(actual(logical));
+        }
+        List<Ingredient> needed = new ArrayList<>();
+        for (int logical = 0; logical < 9; logical++) {
+            if (!empty(grid[logical]) && !placed[logical] && (actual(logical).isEmpty() || cleared.contains(logical))) {
+                needed.add(grid[logical]);
+            }
+        }
+        return (int) Arrays.stream(match(needed, units(stacks))).filter(i -> i >= 0).count();
+    }
+
+    private int logicalOf(int world) {
+        for (int logical = 0; logical < 9; logical++) {
+            if (TableGrid.worldIndex(station.side, logical / 3, logical % 3) == world) return logical;
+        }
+        return -1;
+    }
+
+    /**
+     * Shift + "Lay out": every cell of the diagram brought up to {@code sets} items, the most whole sets the items at
+     * hand allow. Each cell holds a single kind of item, so a tag ingredient picks the kinds that go furthest, and
+     * no cell passes its kind's stack limit. {@code current} is how many whole sets already lie on the table; when
+     * {@code sets} is not more than that, there is nothing to lay. Cells holding a wrong item are left alone.
+     */
+    record MaxLayout(int sets, int current, List<int[]> moves) {}
+
+    MaxLayout maxLayout() {
+        if (maxRevision == revision && maxCache != null) {
+            return maxCache;
+        }
+        maxRevision = revision;
+        maxCache = workOutMax();
+        return maxCache;
+    }
+
+    @Nullable
+    private MaxLayout maxCache;
+    private int maxRevision = -1;
+    /** Gives up on a pathological assignment search instead of stalling a frame; real recipes take a few dozen steps. */
+    private static final int SEARCH_STEPS = 20_000;
+
+    private MaxLayout workOutMax() {
+        Minecraft mc = Minecraft.getInstance();
+        if (selected == null || mc.player == null) {
+            return new MaxLayout(0, 0, List.of());
+        }
+        // The kinds of item at hand (same item and components), how many of each, and which slots hold them.
+        List<ItemStack> kinds = new ArrayList<>();
+        List<Integer> stock = new ArrayList<>();
+        List<List<Integer>> kindSlots = new ArrayList<>();
+        for (int slot = -1; slot < 36; slot++) {
+            ItemStack stack = slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot);
+            if (stack.isEmpty()) continue;
+            int kind = kindOf(kinds, stack);
+            if (kind < 0) {
+                kinds.add(stack);
+                stock.add(0);
+                kindSlots.add(new ArrayList<>());
+                kind = kinds.size() - 1;
+            }
+            stock.set(kind, stock.get(kind) + stack.getCount());
+            kindSlots.get(kind).add(slot);
+        }
+        // what will be taken back first is at hand too (where it lands is known only after: the moves re-plan then)
+        List<Integer> takenBack = new ArrayList<>();
+        for (int[] move : takeBackMoves()) {
+            int logical = logicalOf(move[0]);
+            takenBack.add(logical);
+            ItemStack stack = actual(logical);
+            int kind = kindOf(kinds, stack);
+            if (kind < 0) {
+                kinds.add(stack);
+                stock.add(0);
+                kindSlots.add(new ArrayList<>());
+                kind = kinds.size() - 1;
+            }
+            stock.set(kind, stock.get(kind) + stack.getCount());
+            if (!kindSlots.get(kind).contains(TableStation.REPLAN)) kindSlots.get(kind).add(TableStation.REPLAN);
+        }
+        // The diagram's cells: those already holding the right item keep that kind; empty ones choose a kind.
+        List<Integer> cells = new ArrayList<>();
+        List<Integer> fixedKind = new ArrayList<>();
+        List<Integer> have = new ArrayList<>();
+        List<Integer> limit = new ArrayList<>();
+        List<int[]> choices = new ArrayList<>();
+        int current = Integer.MAX_VALUE;
+        int upper = Integer.MAX_VALUE;
+        for (int logical = 0; logical < 9; logical++) {
+            if (empty(grid[logical])) continue;
+            ItemStack lying = takenBack.contains(logical) ? ItemStack.EMPTY : actual(logical);
+            if (!lying.isEmpty() && !grid[logical].test(lying)) continue;
+            cells.add(logical);
+            if (!lying.isEmpty()) {
+                fixedKind.add(kindOf(kinds, lying));
+                have.add(lying.getCount());
+                limit.add(lying.getMaxStackSize());
+                choices.add(new int[0]);
+                current = Math.min(current, lying.getCount());
+                upper = Math.min(upper, lying.getMaxStackSize());
+            } else {
+                List<Integer> accepted = new ArrayList<>();
+                int best = 0;
+                for (int k = 0; k < kinds.size(); k++) if (grid[logical].test(kinds.get(k))) {
+                    accepted.add(k);
+                    best = Math.max(best, kinds.get(k).getMaxStackSize());
+                }
+                fixedKind.add(-1);
+                have.add(0);
+                limit.add(best);
+                choices.add(accepted.stream().mapToInt(Integer::intValue).toArray());
+                current = 0;
+                upper = Math.min(upper, best);
+            }
+        }
+        if (cells.isEmpty()) {
+            return new MaxLayout(0, 0, List.of());
+        }
+        int[] chosen = new int[cells.size()];
+        for (int sets = upper; sets > current; sets--) {
+            if (!assign(sets, cells.size(), fixedKind, have, limit, choices, kinds, stock, chosen)) continue;
+            int[] left = new int[36 + 1];
+            for (int slot = -1; slot < 36; slot++) {
+                ItemStack stack = slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot);
+                left[slot + 1] = stack.getCount();
+            }
+            List<int[]> moves = new ArrayList<>();
+            for (int i = 0; i < cells.size(); i++) {
+                int need = sets - have.get(i);
+                if (need <= 0) continue;
+                int logical = cells.get(i);
+                int world = TableGrid.worldIndex(station.side, logical / 3, logical % 3);
+                for (int slot : kindSlots.get(chosen[i])) {
+                    if (need <= 0) break;
+                    if (slot == TableStation.REPLAN) {
+                        // a stand-in for what is taken back: counted, never sent
+                        moves.add(new int[]{world, slot, need});
+                        need = 0;
+                        break;
+                    }
+                    int take = Math.min(need, left[slot + 1]);
+                    if (take <= 0) continue;
+                    left[slot + 1] -= take;
+                    need -= take;
+                    moves.add(new int[]{world, slot, take});
+                }
+            }
+            return new MaxLayout(sets, current, moves);
+        }
+        return new MaxLayout(current, current, List.of());
+    }
+
+    private static int kindOf(List<ItemStack> kinds, ItemStack stack) {
+        for (int k = 0; k < kinds.size(); k++) if (ItemStack.isSameItemSameComponents(kinds.get(k), stack)) return k;
+        return -1;
+    }
+
+    /** Whether every cell can reach {@code sets} items; {@code chosen} receives each cell's kind. */
+    private static boolean assign(int sets, int count, List<Integer> fixedKind, List<Integer> have, List<Integer> limit,
+            List<int[]> choices, List<ItemStack> kinds, List<Integer> stock, int[] chosen) {
+        int[] left = stock.stream().mapToInt(Integer::intValue).toArray();
+        List<Integer> open = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            int need = sets - have.get(i);
+            if (fixedKind.get(i) >= 0 || have.get(i) > 0) {
+                if (need <= 0) { chosen[i] = Math.max(0, fixedKind.get(i)); continue; }
+                int kind = fixedKind.get(i);
+                if (kind < 0 || sets > limit.get(i) || left[kind] < need) return false;
+                left[kind] -= need;
+                chosen[i] = kind;
+            } else {
+                if (choices.get(i).length == 0) return false;
+                open.add(i);
+            }
+        }
+        // The cells with the fewest usable kinds first: they decide fastest whether this many sets fit.
+        open.sort(Comparator.comparingInt(i -> choices.get(i).length));
+        int[] steps = {0};
+        return place(0, open, sets, choices, kinds, left, chosen, steps);
+    }
+
+    private static boolean place(int at, List<Integer> open, int sets, List<int[]> choices, List<ItemStack> kinds, int[] left,
+            int[] chosen, int[] steps) {
+        if (at == open.size()) return true;
+        if (++steps[0] > SEARCH_STEPS) return false;
+        int cell = open.get(at);
+        int[] options = choices.get(cell).clone();
+        // the most plentiful kind first: it leaves the most for the cells still to come
+        Integer[] order = Arrays.stream(options).boxed().sorted((a, b) -> left[b] - left[a]).toArray(Integer[]::new);
+        for (int kind : order) {
+            if (left[kind] < sets || kinds.get(kind).getMaxStackSize() < sets) continue;
+            left[kind] -= sets;
+            chosen[cell] = kind;
+            if (place(at + 1, open, sets, choices, kinds, left, chosen, steps)) return true;
+            left[kind] += sets;
+        }
+        return false;
     }
 
     ItemStack ghost(int logical) {

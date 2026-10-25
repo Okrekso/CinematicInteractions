@@ -2,11 +2,6 @@ package dev.dyslexic.cinematic.mixin;
 
 import dev.dyslexic.cinematic.brewing.BrewingWatch;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientGamePacketListener;
-import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -18,7 +13,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** Tells clients what stands in a brewing stand, so its bottles can be drawn as the real potions. */
+/**
+ * Watches what stands in a brewing stand, so its bottles can be drawn as the real potions. It adds no methods to the
+ * block entity beyond its own fingerprint: the contents travel in the mod's own packet ({@link BrewingWatch}), and
+ * other mods may give the stand an update packet of their own.
+ */
 @Mixin(BrewingStandBlockEntity.class)
 public abstract class BrewingStandBlockEntityMixin extends BaseContainerBlockEntity implements BrewingWatch.Fingerprinted {
     @Unique
@@ -36,16 +35,6 @@ public abstract class BrewingStandBlockEntityMixin extends BaseContainerBlockEnt
     @Override
     public void cinematic$setFingerprint(int fingerprint) {
         cinematic$fingerprint = fingerprint;
-    }
-
-    @Override
-    public Packet<ClientGamePacketListener> getUpdatePacket() {
-        return ClientboundBlockEntityDataPacket.create(this);
-    }
-
-    @Override
-    public CompoundTag getUpdateTag(HolderLookup.Provider registries) {
-        return BrewingWatch.updateTag((BrewingStandBlockEntity) (Object) this, registries);
     }
 
     @Inject(method = "serverTick", at = @At("RETURN"))

@@ -33,6 +33,7 @@ public final class SceneScreen extends Screen {
     private static final int FIELD_W = 170;
 
     private final InventoryEffects inventoryEffects = new InventoryEffects();
+    final FieldGuide guide = new FieldGuide();
     private double expand;
     private float scale = 1f;
     private int panelX, panelY, panelW, panelH;
@@ -46,10 +47,16 @@ public final class SceneScreen extends Screen {
         super(Component.translatable("cinematic.scene"));
     }
 
+    @Override protected void init() {
+        super.init();
+        Scene.consulted();
+    }
+
     @Override
     public void tick() {
         super.tick();
         inventoryEffects.tick();
+        guide.tick();
     }
 
     @Override
@@ -78,7 +85,7 @@ public final class SceneScreen extends Screen {
         return Scene.phase == Scene.Phase.ACTIVE && Scene.station != null;
     }
 
-    private static LayoutEditor editor() {
+    static LayoutEditor editor() {
         if (Scene.station instanceof TableStation table) return table.gridEditor;
         if (Scene.station instanceof FurnaceStation furnace) return furnace.gridEditor;
         if (Scene.station instanceof SurfaceStation<?> surface) return surface.gridEditor;
@@ -215,8 +222,8 @@ public final class SceneScreen extends Screen {
         // looking round from behind, the panels give way to the view
         float look = (float) FreeLook.amount();
         boolean over = working() && drawer && !FreeLook.looking() && overPanel(mouseX, mouseY);
-        Scene.overPanel = over || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY))
-                || (editor() != null && editor().over(mouseX, mouseY));
+        Scene.overPanel = over || station.choices().over(mouseX, mouseY) || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY))
+                || (editor() != null && editor().over(mouseX, mouseY)) || guideShown() && guide.over(mouseX, mouseY);
         expand = Anim.approach(expand, over ? 1 : 0, 13, Scene.frameDt);
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
@@ -226,6 +233,8 @@ public final class SceneScreen extends Screen {
 
         if (alpha > 0.01f) {
             station.renderScreen(graphics, font, alpha);
+            station.choices().render(graphics, font, alpha);
+            if (guideShown()) guide.render(graphics, font, alpha);
             if (drawer) {
                 drawPanel(graphics, player, hovered, alpha);
             }
@@ -371,11 +380,21 @@ public final class SceneScreen extends Screen {
 
     private void drawTooltip(GuiGraphicsExtractor g, LocalPlayer player, ClientStation station, int hovered, int mx, int my) {
         ItemStack carried = player.containerMenu.getCarried();
+        List<Component> guideLines = guideShown() && carried.isEmpty() ? guide.tooltip(mx, my) : null;
+        if (guideLines != null) {
+            g.setTooltipForNextFrame(font, guideLines.stream().map(Component::getVisualOrderText).toList(), mx, my);
+            return;
+        }
         if (hovered >= 0) {
             ItemStack stack = player.getInventory().getItem(inventoryIndex(hovered));
             if (carried.isEmpty() && !stack.isEmpty()) {
                 g.setTooltipForNextFrame(font, stack, mx, my);
             }
+            return;
+        }
+        List<Component> choiceLines = station.choices().tooltip(mx, my);
+        if (choiceLines != null) {
+            g.setTooltipForNextFrame(font, choiceLines.stream().map(Component::getVisualOrderText).toList(), mx, my);
             return;
         }
         List<Component> lines = station.tooltip(carried);
@@ -393,6 +412,18 @@ public final class SceneScreen extends Screen {
     private static int argb(float a, int r, int g, int b) {
         int alpha = Mth.clamp(Math.round(a * 255), 0, 255);
         return alpha << 24 | r << 16 | g << 8 | b;
+    }
+
+    private boolean guideShown() {
+        return working() && !(editor() != null && editor().visible());
+    }
+
+    @Nullable private ItemStack hoveredPanelItem() {
+        LocalPlayer player = Minecraft.getInstance().player;
+        double[] mouse = Picking.mouseGui();
+        if (player == null || Scene.station == null || !Scene.station.showsInventory() || !overPanel(mouse[0], mouse[1])) return null;
+        int slot = slotAt(mouse[0], mouse[1]);
+        return slot < 0 ? null : player.getInventory().getItem(inventoryIndex(slot));
     }
 
     // ---- input --------------------------------------------------------------------------------------
@@ -450,6 +481,7 @@ public final class SceneScreen extends Screen {
             return true;
         }
         inventoryEffects.action(mc.hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP);
+        if (guideShown() && guide.click(mx, my, button)) return true;
         if (Scene.station instanceof TableStation table && table.recipeBook.click(mx, my, button)) {
             table.release(button);
             return true;
@@ -458,9 +490,23 @@ public final class SceneScreen extends Screen {
             int slot = slotAt(mx, my);
             int target = slot >= 0 ? menuSlot(player, slot) : -1;
             if (target >= 0) {
-                mc.gameMode.handleContainerInput(player.containerMenu.containerId, target, button,
-                        net.minecraft.client.Minecraft.getInstance().hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP, player);
+                if (mc.hasShiftDown() && Scene.station instanceof TableStation table) {
+                    table.quickMove(inventoryIndex(slot));
+                } else if (mc.hasShiftDown() && (Scene.station.kind().usesMenu() || Scene.station.kind().isFurnace()
+                        || Scene.station.kind() == dev.dyslexic.cinematic.station.StationKind.CAMPFIRE
+                        || Scene.station.kind() == dev.dyslexic.cinematic.station.StationKind.JUKEBOX
+                        || Scene.station.kind() == dev.dyslexic.cinematic.station.StationKind.CHISELED_BOOKSHELF)) {
+                    Scene.station.quickMove(inventoryIndex(slot), target);
+                } else {
+                    mc.gameMode.handleContainerInput(player.containerMenu.containerId, target, button,
+                            mc.hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP, player);
+                }
             }
+            return true;
+        }
+        int picked = Scene.station.choices().click(mx, my);
+        if (picked != -2) {
+            if (picked >= 0) Scene.station.chose(picked);
             return true;
         }
         if (button == 1 && Scene.neighbor != null) {
@@ -478,6 +524,7 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (working() && editor() != null && editor().scroll(mx, my, scrollY)) return true;
+        if (working() && guideShown() && guide.scroll(mx, my, scrollY)) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.scroll(mx, my, scrollY)) return true;
         if (working() && !(Scene.station.showsInventory() && overPanel(mx, my))) {
             Scene.station.scroll(scrollY);
@@ -487,6 +534,7 @@ public final class SceneScreen extends Screen {
 
     private boolean charTyped(char c, int modifiers) {
         if (working() && editor() != null && editor().editing()) return true;
+        if (working() && guideShown() && guide.charTyped(new CharacterEvent(c))) return true;
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.charTyped(c, modifiers)) return true;
         return field != null ? field.charTyped(new net.minecraft.client.input.CharacterEvent(c)) : super.charTyped(new net.minecraft.client.input.CharacterEvent(c));
     }
@@ -496,6 +544,10 @@ public final class SceneScreen extends Screen {
             return true;
         }
         if (working() && editor() != null && editor().drag(mx, my, button)) return true;
+        if (working() && guideShown() && guide.over(mx, my)) {
+            if (button == 1 && Scene.station instanceof TableStation table) table.release(button);
+            return true;
+        }
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.over(mx, my)) {
             table.release(button);
             return true;
@@ -549,7 +601,9 @@ public final class SceneScreen extends Screen {
             return true;
         }
         inventoryEffects.action(mc.hasShiftDown() ? ContainerInput.QUICK_MOVE : ContainerInput.PICKUP);
+        if (guideShown() && guide.keyPressed(new net.minecraft.client.input.KeyEvent(key, scanCode, modifiers))) return true;
         if (Scene.station instanceof TableStation table && table.recipeBook.keyPressed(key, scanCode, modifiers)) return true;
+        if (guideShown() && guide.viewerKey(key, scanCode, hoveredPanelItem())) return true;
         if (editor() != null && editor().keyPressed(key)) return true;
         if (Scene.station.keyPressed(key)) {
             return true;

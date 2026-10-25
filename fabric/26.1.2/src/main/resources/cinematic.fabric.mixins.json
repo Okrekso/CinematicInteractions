@@ -6,18 +6,23 @@
   "mixins": [
     "AbstractFurnaceBlockEntityMixin",
     "BrewingStandBlockEntityMixin",
+    "CraftingMenuAccess",
     "EnchantmentMenuMixin",
     "PlayerChunkSenderMixin",
-    "ServerLevelMixin"
+    "ServerLevelMixin",
+    "ServerPlayerMixin"
   ],
   "client": [
     "CameraMixin",
     "ExperienceOrbRendererMixin",
     "HumanoidModelMixin",
+    "CampfireLegModelMixin",
+    "CampfireArmorMixin",
     "ItemInHandLayerMixin",
     "LecternRendererMixin",
     "MinecraftMixin",
     "ScreenMixin",
+    "ScreenWidgetAccess",
     "LocalPlayerMixin",
     "KeyboardInputMixin",
     "MouseHandlerMixin",

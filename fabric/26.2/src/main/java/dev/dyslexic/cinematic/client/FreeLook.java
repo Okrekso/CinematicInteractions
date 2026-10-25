@@ -86,7 +86,7 @@ public final class FreeLook {
 
     /** What the bottom line says while looking round. */
     static Component hint() {
-        return Component.translatable(Settings.lookToggles() ? "cinematic.look.toggle" : "cinematic.look.hold", LOOK.getTranslatedKeyMessage());
+        return Component.translatable(Settings.lookToggles() ? "cinematic.look.toggle" : "cinematic.look.hold", KeyLabels.of(LOOK));
     }
 
     /** Every frame: eases over and back, turns the orbit with the mouse, draws the body while the camera is away. */

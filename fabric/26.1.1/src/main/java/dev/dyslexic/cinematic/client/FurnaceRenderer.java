@@ -122,7 +122,7 @@ public final class FurnaceRenderer {
             double heat, boolean frontSeen, boolean topSeen) {
         double t = Scene.clock() + (pos.asLong() & 255) * 0.37;
         double flicker = 0.82 + 0.1 * Math.sin(t * 11.3) + 0.08 * Math.sin(t * 23.1 + 1.3);
-        VertexConsumer glow = buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.lightning());
+        VertexConsumer glow = buffers.getBuffer(Fx.flatGlow());
         for (FurnaceLayout.Glow g : layout.glows) {
             if (g.face() == Face.FRONT ? !frontSeen : !topSeen) {
                 continue;
@@ -136,8 +136,8 @@ public final class FurnaceRenderer {
                 double out = 0.003 + appearance.region(region).out() / 16;
                 if (g.fire()) {
                     double strength = 120 * flicker;
-                    FurnaceStation.quad(pose, glow, cam, pos, facing, g.face(), rect, out, rgb(strength, 0.42, 0.1),
-                            rgb(strength * 0.25, 0.35, 0.08), 255);
+                    FurnaceStation.glowQuad(pose, glow, cam, pos, facing, g.face(), rect, out, rgb(strength, 0.42, 0.1),
+                            rgb(strength * 0.25, 0.35, 0.08));
                 } else if (g.face() == Face.TOP) {
                     // the molten heart of a blast furnace glowing up through its top
                     double strength = (130 + 90 * heat) * flicker;
@@ -145,14 +145,14 @@ public final class FurnaceRenderer {
                     radial(pose, glow, cam, center, (rect[1] - rect[0]) * 0.72, rgb(strength, 0.45, 0.12));
                 } else {
                     double strength = (35 + 70 * heat) * flicker;
-                    FurnaceStation.quad(pose, glow, cam, pos, facing, g.face(), rect, out, rgb(strength, 0.5, 0.16),
-                            rgb(strength * 0.08, 0.5, 0.16), 255);
+                    FurnaceStation.glowQuad(pose, glow, cam, pos, facing, g.face(), rect, out, rgb(strength, 0.5, 0.16),
+                            rgb(strength * 0.08, 0.5, 0.16));
                 }
             }
         }
     }
 
-    /** A round glow lying flat: bright in the middle, fading out at the rim (plain colour, so shaders take it as light). */
+    /** A round emissive glow lying flat: bright in the middle, fading out at the rim. */
     private static void radial(PoseStack pose, VertexConsumer buffer, Vec3 cam, Vec3 center, double radius, int[] rgb) {
         org.joml.Matrix4f m = pose.last().pose();
         int segments = 24;
@@ -162,17 +162,19 @@ public final class FurnaceRenderer {
             double a1 = (i + 1) * Math.PI * 2 / segments;
             float x0 = cx + (float) (Math.cos(a0) * radius), z0 = cz + (float) (Math.sin(a0) * radius);
             float x1 = cx + (float) (Math.cos(a1) * radius), z1 = cz + (float) (Math.sin(a1) * radius);
-            // each wedge is a quad with two corners at the centre, wound both ways
-            buffer.addVertex(m, cx, cy, cz).setColor(rgb[0], rgb[1], rgb[2], 255);
-            buffer.addVertex(m, x0, cy, z0).setColor(0, 0, 0, 0);
-            buffer.addVertex(m, x1, cy, z1).setColor(0, 0, 0, 0);
-            buffer.addVertex(m, cx, cy, cz).setColor(rgb[0], rgb[1], rgb[2], 255);
-            buffer.addVertex(m, cx, cy, cz).setColor(rgb[0], rgb[1], rgb[2], 255);
-            buffer.addVertex(m, x1, cy, z1).setColor(0, 0, 0, 0);
-            buffer.addVertex(m, x0, cy, z0).setColor(0, 0, 0, 0);
-            buffer.addVertex(m, cx, cy, cz).setColor(rgb[0], rgb[1], rgb[2], 255);
+            // Black rim vertices contribute no light; both windings remain visible from above or below.
+            Fx.glowVertex(buffer, m, cx, cy, cz, rgb[0], rgb[1], rgb[2], UP);
+            Fx.glowVertex(buffer, m, x0, cy, z0, 0, 0, 0, UP);
+            Fx.glowVertex(buffer, m, x1, cy, z1, 0, 0, 0, UP);
+            Fx.glowVertex(buffer, m, cx, cy, cz, rgb[0], rgb[1], rgb[2], UP);
+            Fx.glowVertex(buffer, m, cx, cy, cz, rgb[0], rgb[1], rgb[2], UP);
+            Fx.glowVertex(buffer, m, x1, cy, z1, 0, 0, 0, UP);
+            Fx.glowVertex(buffer, m, x0, cy, z0, 0, 0, 0, UP);
+            Fx.glowVertex(buffer, m, cx, cy, cz, rgb[0], rgb[1], rgb[2], UP);
         }
     }
+
+    private static final Vec3 UP = new Vec3(0, 1, 0);
 
     private static int[] rgb(double red, double green, double blue) {
         return new int[]{(int) red, (int) (red * green), (int) (red * blue)};

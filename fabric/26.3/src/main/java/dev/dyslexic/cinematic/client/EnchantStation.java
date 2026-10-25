@@ -540,8 +540,9 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         glow = Anim.approach(glow, target, target > glow ? 6 : 2.5, Scene.frameDt);
         double spin = clock * 0.25 + (t >= 0 ? 4 * Anim.smoother(t) : 0);
         float g = (float) glow;
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, spin, 0.62f * g, 0.4f * g, 1.0f * g);
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -spin * 1.7, 0.4f * g, 0.7f * g, 1.0f * g);
+        EnchantFx.CirclePalette palette = item().isEmpty() || t >= 0 || lapis() > 0 ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED;
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.OUTER_LIFT, 0), 0.47, spin, palette, 0.85f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.INNER_LIFT, 0), 0.25, -spin * 1.7, palette, 0.55f * g);
 
         boolean outro = Scene.phase == Scene.Phase.OUTRO;
         double fade = outro ? 1 - Anim.smoother(Scene.time / 0.45) : 1;
@@ -562,11 +563,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         if (presence > 0.01) {
             float socket = (float) ((0.50 + 0.42 * lapisFocus) * presence);
             boolean wrong = this.target == Target.LAPIS && !Hands.carried().isEmpty() && !Hands.carried().is(Items.LAPIS_LAZULI);
-            EnchantFx.circle(pose, buffers, cam, corner().add(0, 0.006, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
-                    wrong ? socket : socket * 0.2f, wrong ? socket * 0.2f : socket * 0.55f, wrong ? socket * 0.2f : socket);
-            if (lapis == 0 && t < 0) {
-                EnchantFx.lapisGhost(pose, buffers, camera, corner().add(0, 0.052 + Math.sin(clock * 1.5) * 0.004, 0), socket, geometry().scale(1), (float) -geometry().rotation(1));
-            }
+            EnchantFx.circle(pose, buffers, cam, corner().add(0, EnchantFx.SOCKET_LIFT, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
+                    wrong ? EnchantFx.CirclePalette.RED : EnchantFx.CirclePalette.LAPIS, socket);
         }
         if (lapis > 0 && fade > 0.01) {
             drawLapis(pose, buffers, cam, corner(), lapis, light, (float) fade * geometry().scale(1), (float) -geometry().rotation(1));
@@ -619,7 +617,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         if (target == Target.SURFACE && !Hands.carried().isEmpty() && aim != null) {
             float p = (float) (0.25 + 0.1 * Math.sin(clock * 5));
-            EnchantFx.circle(pose, buffers, camera, top.add(0, 0.006, 0), 0.16, -clock, p * 0.8f, p * 0.7f, p);
+            EnchantFx.circle(pose, buffers, camera, top.add(0, EnchantFx.HINT_LIFT, 0), 0.16, -clock, EnchantFx.CirclePalette.VIOLET, p);
         }
     }
 
@@ -633,7 +631,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         String label = "×" + count;
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-        pose.rotate(camera.rotation());
+        pose.mulPose(new org.joml.Matrix4f().rotation(camera.rotation()));
         pose.scale(0.0045f, -0.0045f, 0.0045f);
         SceneText.draw(font, label, -font.width(label) / 2f, -4f, (alpha << 24) | 0x9CC8FF, true, pose.last().pose(), buffers,
                 Font.DisplayMode.NORMAL, 0, LightCoordsUtil.FULL_BRIGHT);
@@ -647,25 +645,28 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         double clock = Scene.clock();
         float size = (float) (0.13 * appear * (hovered ? 1.2 : 1.0) * geometry().scale(k + 2));
-        float b = brightness * (hovered ? 1.35f : 0.85f);
+        float b = brightness * (hovered ? 1.35f : 0.85f) * Math.min(1f, appear);
         float r = affordable ? 0.55f : 0.5f;
         float g = affordable ? 0.45f : 0.12f;
         float bl = affordable ? 1.0f : 0.16f;
         EnchantFx.billboard(pose, buffers, camera, at, size * 1.8, 0, EnchantFx.GLOW, r * b * 0.35f, g * b * 0.35f, bl * b * 0.35f);
         double turn = clock * (hovered ? 1.8 : 0.5) * (k % 2 == 0 ? 1 : -1);
-        EnchantFx.billboard(pose, buffers, camera, at, size, turn + Math.toRadians(geometry().rotation(k + 2)), EnchantFx.CIRCLE, r * b, g * b, bl * b);
+        EnchantFx.circleBillboard(pose, buffers, camera, at, size, turn + Math.toRadians(geometry().rotation(k + 2)),
+                affordable ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED, b);
 
         Font font = Minecraft.getInstance().font;
         Vec3 cam = camera.position();
         pose.pushPose();
-        pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-        pose.rotate(camera.rotation());
-        pose.rotate(Axis.ZP.rotationDegrees((float) geometry().rotation(k + 2)));
+        org.joml.Vector3fc look = camera.forwardVector();
+        Vec3 text = at.subtract(look.x() * 0.01, look.y() * 0.01, look.z() * 0.01);
+        pose.translate(text.x - cam.x, text.y - cam.y, text.z - cam.z);
+        pose.mulPose(new org.joml.Matrix4f().rotation(camera.rotation()));
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.ZP.rotationDegrees((float) geometry().rotation(k + 2))));
         float s = 0.01f * appear * (hovered ? 1.2f : 1f) * geometry().scale(k + 2);
         pose.scale(s, -s, s);
         String number = String.valueOf(cost);
         int numberColor = affordable ? 0xFFF4EEFF : 0xFFFF6B6B;
-        SceneText.draw(font, number, -font.width(number) / 2f, -4.5f, numberColor, false, pose.last().pose(), buffers, Font.DisplayMode.NORMAL,
+        SceneText.draw(font, number, -font.width(number) / 2f, -4.5f, numberColor, true, pose.last().pose(), buffers, Font.DisplayMode.NORMAL,
                 0, LightCoordsUtil.FULL_BRIGHT);
         FormattedCharSequence rune = runes[k];
         if (rune != null) {
@@ -686,7 +687,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         Minecraft mc = Minecraft.getInstance();
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
-        pose.rotate(Axis.YP.rotationDegrees(spin));
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees(spin)));
         boolean block = ItemPlacer.isBlock(item);
         float scale = block ? size * 1.4f : size;
         pose.scale(scale, scale, scale);
@@ -701,7 +702,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
     static void drawLapis(PoseStack pose, SceneBuffers buffers, Vec3 cam, Vec3 corner, int count, int light, float scale, float rotation) {
         Vec3 pivot = corner.subtract(cam);
         pose.pushPose(); pose.translate(pivot.x, pivot.y, pivot.z);
-        pose.rotate(Axis.YP.rotationDegrees(rotation)); pose.translate(-pivot.x, -pivot.y, -pivot.z);
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees(rotation))); pose.translate(-pivot.x, -pivot.y, -pivot.z);
         int copies = count >= 16 ? 3 : count >= 4 ? 2 : 1;
         for (int i = 0; i < copies; i++) {
             Vec3 at = corner.add((i - (copies - 1) / 2.0) * 0.05 * scale, (0.001 + i * 0.008) * scale, (i % 2) * 0.03 * scale);

@@ -1,5 +1,7 @@
 # Cinematic Interactions — Fabric 26.2
 
+**Current beta:** 0.18.28. This port includes the latest crafting and station controls, arm and entrance modes, recipe compatibility, and shader rendering fixes. Download the matching JAR from [GitHub Releases](https://github.com/dcvke/CinematicInteractions/releases). Natural Reach arms may render incorrectly; use Stretched or Floating Hands if affected. The notes below describe earlier builds.
+
 В 0.18.2 добавлена необязательная совместимость с Inventory Particles и Inventory Interactions:
 частицы и физика переносимого предмета работают в панели инвентаря и у станций.
 Устройство и команды проверки — в [документе совместимости](../../docs/inventory-effects-compat.md).

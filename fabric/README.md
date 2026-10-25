@@ -1,5 +1,7 @@
 # Cinematic Interactions — Fabric
 
+**Current beta:** 0.18.28 for Minecraft 1.21.11 and 26.1.1, 26.1.2, 26.2 and 26.3. Download the matching JAR from [GitHub Releases](https://github.com/dcvke/CinematicInteractions/releases). The Fabric 1.21.1 project is in [`1.21.1/`](1.21.1/). Natural Reach arms may render incorrectly; use Stretched or Floating Hands if affected. The information below describes earlier builds and is retained for historical reference.
+
 Актуальная сборка 0.18.2 со всеми редакторами, исправлением Punchy и эффектами инвентаря доступна в отдельных проектах
 для [Minecraft 26.2](26.2/README.md) и [Minecraft 26.3](26.3/README.md).
 Для Fabric **1.21.11** версия **0.18.3** добавляет совместимость с Inventory Particles и Inventory Interactions
@@ -60,7 +62,7 @@ Sodium и Iris необязательны. Проверенные сочетан
 Нужен JDK 21 (Gradle 9.6.0, Fabric Loom 1.17.21 для 1.21.11 и 1.16.3 для остальных целей). Из этой папки в PowerShell:
 
 ```powershell
-$env:JAVA_HOME = '<path to your JDK 21 installation>'
+$env:JAVA_HOME = 'C:\Users\evgen\AppData\Local\Programs\Eclipse Adoptium\jdk-21.0.12.8-hotspot'
 .\gradlew.bat --project-cache-dir '.gradle/targets/1.21.1' '-Pmc_version=1.21.1' build
 ```
 

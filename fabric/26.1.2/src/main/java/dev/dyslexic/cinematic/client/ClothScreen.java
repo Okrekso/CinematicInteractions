@@ -48,6 +48,7 @@ final class ClothScreen {
                 .setExpanded(true);
         BooleanListEntry campfire = null;
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             BooleanListEntry entry = toggle(entries, Settings.key(kind), Settings.SCENES.get(kind),
                     on -> value(on, "cinematic.settings.scene.on", kind == StationKind.CAMPFIRE ? "cinematic.settings.off" : "cinematic.settings.scene.off"));
             blocks.add(entry);
@@ -67,19 +68,31 @@ final class ClothScreen {
 
         // ---- camera and effects: comfort ----
         ConfigCategory camera = builder.getOrCreateCategory(Component.translatable("cinematic.settings.camera"));
-        Function<Boolean, Component> onOffTop = on -> value(on, "cinematic.settings.on", "cinematic.settings.off");
         camera.addEntry(note(entries, "cinematic.settings.camera.note"));
-        camera.addEntry(slider(entries, "approachSpeed", Settings.APPROACH_SPEED));
-        BooleanListEntry quick = toggle(entries, "quickReturn", Settings.QUICK_RETURN, onOffTop);
+        var quick = entries.startSelector(Component.translatable("cinematic.configuration.quickMode"), new Integer[]{0, 1, 2}, Settings.QUICK_MODE.get())
+                .setDefaultValue(Settings.QUICK_MODE.getDefault())
+                .setTooltip(Component.translatable("cinematic.configuration.quickMode.tooltip"))
+                .setNameProvider(ClothScreen::quickModeText)
+                .setSaveConsumer(Settings.QUICK_MODE::set)
+                .build();
         camera.addEntry(quick);
+        var approach = slider(entries, "approachSpeed", Settings.APPROACH_SPEED);
+        approach.setRequirement(Requirement.not(Requirement.isValue(quick, 2)));
+        camera.addEntry(approach);
         camera.addEntry(entries.startIntSlider(Component.translatable("cinematic.configuration.quickWindow"), Settings.QUICK_WINDOW.get(), 5, 30)
                 .setDefaultValue(Settings.QUICK_WINDOW.getDefault())
                 .setTooltip(Component.translatable("cinematic.configuration.quickWindow.tooltip"))
                 .setTextGetter(v -> Component.translatable("cinematic.settings.seconds", v))
                 .setSaveConsumer(Settings.QUICK_WINDOW::set)
-                .setRequirement(Requirement.isTrue(quick))
+                .setRequirement(Requirement.isValue(quick, 1))
                 .build());
         camera.addEntry(slider(entries, "leaveSpeed", Settings.LEAVE_SPEED));
+        camera.addEntry(entries.startSelector(Component.translatable("cinematic.configuration.armStyle"), new Integer[]{0, 1, 2}, Settings.ARM_STYLE.get())
+                .setDefaultValue(Settings.ARM_STYLE.getDefault())
+                .setTooltip(Component.translatable("cinematic.configuration.armStyle.tooltip"))
+                .setNameProvider(ClothScreen::armStyleText)
+                .setSaveConsumer(Settings.ARM_STYLE::set)
+                .build());
         camera.addEntry(slider(entries, "leanStrength", Settings.LEAN_STRENGTH));
         camera.addEntry(slider(entries, "sceneZoom", Settings.SCENE_ZOOM));
         camera.addEntry(toggle(entries, "lookToggles", Settings.LOOK_TOGGLES,
@@ -105,6 +118,7 @@ final class ClothScreen {
         developer.addEntry(toggle(entries, "developerMode", Settings.DEVELOPER_MODE, onOff));
         developer.addEntry(note(entries, "cinematic.settings.profiles.note"));
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             developer.addEntry(entries.startIntSlider(LayoutProfiles.name(kind), LayoutProfiles.selected(kind) + 1, 1, 3)
                     .setDefaultValue(1)
                     .setTextGetter(v -> LayoutProfiles.value(v - 1))
@@ -160,6 +174,16 @@ final class ClothScreen {
     private static Component value(boolean on, String onKey, String offKey) {
         MutableComponent text = Component.translatable(on ? onKey : offKey);
         return text.withStyle(on ? ChatFormatting.GREEN : ChatFormatting.GRAY);
+    }
+
+    private static Component quickModeText(int mode) {
+        return Component.translatable(mode == 1 ? "cinematic.settings.quickMode.short.1" : "cinematic.settings.quickMode." + mode)
+                .withStyle(mode == 2 ? ChatFormatting.GOLD : ChatFormatting.WHITE);
+    }
+
+    private static Component armStyleText(int style) {
+        return Component.translatable(style == 1 ? "cinematic.settings.armStyle.short.1" : "cinematic.settings.armStyle." + style)
+                .withStyle(style == 0 ? ChatFormatting.WHITE : ChatFormatting.GOLD);
     }
 
     private static me.shedaniel.clothconfig2.gui.entries.TextListEntry note(ConfigEntryBuilder entries, String key) {

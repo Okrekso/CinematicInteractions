@@ -1,5 +1,7 @@
 package dev.dyslexic.cinematic.client;
 
+import dev.dyslexic.cinematic.api.client.AddonScenes;
+
 import dev.dyslexic.cinematic.Cinematic;
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
@@ -58,6 +60,12 @@ public final class Scene {
     @Nullable
     private static StationKind pendingKind;
     private static double pendingAt;
+    @Nullable
+    private static BlockPos landingPos;
+    @Nullable
+    private static StationKind landingKind;
+    private static int landingTicks;
+    private static final int LANDING_WAIT = 30;
     /** The station last stepped away from, and when (the clock), for {@link #quick}. */
     @Nullable
     private static BlockPos leftPos;
@@ -125,6 +133,29 @@ public final class Scene {
         return phase != Phase.NONE && station != null;
     }
 
+    /** A JEI page may replace the scene screen while the player remains at this station. */
+    static boolean consulting;
+
+    static void consult(Runnable open) {
+        if (phase != Phase.ACTIVE) return;
+        consulting = true;
+        open.run();
+        if (Minecraft.getInstance().gui.screen() instanceof SceneScreen) consulting = false;
+    }
+
+    static void consulted() {
+        if (!consulting) return;
+        consulting = false;
+        if (phase == Phase.ACTIVE && !stillAt()) leave();
+    }
+
+    private static boolean stillAt() {
+        Minecraft mc = Minecraft.getInstance();
+        LocalPlayer player = mc.player;
+        return player != null && mc.level != null && station != null && player.isAlive()
+                && station.stillThere(mc.level) && player.position().distanceTo(Vec3.atCenterOf(station.pos)) < 3.5;
+    }
+
     public static boolean clientOnly() { return clientOnly && active(); }
 
     /** 0..1 through the intro: up to {@link #WALK_SHARE} while walking, then the lean; 1 once working. */
@@ -172,6 +203,7 @@ public final class Scene {
         if (phase != Phase.NONE || player == null || mc.level == null) {
             return;
         }
+        BlockState currentState = mc.level.getBlockState(pos);
         if (!Settings.scene(kind)) {
             // the player turned this block's scene off: it keeps its usual window (a campfire has none)
             if (kind != StationKind.CAMPFIRE) {
@@ -179,8 +211,18 @@ public final class Scene {
             }
             return;
         }
+        if (kind == StationKind.ADDON && !AddonScenes.available(currentState)) {
+            openWindow(pos, kind);
+            return;
+        }
         if (kind == StationKind.JUKEBOX && !JukeboxStation.worthIt(player, pos)) {
             // an empty jukebox and no record to put in it: nothing happens, as in vanilla
+            return;
+        }
+        if (airborne(player)) {
+            landingPos = pos.immutable();
+            landingKind = kind;
+            landingTicks = 0;
             return;
         }
         Choice choice = choose(pos, kind, player);
@@ -197,7 +239,8 @@ public final class Scene {
         transition = false;
         transitionFrom = null;
         // back at the station just stepped away from: the quick way in
-        quick = Settings.quickReturn() && pos.equals(leftPos) && clock - leftAt <= Settings.quickWindow();
+        quick = Settings.quickMode() == 2 || Settings.quickMode() == 1
+                && pos.equals(leftPos) && clock - leftAt <= Settings.quickWindow();
         leanLength = quick ? QUICK_LEAN_LENGTH : LEAN_LENGTH;
         savedCamera = mc.options.getCameraType();
         if (!savedCamera.isFirstPerson()) {
@@ -214,6 +257,7 @@ public final class Scene {
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (phase != Phase.NONE || player == null || mc.level == null || mc.gameMode == null) return false;
+        if (kind == StationKind.ADDON && !AddonScenes.available(mc.level.getBlockState(pos))) return false;
         ClientStation candidate = create(kind, pos, mc.level.getBlockState(pos), player,
                 ClientStation.freeSide(mc.level, pos, player, kind));
         Reach.Plan here = Reach.planHere(candidate, player);
@@ -227,8 +271,8 @@ public final class Scene {
         refused = "";
         transition = false;
         transitionFrom = null;
-        quick = false;
-        leanLength = LEAN_LENGTH;
+        quick = Settings.quickMode() == 2;
+        leanLength = quick ? QUICK_LEAN_LENGTH : LEAN_LENGTH;
         savedCamera = mc.options.getCameraType();
         if (!savedCamera.isFirstPerson()) mc.options.setCameraType(CameraType.FIRST_PERSON);
         CameraRig.reset();
@@ -293,6 +337,7 @@ public final class Scene {
         leaveSent = false;
         outroFrom = null;
         neighbor = null;
+        consulting = false;
         lastHurtTime = player.hurtTime;
         fallen = 0;
         if (!clientOnly) {
@@ -339,7 +384,8 @@ public final class Scene {
         }
         BlockState state = mc.level.getBlockState(hit.getBlockPos());
         StationKind kind = StationKind.of(state);
-        if (kind == null || !kind.startsOnUse() || !Settings.scene(kind) || !kind.usable(mc.level, hit.getBlockPos(), state)) {
+        if (kind == null || !kind.startsOnUse() || !Settings.scene(kind) || !kind.usable(mc.level, hit.getBlockPos(), state)
+                || kind == StationKind.ADDON && !AddonScenes.available(state)) {
             return;
         }
         neighbor = hit.getBlockPos().immutable();
@@ -377,8 +423,8 @@ public final class Scene {
         Hands.beginTransition();
         station = choice.station();
         transition = true;
-        quick = false;
-        leanLength = LEAN_LENGTH;
+        quick = Settings.quickMode() == 2;
+        leanLength = quick ? QUICK_LEAN_LENGTH : LEAN_LENGTH;
         refused = "";
         startIntro(choice.plan(), player);
         sound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.22f, 1.25f);
@@ -408,6 +454,7 @@ public final class Scene {
             case BEACON -> new BeaconStation(pos, side);
             case JUKEBOX -> new JukeboxStation(pos, side);
             case CHISELED_BOOKSHELF -> new ShelfStation(pos, side);
+            case ADDON -> AddonScenes.create(pos, state, player, side);
         };
     }
 
@@ -507,6 +554,7 @@ public final class Scene {
         transition = false;
         transitionFrom = null;
         neighbor = null;
+        consulting = false;
         if (phase != Phase.OUTRO && station != null) {
             station.onEnd();
         }
@@ -608,11 +656,37 @@ public final class Scene {
         }
     }
 
+    private static boolean airborne(LocalPlayer player) {
+        return !player.onGround() && !player.isInWater() && !player.isInLava() && !player.onClimbable()
+                && !player.getAbilities().flying && !player.isFallFlying() && !player.isPassenger();
+    }
+
+    private static void tickLanding(Minecraft mc) {
+        BlockPos pos = landingPos;
+        StationKind kind = landingKind;
+        LocalPlayer player = mc.player;
+        if (pos == null || kind == null) return;
+        if (phase != Phase.NONE || player == null || mc.level == null || !kind.matches(mc.level.getBlockState(pos))
+                || mc.gui.screen() != null) {
+            landingPos = null;
+            landingKind = null;
+            return;
+        }
+        boolean landed = !airborne(player);
+        if (!landed && ++landingTicks < LANDING_WAIT) return;
+        landingPos = null;
+        landingKind = null;
+        if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > 36) return;
+        if (landed) begin(pos, kind);
+        else if (kind != StationKind.CAMPFIRE) openWindow(pos, kind);
+    }
+
     public static void tick() {
+        Minecraft mc = Minecraft.getInstance();
+        tickLanding(mc);
         if (phase == Phase.NONE) {
             return;
         }
-        Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || station == null) {
             finish(false);
@@ -621,6 +695,11 @@ public final class Scene {
         if (!player.isAlive()) {
             abort();
             return;
+        }
+        if (consulting && mc.gui.screen() == null) {
+            consulting = false;
+            if (phase == Phase.ACTIVE && stillAt()) mc.gui.setScreen(new SceneScreen());
+            else leave();
         }
         if (clientOnly && phase != Phase.OUTRO && (player.containerMenu == player.inventoryMenu
                 || player.containerMenu.containerId != clientMenuId)) {

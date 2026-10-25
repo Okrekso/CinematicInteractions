@@ -63,6 +63,18 @@ dependencies {
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     // Only the 1.21.11 layer uses these optional visual APIs; older targets keep their own classpaths.
     if (mc_version == '1.21.11') {
+        // Optional recipe viewer; never bundled in Cinematic Interactions.
+        modCompileOnly 'maven.modrinth:jei:SSgIBCFq'
+        // Optional 1.21.11 Polymorph port; its API is only linked when installed.
+        modCompileOnly 'maven.modrinth:polymorph-unofficial-port:NG5AcziD'
+        if (project.hasProperty('portChecks')) {
+            modRuntimeOnly 'maven.modrinth:jei:SSgIBCFq'
+            modRuntimeOnly 'maven.modrinth:mezzconfig:LXjuO11M'
+            modRuntimeOnly 'maven.modrinth:polymorph-unofficial-port:NG5AcziD'
+            modRuntimeOnly 'maven.modrinth:cardinal-components-api:HZMLTuxY'
+            // Loom dev runs do not unpack Cardinal Components' nested module jars.
+            modRuntimeOnly files(fileTree('test-mods/port-check') { include '*.jar' })
+        }
         modCompileOnly 'maven.modrinth:inventory-particles:g8u9pJD7'
         modCompileOnly 'maven.modrinth:inventory-interactions:HCeV4fPP'
         if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {

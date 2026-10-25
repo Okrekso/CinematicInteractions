@@ -110,6 +110,8 @@ dependencies {
     compileOnly 'maven.modrinth:inventory-interactions:U3SO7tDA'
     // JEI 19.57.0.451, the version in Southware's pack; JER and JEP are reached only through JEI's recipe categories.
     compileOnly 'maven.modrinth:jei:RI8WCow6'
+    // Optional recipe-conflict integration. Its classes are loaded only while Polymorph is installed.
+    compileOnly 'maven.modrinth:polymorph:Ac1c8Jlj'
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

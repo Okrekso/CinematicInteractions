@@ -1,6 +1,5 @@
 package dev.dyslexic.cinematic.mixin;
 
-import dev.dyslexic.cinematic.ClientBridge;
 import dev.dyslexic.cinematic.client.Scene;
 import net.minecraft.client.player.LocalPlayer;
 import org.spongepowered.asm.mixin.Mixin;

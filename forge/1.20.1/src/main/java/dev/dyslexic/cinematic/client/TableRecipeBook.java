@@ -58,6 +58,8 @@ final class TableRecipeBook {
     }
 
     void tick() {
+        // On large packs the index and inventory matching are expensive; keep them idle while the book is closed.
+        if (!open && guide.selected == null) return;
         guide.tick();
         if (revision != guide.revision) {
             revision = guide.revision;
@@ -166,7 +168,8 @@ final class TableRecipeBook {
 
     /** How many items "Lay out" would put down right now (0: nothing to do, or the hands are busy). */
     private int layable() {
-        return guide.selected == null || station.busy() ? 0 : guide.layoutMoves().size();
+        if (guide.selected == null || station.busy()) return 0;
+        return guide.takeBackMoves().isEmpty() ? guide.layoutMoves().size() : guide.layableAfterTakingBack();
     }
 
     private boolean inLayButton(double mx, double my) {
@@ -181,6 +184,14 @@ final class TableRecipeBook {
 
     /** Lays out the chosen recipe: one set, or with {@code all} as many whole sets as possible. */
     void layOut(boolean all) {
+        List<int[]> back = guide.selected == null || station.busy() ? List.of() : guide.takeBackMoves();
+        if (!back.isEmpty()) {
+            if (all ? maxLayout().moves().isEmpty() : layable() == 0) return;
+            List<int[]> moves = new ArrayList<>(back);
+            moves.add(new int[]{-1, TableStation.REPLAN, all ? 1 : 0});
+            station.layOut(moves);
+            return;
+        }
         List<int[]> moves = all ? maxLayout().moves() : layable() > 0 ? guide.layoutMoves() : List.of();
         if (!moves.isEmpty()) station.layOut(moves);
     }

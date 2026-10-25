@@ -30,6 +30,17 @@ public final class EnchantFx {
     public static final ResourceLocation PIXEL_CIRCLE = Cinematic.id("textures/fx/enchant_circle_pixel.png");
     public static final ResourceLocation GLOW = Cinematic.id("textures/fx/glow.png");
     public static final ResourceLocation BEAM = Cinematic.id("textures/fx/beam.png");
+    private static final RenderType SURFACE_CIRCLE = noDepthWrite(RenderType.entityTranslucent(PIXEL_CIRCLE, false));
+
+    private static RenderType noDepthWrite(RenderType original) {
+        return new RenderType("cinematic_enchant_surface", original.format(), original.mode(), original.bufferSize(), false, true, () -> {
+            original.setupRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(false);
+        }, () -> {
+            original.clearRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+        }) {};
+    }
 
     public static final double LAPIS_RADIUS = 0.115;
     // Raising the right-edge rune clears the open book without putting it behind the resting hand.
@@ -113,6 +124,8 @@ public final class EnchantFx {
     /** Texture corners of a quad, and its corners wound both ways (seen from either side). */
     private static final float[][] QUAD_UV = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     private static final int[][] BOTH_WAYS = {{0, 1, 2, 3}, {3, 2, 1, 0}};
+    private static final int[][] SURFACE_SIDE = {{3, 2, 1, 0}};
+    public static final double OUTER_LIFT = 0.012, INNER_LIFT = 0.02, HINT_LIFT = 0.028, SOCKET_LIFT = 0.016;
 
     private static void quad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] c, float r, float g, float b, Vec3 normal) {
         int ri = clamp(r), gi = clamp(g), bi = clamp(b);
@@ -125,25 +138,26 @@ public final class EnchantFx {
         }
     }
 
-    /** The neutral pixel mask stays white; its two vertex colours supply the palette as the quad rotates. */
+    /** The neutral pixel mask stays white; fade by alpha so the circle never starts out black. */
     private static void gradientQuad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] corners, CirclePalette palette,
-            float brightness, Vec3 normal) {
-        for (int[] order : BOTH_WAYS) {
+            float brightness, boolean surface) {
+        float presence = Math.max(0, Math.min(1, brightness / 0.4f));
+        int alpha = clamp(presence * presence * (3 - 2 * presence));
+        if (alpha == 0) return;
+        for (int[] order : surface ? SURFACE_SIDE : BOTH_WAYS) {
             for (int i : order) {
                 int rgb = i < 2 ? palette.top : palette.bottom;
                 vc.vertex(pose.pose(), (float) corners[i].x, (float) corners[i].y, (float) corners[i].z)
-                        .color(clamp(((rgb >> 16) & 255) / 255f * brightness),
-                                clamp(((rgb >> 8) & 255) / 255f * brightness),
-                                clamp((rgb & 255) / 255f * brightness), 255)
+                        .color((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255, alpha)
                         .uv(QUAD_UV[i][0], QUAD_UV[i][1])
                         .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(LightTexture.FULL_BRIGHT)
-                        .normal(pose.normal(), (float) normal.x, (float) normal.y, (float) normal.z).endVertex();
+                        .normal(pose.normal(), 0, 1, 0).endVertex();
             }
         }
     }
 
     public enum CirclePalette {
-        VIOLET(0xAB00F9, 0xDA9FFF),
+        VIOLET(0xAB00F9, 0xC566FF),
         RED(0xA3303B, 0xCF5354),
         LAPIS(0x3B78D9, 0x9CC8FF);
 
@@ -168,8 +182,8 @@ public final class EnchantFx {
             double d = radius * Math.sqrt(2);
             corners[i] = new Vec3(center.x + Math.cos(a) * d - cam.x, center.y - cam.y, center.z + Math.sin(a) * d - cam.z);
         }
-        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette,
-                brightness, new Vec3(0, 1, 0));
+        gradientQuad(buffers.getBuffer(SURFACE_CIRCLE), pose.last(), corners, palette,
+                brightness, true);
     }
 
     /** The same pixel rune facing the camera, used by the floating enchantment offers. */
@@ -186,9 +200,7 @@ public final class EnchantFx {
             corners[i] = new Vec3(center.x + left.x() * x + up.x() * y - cam.x,
                     center.y + left.y() * x + up.y() * y - cam.y, center.z + left.z() * x + up.z() * y - cam.z);
         }
-        Vector3f look = camera.getLookVector();
-        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette, brightness,
-                new Vec3(-look.x(), -look.y(), -look.z()));
+        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette, brightness, false);
     }
 
     /** A texture lying flat on a surface as added light. */

@@ -6,17 +6,21 @@
   "compatibilityLevel": "JAVA_17",
   "mixins": [
     "AbstractFurnaceBlockEntityMixin",
-    "BrewingStandBlockEntityMixin"
+    "BrewingStandBlockEntityMixin",
+    "CraftingMenuAccess",
+    "ServerPlayerMixin"
   ],
   "client": [
     "CampfireRendererMixin",
     "CameraMixin",
     "ExperienceOrbRendererMixin",
+    "HumanoidArmorLayerMixin",
     "FirstPersonHandsMixin",
     "HumanoidModelMixin",
     "ItemInHandLayerMixin",
     "LecternRendererMixin",
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "PlayerRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -20,6 +20,7 @@ final class IrisCompatibility {
                 copyEntityBindings();
             } catch (ReflectiveOperationException e) {
                 assign.invoke(iris, CinematicPipelines.GLOW, program(program, "EMISSIVE_ENTITIES"));
+                assign.invoke(iris, CinematicPipelines.ENCHANT_CIRCLE, program(program, "ENTITIES_TRANSLUCENT"));
                 Cinematic.LOGGER.warn("This Iris version lacks vanilla pipeline binding copies; using its public program selection", e);
             }
         } catch (ReflectiveOperationException | RuntimeException e) {
@@ -34,6 +35,7 @@ final class IrisCompatibility {
         Class<?> pipelines = Class.forName("net.irisshaders.iris.pipeline.IrisPipelines");
         Method copy = pipelines.getMethod("copyPipeline", RenderPipeline.class, RenderPipeline.class);
         copy.invoke(null, RenderPipelines.EYES, CinematicPipelines.GLOW);
+        copy.invoke(null, RenderPipelines.ENTITY_TRANSLUCENT, CinematicPipelines.ENCHANT_CIRCLE);
     }
 
     static void copyBinding(RenderPipeline original, RenderPipeline fading) {

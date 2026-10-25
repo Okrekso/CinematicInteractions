@@ -41,6 +41,14 @@ public final class ClientPayloads {
         }
     }
 
+    public static void recipeChoices(dev.dyslexic.cinematic.net.RecipeChoicePayload payload) {
+        ClientStation station = Scene.station;
+        if (station != null && station.pos.equals(payload.pos()) && station.kind() == payload.kind()) {
+            station.choices().set(payload.results(), payload.selected());
+            if (station instanceof TableStation table) table.refreshResult();
+        }
+    }
+
     public static void campfireProgress(CampfireProgressPayload payload) {
         CampfireStation station = Scene.station(CampfireStation.class);
         if (station != null && station.pos.equals(payload.pos())) {
@@ -64,6 +72,20 @@ public final class ClientPayloads {
     public static StationKind atStation(int entityId) {
         AtStation at = AT_STATION.get(entityId);
         return at == null ? null : at.kind();
+    }
+
+    /** Keep a working player's body facing the station in third person. */
+    public static void faceStations(@Nullable net.minecraft.client.multiplayer.ClientLevel level) {
+        if (level == null) return;
+        for (Map.Entry<Integer, AtStation> entry : AT_STATION.entrySet()) {
+            if (!(level.getEntity(entry.getKey()) instanceof net.minecraft.world.entity.player.Player player)) continue;
+            BlockPos pos = entry.getValue().pos();
+            double dx = pos.getX() + 0.5 - player.getX();
+            double dz = pos.getZ() + 0.5 - player.getZ();
+            if (dx * dx + dz * dz < 1e-4) continue;
+            float target = (float) (net.minecraft.util.Mth.atan2(dz, dx) * net.minecraft.util.Mth.RAD_TO_DEG) - 90f;
+            player.yBodyRot += net.minecraft.util.Mth.wrapDegrees(target - player.yBodyRot) * 0.35f;
+        }
     }
 
     /** Is anybody working at this block right now? */

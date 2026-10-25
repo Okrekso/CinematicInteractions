@@ -9,10 +9,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(LivingEntity.class)
 abstract class LivingEntitySwingMixin {
     @Inject(method="swing", at=@At("HEAD"), cancellable=true)
-    private void cinematic$noSwing(CallbackInfoReturnable<Boolean> cir) {
+    private void cinematic$noSwing(CallbackInfoReturnable<Boolean> ci) {
         if ((Object) this instanceof LocalPlayer && ClientBridge.swallowSwing) {
             ClientBridge.swallowSwing = false;
-            cir.setReturnValue(false);
+            ci.setReturnValue(false);
         }
     }
 }

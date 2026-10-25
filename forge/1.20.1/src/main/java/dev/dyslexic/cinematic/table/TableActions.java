@@ -16,6 +16,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
 
@@ -237,7 +238,8 @@ public final class TableActions {
             return;
         }
         List<ItemStack> consumed = new ArrayList<>();
-        ItemStack first = TableCrafting.match(level, table.items, session.side()).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+        var chosen = dev.dyslexic.cinematic.station.RecipeChoices.chosen(player);
+        ItemStack first = TableCrafting.match(level, table.items, session.side(), chosen).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
         int crafts = 0;
         do {
             List<ItemStack> used = TableCrafting.craftOnce(player, level, table, session.side(), all);
@@ -249,7 +251,7 @@ public final class TableActions {
             if (!all) {
                 break;
             }
-            ItemStack next = TableCrafting.match(level, table.items, session.side()).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+            ItemStack next = TableCrafting.match(level, table.items, session.side(), chosen).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
             if (!ItemStack.isSameItemSameTags(first, next)) {
                 break;
             }
@@ -291,6 +293,29 @@ public final class TableActions {
 
     public static void sync(ServerLevel level, BlockPos pos) {
         dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(pos), contents(pos, TableStore.get(level).get(pos)));
+    }
+
+    /** A normal crafting window takes ownership of items lying on its table, including when another mod opens it. */
+    public static void intoWindow(ServerPlayer player, CraftingMenu menu) {
+        ServerLevel level = player.serverLevel();
+        BlockPos pos = ((dev.dyslexic.cinematic.mixin.CraftingMenuAccess) menu).cinematic$access()
+                .evaluate((at, where) -> at == level ? where : null).orElse(null);
+        if (pos == null || !TableGrid.isTable(level.getBlockState(pos))) return;
+        TableStore store = TableStore.get(level);
+        TableStore.Table table = store.get(pos);
+        if (table == null || table.isEmpty()) return;
+        for (ServerPlayer other : level.players()) {
+            Sessions.Session session = Sessions.get(other);
+            if (session != null && session.pos().equals(pos)) return;
+        }
+        for (int i = 1; i <= TableGrid.CELLS; i++) {
+            if (!menu.slots.get(i).getItem().isEmpty()) return;
+        }
+        List<ItemStack> grid = TableGrid.oriented(table.items, TableGrid.sideFacing(pos, player.getX(), player.getZ()));
+        store.remove(pos);
+        for (int i = 0; i < TableGrid.CELLS; i++) menu.slots.get(i + 1).set(grid.get(i));
+        sync(level, pos);
+        menu.broadcastChanges();
     }
 
     /** Spills everything lying on a table that no longer exists. */

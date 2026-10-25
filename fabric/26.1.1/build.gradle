@@ -19,6 +19,10 @@ dependencies {
     // Optional native APIs; none of these mods are packaged in the release JAR.
     compileOnly 'maven.modrinth:inventory-particles:kHhGRpLv'
     compileOnly 'maven.modrinth:inventory-interactions:p9n4YUQN'
+    compileOnly 'maven.modrinth:polymorph-unofficial-port:EGptKLeG'
+    compileOnly 'maven.modrinth:jei:EOREyJjJ'
+    if (project.hasProperty('withPolymorph')) runtimeOnly 'maven.modrinth:polymorph-unofficial-port:EGptKLeG'
+    if (project.hasProperty('withJei')) runtimeOnly 'maven.modrinth:jei:EOREyJjJ'
     if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {
         runtimeOnly 'maven.modrinth:inventory-particles:kHhGRpLv'
         runtimeOnly 'maven.modrinth:mossylib:lV6av2cM'

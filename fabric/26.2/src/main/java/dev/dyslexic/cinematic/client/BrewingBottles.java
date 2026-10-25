@@ -81,7 +81,7 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         BrewingStation scene = Scene.station(BrewingStation.class);
         boolean mine = scene != null && scene.pos.equals(pos) && scene.menu() != null;
         for (int i = 0; i < BrewingStation.BOTTLES; i++) {
-            ItemStack stack = mine ? scene.slot(i) : stand.getItem(i);
+            ItemStack stack = mine ? scene.slot(i) : ClientBrewing.item(stand, i);
             if (stack.isEmpty()) {
                 continue;
             }
@@ -91,8 +91,8 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         if (!mine) {
             // the ingredient in the bowl and the blaze powder at the foot stay where they were put (the scene at this
             // stand draws its own, melting as it brews); the powder lies on the side of the foot towards the viewer
-            ItemStack ingredient = stand.getItem(BrewingStation.INGREDIENT);
-            ItemStack fuel = stand.getItem(BrewingStation.FUEL);
+            ItemStack ingredient = ClientBrewing.item(stand, BrewingStation.INGREDIENT);
+            ItemStack fuel = ClientBrewing.item(stand, BrewingStation.FUEL);
             if (!ingredient.isEmpty() || !fuel.isEmpty()) {
                 pose.pushPose();
                 pose.translate(-origin.x + cam.x, -origin.y + cam.y, -origin.z + cam.z);

@@ -19,6 +19,9 @@
     ],
     "modmenu": [
       "dev.dyslexic.cinematic.client.ModMenuIntegration"
+    ],
+    "jei_mod_plugin": [
+      "dev.dyslexic.cinematic.client.compat.jei.CinematicJeiPlugin"
     ]
   },
   "mixins": [

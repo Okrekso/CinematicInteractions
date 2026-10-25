@@ -28,6 +28,10 @@ public final class ClientConfig {
                 for (var entry : values.entrySet()) {
                     if (root.has(entry.getKey())) entry.getValue().read(root, entry.getKey());
                 }
+                if (!root.has("camera.quickMode") && root.has("camera.quickReturn")) {
+                    Value<?> mode = values.get("camera.quickMode");
+                    if (mode instanceof IntValue value) value.set(root.get("camera.quickReturn").getAsBoolean() ? 1 : 0);
+                }
             } catch (Exception e) { Cinematic.LOGGER.warn("Could not read cinematic settings; using defaults", e); }
         }
         loaded = true;

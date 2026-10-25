@@ -46,6 +46,16 @@ public final class CinematicPipelines {
                     .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
                     .build());
 
+    /** Pixel enchantment circles blend normally and use 26.1.x forward depth. */
+    public static final RenderPipeline ENCHANT_CIRCLE = RenderPipelines.register(
+            RenderPipeline.builder(copy(RenderPipelines.EYES, RenderPipelines.EYES.getShaderDefines()))
+                    .withLocation(Cinematic.id("pipeline/enchant_circle"))
+                    .withVertexShader("core/entity").withFragmentShader("core/entity")
+                    .withShaderDefine("EMISSIVE").withShaderDefine("NO_OVERLAY").withShaderDefine("NO_CARDINAL_LIGHTING")
+                    .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+                    .withDepthStencilState(new DepthStencilState(CompareOp.LESS_THAN_OR_EQUAL, false))
+                    .build());
+
     private static RenderPipeline.Snippet copy(RenderPipeline source, net.minecraft.client.renderer.ShaderDefines defines) {
         return new RenderPipeline.Snippet(java.util.Optional.of(source.getVertexShader()),
                 java.util.Optional.of(source.getFragmentShader()), java.util.Optional.of(defines),

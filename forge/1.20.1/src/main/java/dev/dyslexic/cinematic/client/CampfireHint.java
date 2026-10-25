@@ -87,7 +87,7 @@ public final class CampfireHint {
             return;
         }
         Font font = Minecraft.getInstance().font;
-        Component key = SIT.getTranslatedKeyMessage();
+        Component key = KeyLabels.of(SIT);
         Component text = Component.translatable("cinematic.campfire.sit");
         int keyW = Math.max(11, font.width(key) + 6);
         int w = 6 + keyW + 5 + font.width(text) + 7;

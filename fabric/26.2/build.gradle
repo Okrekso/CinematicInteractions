@@ -19,6 +19,10 @@ dependencies {
     // Optional native APIs; none of these mods are packaged in the release JAR.
     compileOnly 'maven.modrinth:inventory-particles:6fZZmxDU'
     compileOnly 'maven.modrinth:inventory-interactions:RcfsXprg'
+    compileOnly 'maven.modrinth:polymorph-unofficial-port:8WNYw0oq'
+    compileOnly 'maven.modrinth:jei:sJGzYkKd'
+    if (project.hasProperty('withPolymorph')) runtimeOnly 'maven.modrinth:polymorph-unofficial-port:8WNYw0oq'
+    if (project.hasProperty('withJei')) runtimeOnly 'maven.modrinth:jei:sJGzYkKd'
     if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {
         runtimeOnly 'maven.modrinth:inventory-particles:6fZZmxDU'
         runtimeOnly 'maven.modrinth:mossylib:sL8KZEzW'
@@ -27,6 +31,9 @@ dependencies {
     if (project.hasProperty('withSettings')) {
         runtimeOnly 'maven.modrinth:cloth-config:Nv3xnWXd'
         runtimeOnly 'maven.modrinth:modmenu:iRo7AZXf'
+    }
+    if (project.hasProperty('withNoXpAnvils')) {
+        runtimeOnly files(fileTree('test-mods/no-xp') { include '*.jar' })
     }
     if (project.hasProperty('withShaders')) {
         runtimeOnly 'maven.modrinth:iris:gxZWWnKH'
@@ -69,7 +76,7 @@ loom {
         }
         showcase {
             client()
-            runDir "run/${project.hasProperty('withShaders') ? 'showcase-iris' : 'showcase'}"
+            runDir "run/${project.findProperty('showcaseDir') ?: (project.hasProperty('withShaders') ? 'showcase-iris' : 'showcase')}"
             vmArg '-Dcinematic.showcase=true'
             if (project.hasProperty('traceMixins')) vmArg '-Dmixin.debug.export=true'
             vmArg "-Dcinematic.showcase.world=cinematic-showcase-${System.currentTimeMillis()}"

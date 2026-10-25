@@ -19,11 +19,16 @@ dependencies {
     // Optional native APIs; none of these mods are packaged in the release JAR.
     compileOnly 'maven.modrinth:inventory-particles:NDNvqH73'
     compileOnly 'maven.modrinth:inventory-interactions:9dCHnYUV'
+    compileOnly 'maven.modrinth:polymorph_plus:XfTi6eDO'
+    compileOnly 'maven.modrinth:jei:aSjVJwgD'
+    if (project.hasProperty('withPolymorph')) runtimeOnly 'maven.modrinth:polymorph_plus:XfTi6eDO'
+    if (project.hasProperty('withJei')) runtimeOnly 'maven.modrinth:jei:aSjVJwgD'
     if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {
         runtimeOnly 'maven.modrinth:inventory-particles:NDNvqH73'
         runtimeOnly 'maven.modrinth:mossylib:yMuPxSiE'
     }
     if (project.hasProperty('withInventoryEffects')) runtimeOnly 'maven.modrinth:inventory-interactions:9dCHnYUV'
+    if (project.hasProperty('withNoXpAnvils')) runtimeOnly files(fileTree('test-mods/no-xp') { include '*.jar' })
     if (project.hasProperty('withSettings')) {
         runtimeOnly 'maven.modrinth:cloth-config:fg2uyxOW'
         runtimeOnly 'maven.modrinth:modmenu:kyy7dbrZ'

@@ -57,7 +57,6 @@ public final class SceneRenderer {
         Minecraft mc = Minecraft.getInstance();
         LevelRenderState state = mc.gameRenderer.gameRenderState().levelRenderState;
         collecting = new SubmitNodeStorage();
-        collecting.setUseImprovedTransparency(mc.gameRenderer.useImprovedTransparency());
         try {
             beginLevel(mc.gameRenderer.mainCamera(), state.cameraRenderState.viewRotationMatrix, state.cameraRenderState.projectionMatrix);
             render();
@@ -78,7 +77,6 @@ public final class SceneRenderer {
                 source.allPhases().get(i).sortInto((node, ordered) -> phase.submit(node));
             }
         });
-        scene.seeThrough().sortInto((node, ordered) -> world.seeThrough().submit((net.minecraft.client.renderer.feature.submit.TranslucentSubmit) node));
         ((SceneFrameAccess) state).cinematic$setScene(null);
     }
 
@@ -108,6 +106,10 @@ public final class SceneRenderer {
         ClientStation station = Scene.station;
         if (Scene.active() && station != null) {
             int light = net.minecraft.util.LightCoordsUtil.getLightCoords(level, station.lightPos());
+            if (station.kind() == dev.dyslexic.cinematic.station.StationKind.ADDON
+                    && station instanceof MenuStation<?> menuStation) {
+                menuStation.renderScene(pose, buffers, camera, light);
+            }
             if (Scene.phase == Scene.Phase.ACTIVE) {
                 station.renderWorld(pose, buffers, cam, light);
                 outlineNeighbor(pose, buffers, cam, level);

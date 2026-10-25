@@ -93,7 +93,7 @@ public final class ItemPlacer {
                 pose.scale(size * 2f, size * 2f, size * 2f);
             } else {
                 float size = FLAT_SIZE * scale;
-                pose.translate(0, 0.0035f + c * 0.011f, 0);
+                pose.translate(0, 0.0035f + c * flatStep(scale), 0);
                 pose.mulPose(Axis.XP.rotationDegrees(-90f + tilt));
                 pose.scale(size, size, size);
             }
@@ -137,7 +137,7 @@ public final class ItemPlacer {
     public static AABB restingBounds(ItemStack stack, Vec3 base) {
         boolean block = isBlock(stack);
         double half = block ? BLOCK_SIZE * 0.66 : FLAT_SIZE * 0.71 + (stack.getCount() > 1 ? 0.025 : 0);
-        double height = block ? BLOCK_SIZE : 0.006 + (copies(stack.getCount(), false) - 1) * 0.011;
+        double height = block ? BLOCK_SIZE : 0.006 + (copies(stack.getCount(), false) - 1) * flatStep(1f);
         return new AABB(base.x - half, base.y, base.z - half, base.x + half, base.y + height, base.z + half);
     }
 
@@ -176,6 +176,10 @@ public final class ItemPlacer {
     public static boolean isBlock(ItemStack stack) {
         Minecraft mc = Minecraft.getInstance();
         return mc.getItemRenderer().getModel(stack, mc.level, null, 0).isGui3d();
+    }
+
+    private static float flatStep(float scale) {
+        return FLAT_SIZE * scale / 16f + 0.0015f;
     }
 
     private static int copies(int count, boolean block) {

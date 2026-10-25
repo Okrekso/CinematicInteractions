@@ -190,7 +190,8 @@ public final class FurnaceActions {
     public static void sendState(ServerPlayer player, Session session) {
         if (player.level().getBlockEntity(session.pos()) instanceof AbstractFurnaceBlockEntity furnace) {
             dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new FurnaceStatePayload(session.pos(), furnace.litTime, furnace.litDuration,
-                    furnace.cookingProgress, furnace.cookingTotalTime));
+                    furnace.cookingProgress, furnace.cookingTotalTime,
+                    dev.dyslexic.cinematic.station.RecipeChoices.furnaceChoice(furnace, session.kind())));
         }
     }
 }

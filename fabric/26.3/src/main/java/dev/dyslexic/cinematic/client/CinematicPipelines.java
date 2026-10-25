@@ -50,6 +50,16 @@ public final class CinematicPipelines {
                     .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
                     .build());
 
+    /** The circle is emissive, but its translucent pixels must retain depth testing. */
+    public static final RenderPipeline ENCHANT_CIRCLE = RenderPipelines.register(
+            RenderPipeline.builder(RenderPipelines.ENTITY_NO_LIGHTMAP_SNIPPET, RenderPipelines.EYES_SNIPPET)
+                    .withLocation(Cinematic.id("pipeline/enchant_circle"))
+                    .withVertexShader("core/entity").withFragmentShader("core/entity")
+                    .withShaderDefine("EMISSIVE").withShaderDefine("NO_OVERLAY").withShaderDefine("NO_CARDINAL_LIGHTING")
+                    .withColorTargetState(new ColorTargetState(BlendFunction.TRANSLUCENT))
+                    .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, false))
+                    .build());
+
     public static void initialize() {
         if (FabricLoader.getInstance().isModLoaded("iris")) IrisCompatibility.initialize();
     }

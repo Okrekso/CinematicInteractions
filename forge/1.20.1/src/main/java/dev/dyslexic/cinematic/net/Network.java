@@ -24,7 +24,7 @@ public final class Network {
     private Network() {}
 
     /** Raised whenever the format of a message changes. */
-    public static final String VERSION = "10";
+    public static final String VERSION = "12";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(Cinematic.id("main"), () -> VERSION,
             NetworkRegistry.acceptMissingOr(VERSION), NetworkRegistry.acceptMissingOr(VERSION));

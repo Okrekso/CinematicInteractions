@@ -1,0 +1,15 @@
+{
+  "cinematic.serverHint.title": "Игра на сервере",
+  "cinematic.serverHint.message": "Хочешь использовать сцены на сервере, где не установлен Cinematic Interactions? Включи клиентский режим перед подключением. В нём доступны сцены поддерживаемых станций. Для полного режима мод нужен и на клиенте, и на сервере.",
+  "cinematic.serverHint.enable": "Включить клиентский режим",
+  "cinematic.serverHint.continue": "Продолжить",
+  "cinematic.serverHint.state": "Клиентский режим: %s",
+  "cinematic.serverHint.state.tooltip": "На серверах без Cinematic Interactions поддерживаемые станции показывают сцены поверх обычных окон. Нажми, чтобы открыть настройку. Действует со следующего подключения.",
+  "cinematic.recipes.lay_take_back": "Сначала руки вернут в инвентарь лишнее с клеток: %s",
+  "cinematic.recipes.lay_no_room": "Некуда вернуть: %s — освободи место в инвентаре",
+  "cinematic.choices.title": "Что получится · Polymorph",
+  "cinematic.choices.in_use": "Выбрано: будет сделано это",
+  "cinematic.choices.pick": "Клик — выбрать этот результат",
+  "cinematic.settings.quickMode.short.1": "При возврате",
+  "cinematic.settings.armStyle.short.1": "Естественные"
+}

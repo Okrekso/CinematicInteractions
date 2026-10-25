@@ -35,12 +35,12 @@ public final class JukeboxActions {
         if (state.getValue(JukeboxBlock.HAS_RECORD)) {
             ItemStack record = jukebox.removeTheItem();
             if (!record.isEmpty()) {
-                player.getInventory().placeItemBackInInventory(record, true);
+                player.getInventory().placeItemBackInInventory(record);
             }
             level.gameEvent(GameEvent.BLOCK_CHANGE, pos, GameEvent.Context.of(player, state));
         } else {
             ItemStack source = action.index() == 0 ? player.inventoryMenu.getCarried()
-                    : action.button() >= 0 && action.button() < 9 ? player.getInventory().getItem(action.button()) : ItemStack.EMPTY;
+                    : action.button() >= 0 && action.button() < 36 ? player.getInventory().getItem(action.button()) : ItemStack.EMPTY;
             if (source.has(DataComponents.JUKEBOX_PLAYABLE)) {
                 JukeboxPlayable.tryInsertIntoJukebox(level, pos, source, player);
                 if (action.index() == 0 && source.isEmpty()) {

@@ -21,7 +21,6 @@ import net.minecraft.world.level.block.entity.CampfireBlockEntity;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 /**
  * Sitting by a campfire: food is put on a chosen spot of the fire, or taken off it. Putting on follows the
@@ -84,6 +83,47 @@ public final class CampfireActions {
         sendProgress(player, session);
     }
 
+    /** Shift-click cookable food onto free spots, one piece per spot. */
+    public static void quickMove(ServerPlayer player, ServerLevel level, Session session, int inventorySlot) {
+        if (!(level.getBlockEntity(session.pos()) instanceof CampfireBlockEntity fire)) return;
+        ItemStack source = player.getInventory().getItem(inventorySlot);
+        var recipe = level.recipeAccess().getRecipeFor(RecipeType.CAMPFIRE_COOKING, new SingleRecipeInput(source), level);
+        if (recipe.isEmpty()) return;
+        int placed = 0;
+        for (int spot = 0; spot < SPOTS && !source.isEmpty(); spot++) {
+            if (!fire.getItems().get(spot).isEmpty()) continue;
+            fire.cookingTime[spot] = recipe.get().value().cookingTime();
+            fire.cookingProgress[spot] = 0;
+            fire.getItems().set(spot, source.split(1));
+            CookingWatch watch = WATCHES.get(fire);
+            if (watch != null) watch.reset(spot);
+            placed++;
+        }
+        if (placed == 0) return;
+        player.getInventory().setChanged();
+        level.gameEvent(GameEvent.BLOCK_CHANGE, session.pos(), GameEvent.Context.of(player, fire.getBlockState()));
+        player.awardStat(Stats.INTERACT_WITH_CAMPFIRE);
+        fire.setChanged();
+        BlockState state = fire.getBlockState();
+        level.sendBlockUpdated(session.pos(), state, state, 3);
+        player.inventoryMenu.broadcastChanges();
+        sendProgress(player, session);
+    }
+
+    /** Campfire block updates contain food but omit the four cooking timers. */
+    public static void sendProgress(ServerPlayer player, Session session) {
+        if (!(player.level().getBlockEntity(session.pos()) instanceof CampfireBlockEntity fire)) return;
+        int[] progress = new int[SPOTS], total = new int[SPOTS];
+        for (int i = 0; i < SPOTS; i++) {
+            if (!fire.getItems().get(i).isEmpty()) {
+                progress[i] = fire.cookingProgress[i];
+                total[i] = fire.cookingTime[i];
+            }
+        }
+        dev.dyslexic.cinematic.net.PacketDistributor.sendToPlayer(player,
+                new CampfireProgressPayload(session.pos(), fire.getBlockState().getValue(CampfireBlock.LIT), progress, total));
+    }
+
     /**
      * A scene may leave food on a campfire whose timer or block-entity ticker was lost. Repair an absent recipe
      * timer, and if one occupied slot stops advancing on a lit fire, apply the vanilla cooking rules to that
@@ -142,21 +182,5 @@ public final class CampfireActions {
                 watch.reset(spot);
             }
         }
-    }
-
-    /** Vanilla's campfire update packet contains the food but omits its four cooking timers. */
-    public static void sendProgress(ServerPlayer player, Session session) {
-        if (!(player.level().getBlockEntity(session.pos()) instanceof CampfireBlockEntity fire)) {
-            return;
-        }
-        int[] progress = new int[SPOTS], total = new int[SPOTS];
-        for (int i = 0; i < SPOTS; i++) {
-            if (!fire.getItems().get(i).isEmpty()) {
-                progress[i] = fire.cookingProgress[i];
-                total[i] = fire.cookingTime[i];
-            }
-        }
-        dev.dyslexic.cinematic.net.PacketDistributor.sendToPlayer(player,
-                new CampfireProgressPayload(session.pos(), fire.getBlockState().getValue(CampfireBlock.LIT), progress, total));
     }
 }

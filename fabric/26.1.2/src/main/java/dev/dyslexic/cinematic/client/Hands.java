@@ -24,6 +24,8 @@ public final class Hands {
     private Hands() {}
 
     static final float ARM_SCALE = 0.55f;
+    private static final double FLOATING_LENGTH = (ArmMesh.HAND + ArmMesh.UPPER * 0.4) / 16.0 * ARM_SCALE;
+    private static final double NATURAL_SEGMENT = ArmMesh.UPPER / 16.0 * ARM_SCALE;
 
     private static final Anim.Spring3 RIGHT = new Anim.Spring3();
     private static final Anim.Spring3 LEFT = new Anim.Spring3();
@@ -68,9 +70,61 @@ public final class Hands {
 
     /** Where the arm comes from: beside and below the eyes, just outside the bottom corner of the frame. */
     static Vec3 shoulder(boolean right, Vec3 camera, float cameraYaw) {
+        if (Settings.armStyle() == 1) {
+            // Keep the natural arm's shoulder below the view, even when the scene camera
+            // pitches down or another camera mod adds roll. A world-down shoulder can
+            // end up inside the station and leave only a detached forearm visible.
+            var view = Minecraft.getInstance().gameRenderer.getMainCamera();
+            var left = view.leftVector();
+            var up = view.upVector();
+            var look = view.forwardVector();
+            return camera.add(new Vec3(-left.x(), -left.y(), -left.z()).scale(right ? 0.38 : -0.38))
+                    .subtract(new Vec3(up.x(), up.y(), up.z()).scale(0.46))
+                    .add(new Vec3(look.x(), look.y(), look.z()).scale(0.08));
+        }
         Vec3 forward = Scene.yawForward(cameraYaw);
         Vec3 rightVec = new Vec3(-forward.z, 0, forward.x);
         return camera.add(rightVec.scale(right ? 0.38 : -0.38)).add(0, -0.46, 0).add(forward.scale(0.08));
+    }
+
+    /** Half the width of an arm as drawn (blocks), a little more for the knuckles and sleeve. */
+    private static final double ARM_RADIUS = 4.0 / 16 * ARM_SCALE / 2 + 0.01;
+
+    /**
+     * Does one of the arms hide {@code point} from the eyes? Each arm is taken as the round bar it is drawn as, from the
+     * shoulder to just past the fist: whatever the scene shows over the frame as interface (the beacon's icons) asks this,
+     * so a hand reaching in front of it covers it as it would cover anything in the world.
+     */
+    static boolean hides(Vec3 camera, float cameraYaw, Vec3 point) {
+        for (boolean right : new boolean[]{true, false}) {
+            Vec3 shoulder = shoulder(right, camera, cameraYaw), hand = position(right);
+            Vec3 along = hand.subtract(shoulder);
+            if (along.lengthSqr() < 1e-6) continue;
+            if (Settings.armStyle() == 1 && along.lengthSqr() >= 0.04) {
+                Vec3[] bent = bentPoints(shoulder, hand, right, Scene.yawForward(cameraYaw));
+                if (closest(camera, point, bent[0], bent[1]) < ARM_RADIUS
+                        || closest(camera, point, bent[1], hand) < ARM_RADIUS) return true;
+                continue;
+            }
+            if (Settings.armStyle() == 2) shoulder = hand.subtract(along.normalize().scale(FLOATING_LENGTH));
+            Vec3 fist = hand.add(along.normalize().scale(0.05));
+            if (closest(camera, point, shoulder, fist) < ARM_RADIUS) return true;
+        }
+        return false;
+    }
+
+    /** The distance between the sight line camera→point (not past the point) and the segment a→b. */
+    private static double closest(Vec3 camera, Vec3 point, Vec3 a, Vec3 b) {
+        Vec3 d1 = point.subtract(camera), d2 = b.subtract(a), r = camera.subtract(a);
+        double aa = d1.dot(d1), ee = d2.dot(d2), f = d2.dot(r), c = d1.dot(r), bb = d1.dot(d2);
+        double denom = aa * ee - bb * bb;
+        double s = denom > 1e-9 ? net.minecraft.util.Mth.clamp((bb * f - c * ee) / denom, 0, 1) : 0;
+        double t = (bb * s + f) / ee;
+        if (t < 0) { t = 0; s = net.minecraft.util.Mth.clamp(-c / aa, 0, 1); }
+        else if (t > 1) { t = 1; s = net.minecraft.util.Mth.clamp((bb - c) / aa, 0, 1); }
+        // only what lies between the eyes and the point hides it
+        if (s > 0.98) return Double.MAX_VALUE;
+        return camera.add(d1.scale(s)).distanceTo(a.add(d2.scale(t)));
     }
 
     /** Below the bottom edge of the frame. */
@@ -174,7 +228,7 @@ public final class Hands {
         return (right ? RIGHT : LEFT).pos();
     }
 
-    /** Position of the visible held item, shared with optional inventory effects. */
+    /** Read-only anchor for particles at the visible held item. */
     static Vec3 heldPoint() {
         var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
         return Scene.station.heldItemPoint(leftWorks ? LEFT.pos() : RIGHT.pos(),
@@ -230,6 +284,12 @@ public final class Hands {
             return;
         }
         PlayerSkin skin = player.getSkin();
+        if (Settings.armStyle() == 1) {
+            drawBentArm(pose, buffers, camera, skin.body().texturePath(), skin.model() == net.minecraft.world.entity.player.PlayerModelType.SLIM,
+                    player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE),
+                    hand, shoulder, right, light, forward);
+            return;
+        }
         drawArm(pose, buffers, camera, skin.body().texturePath(), skin.model() == net.minecraft.world.entity.player.PlayerModelType.SLIM,
                 player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE), hand, shoulder, right, light, forward);
     }
@@ -262,11 +322,84 @@ public final class Hands {
         pose.mulPose(rotation);
         pose.scale(ARM_SCALE, ARM_SCALE, ARM_SCALE);
         pose.translate(-centerX / 16f, 0, 0);
-        ArmMesh.arm(right, slim).render(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture)), light, OverlayTexture.NO_OVERLAY, stretch);
+        if (Settings.armStyle() == 2) ArmMesh.arm(right, slim).renderFloating(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture)), light, OverlayTexture.NO_OVERLAY);
+        else ArmMesh.arm(right, slim).render(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture)), light, OverlayTexture.NO_OVERLAY, stretch);
         if (sleeveShown) {
-            // Skin sleeves are a cutout outer layer: translucent blending exposes the table through partly-alpha pixels.
-            ArmMesh.sleeve(right, slim).render(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(texture)), light,
+            if (Settings.armStyle() == 2) ArmMesh.sleeve(right, slim).renderFloating(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(texture)), light, OverlayTexture.NO_OVERLAY);
+            else ArmMesh.sleeve(right, slim).render(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(texture)), light,
                     OverlayTexture.NO_OVERLAY, stretch);
+        }
+        pose.popPose();
+    }
+
+    /** Two normally proportioned arm pieces meet at an elbow instead of stretching one long texture. */
+    private static void drawBentArm(PoseStack pose, SceneBuffers buffers, Vec3 camera, Identifier texture,
+            boolean slim, boolean sleeveShown, Vec3 hand, Vec3 shoulder, boolean right, int light, Vec3 forward) {
+        Vec3 toward = hand.subtract(shoulder);
+        if (toward.lengthSqr() < 0.04) {
+            drawArm(pose, buffers, camera, texture, slim, sleeveShown, hand, shoulder, right, light, forward);
+            return;
+        }
+        Vec3[] points = bentPoints(shoulder, hand, right, forward);
+        drawBentPiece(pose, buffers, camera, texture, slim, sleeveShown, points[0], points[1], right, light, forward, false);
+        drawBentPiece(pose, buffers, camera, texture, slim, sleeveShown, points[1], points[2], right, light, forward, true);
+    }
+
+    /** Shoulder, elbow, fingertip. The first segment always starts at the player's shoulder. */
+    private static Vec3[] bentPoints(Vec3 shoulder, Vec3 hand, boolean right, Vec3 forward) {
+        Vec3 toward = hand.subtract(shoulder);
+        double span = toward.length();
+        Vec3 axis = toward.scale(1.0 / span);
+        Vec3 side = new Vec3(-forward.z, 0, forward.x).scale(right ? 1 : -1);
+        side = side.subtract(axis.scale(side.dot(axis)));
+        if (side.lengthSqr() < 1e-6) side = forward.subtract(axis.scale(forward.dot(axis)));
+        if (side.lengthSqr() < 1e-6) side = new Vec3(1, 0, 0);
+        side = side.normalize();
+        double upper = NATURAL_SEGMENT;
+        double forearm = (ArmMesh.UPPER + ArmMesh.HAND) / 16.0 * ARM_SCALE;
+        if (span >= upper + forearm) {
+            // A far cell can be beyond a normally sized arm. Extend the upper segment only;
+            // never detach it from the shoulder or stretch the textured hand.
+            Vec3 elbow = hand.subtract(axis.scale(forearm)).add(side.scale(0.035));
+            return new Vec3[]{shoulder, elbow, hand};
+        }
+        if (span <= forearm - upper) {
+            return new Vec3[]{shoulder, shoulder.add(axis.scale(span * 0.4)).add(side.scale(0.06)), hand};
+        }
+        double along = (span * span + upper * upper - forearm * forearm) / (2 * span);
+        double bend = Math.sqrt(Math.max(0, upper * upper - along * along));
+        return new Vec3[]{shoulder, shoulder.add(axis.scale(along)).add(side.scale(bend)), hand};
+    }
+
+    private static void drawBentPiece(PoseStack pose, SceneBuffers buffers, Vec3 camera, Identifier texture,
+            boolean slim, boolean sleeveShown, Vec3 start, Vec3 end, boolean right, int light, Vec3 forward, boolean forearm) {
+        Vec3 axis = end.subtract(start).normalize();
+        Vec3 up = new Vec3(0, 1, 0);
+        Vec3 upPerp = up.subtract(axis.scale(up.dot(axis)));
+        if (upPerp.lengthSqr() < 1e-6) upPerp = forward;
+        upPerp = upPerp.normalize();
+        Vec3 x = right ? upPerp.scale(-1) : upPerp;
+        Vec3 z = x.cross(axis);
+        Quaternionf rotation = new Matrix3f(
+                new Vector3f((float) x.x, (float) x.y, (float) x.z),
+                new Vector3f((float) axis.x, (float) axis.y, (float) axis.z),
+                new Vector3f((float) z.x, (float) z.y, (float) z.z)).getNormalizedRotation(new Quaternionf());
+        float centerX = slim ? (right ? -0.5f : 0.5f) : (right ? -1f : 1f);
+        float modelLength = forearm ? ArmMesh.UPPER + ArmMesh.HAND : ArmMesh.UPPER;
+        float lengthScale = (float) (end.distanceTo(start) * 16.0 / modelLength);
+        Vec3 origin = start.add(axis.scale(2.0 / 16.0 * lengthScale));
+        pose.pushPose();
+        pose.translate(origin.x - camera.x, origin.y - camera.y, origin.z - camera.z);
+        pose.mulPose(rotation);
+        pose.scale(ARM_SCALE, lengthScale, ARM_SCALE);
+        pose.translate(-centerX / 16f, 0, 0);
+        var solid = buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(texture));
+        if (forearm) ArmMesh.arm(right, slim).renderForearm(pose, solid, light, OverlayTexture.NO_OVERLAY);
+        else ArmMesh.arm(right, slim).renderUpper(pose, solid, light, OverlayTexture.NO_OVERLAY);
+        if (sleeveShown) {
+            var translucent = buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityCutout(texture));
+            if (forearm) ArmMesh.sleeve(right, slim).renderForearm(pose, translucent, light, OverlayTexture.NO_OVERLAY);
+            else ArmMesh.sleeve(right, slim).renderUpper(pose, translucent, light, OverlayTexture.NO_OVERLAY);
         }
         pose.popPose();
     }

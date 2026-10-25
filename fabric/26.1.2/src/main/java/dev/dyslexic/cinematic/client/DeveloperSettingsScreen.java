@@ -25,7 +25,7 @@ final class DeveloperSettingsScreen extends Screen {
             button.setMessage(modeLabel());
         }).bounds(width / 2 - 155, 38, 310, 20)
                 .tooltip(Tooltip.create(Component.translatable("cinematic.configuration.developerMode.tooltip"))).build());
-        var kinds = StationKind.values();
+        var kinds = java.util.Arrays.stream(StationKind.values()).filter(kind -> kind != StationKind.ADDON).toArray(StationKind[]::new);
         for (int row = 0; row < PER_PAGE && page * PER_PAGE + row < kinds.length; row++) {
             StationKind kind = kinds[page * PER_PAGE + row];
             addRenderableWidget(Button.builder(profileLabel(kind), button -> {

@@ -22,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
-import com.mojang.blaze3d.platform.InputConstants;
+import org.lwjgl.glfw.GLFW;
 
 /** A small glass reference on the left; its diagram belongs only to the player's current scene. */
 final class TableRecipeBook {
@@ -82,6 +82,12 @@ final class TableRecipeBook {
     }
 
     boolean over(double mx, double my) { return inPanel(mx, my) || inToggle(mx, my); }
+
+    /** Select a recipe opened from the optional in-world field guide. */
+    void show(TableRecipeGuide.Entry entry) {
+        guide.select(entry);
+        selectedAt = Scene.clock();
+    }
 
     void fold() { open = false; search.setFocused(false); }
 
@@ -164,7 +170,9 @@ final class TableRecipeBook {
 
     /** How many items "Lay out" would put down right now (0: nothing to do, or the hands are busy). */
     private int layable() {
-        return guide.selected == null || station.busy() ? 0 : guide.layoutMoves().size();
+        if (guide.selected == null || station.busy()) return 0;
+        // the last recipe's leftovers in the way are taken back first; they may also belong in the new one
+        return guide.takeBackMoves().isEmpty() ? guide.layoutMoves().size() : guide.layableAfterTakingBack();
     }
 
     private boolean inLayButton(double mx, double my) {
@@ -172,16 +180,39 @@ final class TableRecipeBook {
         return open && shown > 0.9 && guide.selected != null && lx >= 8 && lx < WIDTH - 8 && ly >= LAY_Y && ly < LAY_Y + LAY_H;
     }
 
+    /** Shift + "Lay out": the most whole sets the inventory allows (nothing while the hands are busy). */
+    private TableRecipeGuide.MaxLayout maxLayout() {
+        return guide.selected == null || station.busy() ? new TableRecipeGuide.MaxLayout(0, 0, List.of()) : guide.maxLayout();
+    }
+
+    /** Lays out the chosen recipe: one set, or with {@code all} as many whole sets as possible. */
+    void layOut(boolean all) {
+        List<int[]> back = guide.selected == null || station.busy() ? List.of() : guide.takeBackMoves();
+        if (!back.isEmpty()) {
+            // take back what is in the way, then lay out from the inventory as it is after that
+            if (all ? maxLayout().moves().isEmpty() : layable() == 0) return;
+            List<int[]> moves = new ArrayList<>(back);
+            moves.add(new int[]{-1, TableStation.REPLAN, all ? 1 : 0});
+            station.layOut(moves);
+            return;
+        }
+        List<int[]> moves = all ? maxLayout().moves() : layable() > 0 ? guide.layoutMoves() : List.of();
+        if (!moves.isEmpty()) station.layOut(moves);
+    }
+
     private void drawLayButton(GuiGraphicsExtractor g, Font font, float a, double[] mouse) {
         if (guide.selected == null) {
             return;
         }
-        int count = layable();
+        boolean all = net.minecraft.client.Minecraft.getInstance().hasShiftDown() && !station.busy();
+        TableRecipeGuide.MaxLayout max = all ? maxLayout() : null;
+        int count = all ? max.moves().size() : layable();
         boolean live = count > 0;
         boolean hover = live && inLayButton(mouse[0], mouse[1]);
         g.fill(8, LAY_Y, WIDTH - 8, LAY_Y + LAY_H, color(a * (hover ? 0.3f : live ? 0.16f : 0.06f), 255, 226, 150));
         g.fill(8, LAY_Y + LAY_H - 1, WIDTH - 8, LAY_Y + LAY_H, color(a * (live ? 0.6f : 0.15f), 255, 226, 150));
-        Component label = live ? text("lay_out", count) : text(station.busy() ? "laying" : "nothing_to_lay");
+        Component label = all ? live ? text("lay_out_all", max.sets()) : text("no_more_sets")
+                : live ? text("lay_out", count) : text(station.busy() ? "laying" : "nothing_to_lay");
         int w = font.width(label);
         g.text(font, label, (WIDTH - w) / 2, LAY_Y + 4, color(a * (live ? 0.95f : 0.45f), 242, 234, 216), false);
     }
@@ -210,9 +241,9 @@ final class TableRecipeBook {
         if (button != 0 || !open) return true;
         double lx = localX(mx), ly = localY(my);
         search.setFocused(ly >= 25 && ly < 43 && lx >= 8 && lx < WIDTH - 8);
-        if (search.isFocused()) { search.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(lx, ly, new net.minecraft.client.input.MouseButtonInfo(SceneScreen.physicalButton(button), 0)), false); return true; }
+        if (search.isFocused()) { search.mouseClicked(new net.minecraft.client.input.MouseButtonEvent(lx, ly, new net.minecraft.client.input.MouseButtonInfo(button, 0)), false); return true; }
         if (inLayButton(mx, my)) {
-            if (layable() > 0) station.layOut(guide.layoutMoves());
+            layOut(net.minecraft.client.Minecraft.getInstance().hasShiftDown());
         } else if (ly < 23 && lx >= WIDTH - 25) open = false;
         else if (ly >= 46 && ly < 59) { craftableOnly = !craftableOnly; page = 0; filter(); }
         else if (ly >= 169 && ly < 184) {
@@ -238,7 +269,7 @@ final class TableRecipeBook {
 
     boolean keyPressed(int key, int scanCode, int modifiers) {
         if (!search.isFocused()) return false;
-        if (key == InputConstants.KEY_ESCAPE || key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) search.setFocused(false);
+        if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) search.setFocused(false);
         else search.keyPressed(new net.minecraft.client.input.KeyEvent(key, scanCode, modifiers));
         return true;
     }
@@ -252,6 +283,14 @@ final class TableRecipeBook {
                 List<Component> lines = new ArrayList<>();
                 lines.add(text(station.busy() ? "laying" : layable() > 0 ? "lay_out_tip" : "nothing_to_lay_tip"));
                 if (guide.missingCount > 0) lines.add(text("lay_missing", guide.missingCount).copy().withStyle(ChatFormatting.RED));
+                if (!station.busy() && !guide.takeBackMoves().isEmpty()) lines.add(text("lay_take_back", guide.takeBackMoves().size()).copy().withStyle(ChatFormatting.GRAY));
+                if (!station.busy() && guide.stuck() > 0) lines.add(text("lay_no_room", guide.stuck()).copy().withStyle(ChatFormatting.RED));
+                if (!station.busy()) {
+                    TableRecipeGuide.MaxLayout max = maxLayout();
+                    lines.add((max.moves().isEmpty()
+                            ? text(max.current() > 0 ? "lay_all_full" : "lay_all_none")
+                            : text("lay_all_tip", max.sets())).copy().withStyle(ChatFormatting.GRAY));
+                }
                 return lines;
             }
             if (ly >= 186 && ly < LAY_Y && guide.selected != null) return List.of(guide.selected.result.getHoverName(), text("clear"));

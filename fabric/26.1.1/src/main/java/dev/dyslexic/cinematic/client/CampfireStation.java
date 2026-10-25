@@ -5,8 +5,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import com.mojang.math.Axis;
 import dev.dyslexic.cinematic.campfire.CampfireActions;
-import dev.dyslexic.cinematic.net.CampfireProgressPayload;
 import dev.dyslexic.cinematic.net.StationActionPayload;
+import dev.dyslexic.cinematic.net.CampfireProgressPayload;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,8 +66,19 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
     private final int[] cookingProgress = new int[CampfireActions.SPOTS];
     private final int[] cookingTime = new int[CampfireActions.SPOTS];
     private final double[] shownProgress = new double[CampfireActions.SPOTS];
+    private final float[] railSeen = {1, 1, 1, 1};
+    private static final double[] RAIL_SAMPLES = {-0.06, -0.03, 0, 0.03, 0.06};
     private boolean cookingLit;
     private double progressReceivedAt;
+
+    private static float unhidden(Vec3 at) {
+        net.minecraft.client.Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        org.joml.Vector3fc left = camera.leftVector();
+        int clear = 0;
+        for (double d : RAIL_SAMPLES)
+            if (!Hands.hides(camera.position(), camera.yRot(), at.add(left.x() * d, left.y() * d, left.z() * d))) clear++;
+        return clear / (float) RAIL_SAMPLES.length;
+    }
 
     public CampfireStation(BlockPos pos, LocalPlayer player) {
         super(pos, sideOf(pos, player));
@@ -158,10 +169,8 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
         for (int i = 0; i < CampfireActions.SPOTS; i++) {
             int nextTotal = Math.max(0, payload.total()[i]);
             int nextProgress = Math.max(0, payload.progress()[i]);
-            // A new piece on a reused spot should start at zero instead of animating down from the old one.
-            if (nextTotal == 0 || nextTotal != cookingTime[i] || cookingLit && nextProgress + 2 < cookingProgress[i]) {
-                shownProgress[i] = 0;
-            }
+            if (nextTotal == 0 || nextTotal != cookingTime[i]
+                    || cookingLit && nextProgress + 2 < cookingProgress[i]) shownProgress[i] = 0;
             cookingTime[i] = nextTotal;
             cookingProgress[i] = nextProgress;
         }
@@ -170,7 +179,6 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
     private double cookingFraction(int slot) {
         int total = cookingTime[slot];
         if (total <= 0) return 0;
-        // Samples arrive every four ticks; follow the real timer between them and stop short of completion.
         double elapsed = Math.max(0, Math.min(0.25, Scene.clock() - progressReceivedAt));
         double progress = cookingProgress[slot] + elapsed * (cookingLit ? 20 : -40);
         return Math.max(0, Math.min(total - 1, progress)) / total;
@@ -179,6 +187,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
     int syncedProgress(int slot) { return cookingProgress[slot]; }
     int syncedCookingTime(int slot) { return cookingTime[slot]; }
     boolean syncedLit() { return cookingLit; }
+
 
     // ---- staging -------------------------------------------------------------------------------------
 
@@ -346,7 +355,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
                 else if (!carried.isEmpty()) {
                     target = Target.PLACE;
                     Minecraft mc = Minecraft.getInstance();
-                    boolean cookable = mc.level.recipeAccess().propertySet(net.minecraft.world.item.crafting.RecipePropertySet.CAMPFIRE_INPUT).test(carried);
+                    boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && mc.level.recipeAccess().propertySet(net.minecraft.world.item.crafting.RecipePropertySet.CAMPFIRE_INPUT).test(carried);
                     placeSpot = cookable && food.get(picked).isEmpty() ? picked : -1;
                     aim = spot(picked);
                 }
@@ -445,9 +454,9 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             if (cookingTime[hoverSpot] > 0) {
                 int percent = (int) Math.round(cookingFraction(hoverSpot) * 100);
                 int seconds = (int) Math.ceil((cookingTime[hoverSpot] - cookingFraction(hoverSpot) * cookingTime[hoverSpot]) / 20);
-                var status = cookingLit ? Component.translatable("cinematic.campfire.cooking", percent, seconds)
+                Component status = cookingLit ? Component.translatable("cinematic.campfire.cooking", percent, seconds)
                         : Component.translatable("cinematic.campfire.cooling", percent);
-                lines.add(status.withStyle(ChatFormatting.GRAY));
+                lines.add(status.copy().withStyle(ChatFormatting.GRAY));
             }
             lines.add(Component.translatable("cinematic.campfire.take").withStyle(ChatFormatting.GRAY));
             return lines;
@@ -489,25 +498,29 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             shownProgress[i] = Anim.approach(shownProgress[i], cookingFraction(i), 14, Scene.frameDt);
             double[] at = Picking.toGui(spot(i).add(0, 0.02, 0));
             if (at == null) continue;
-            int x = (int) Math.round(at[0]) - 15, y = (int) Math.round(at[1]) - 8;
-            // Vanilla tooltips start just above the cursor; keep the selected rail above their top edge.
-            if (hoverSpot == i) y = Math.min(y, (int) Math.floor(Picking.mouseGui()[1]) - 24);
-            if (x < 2 || x + 30 >= g.guiWidth() - 2 || y < 18 || y > g.guiHeight() - 26) continue;
-            float a = alpha * (hoverSpot == i ? 1 : 0.82f);
-            g.fill(x - 2, y - 2, x + 32, y + 7, color(a * 0.55f, 12, 16, 19));
-            g.fill(x, y, x + 30, y + 4, color(a * 0.5f, 75, 80, 82));
+            double x = at[0] - 15, y = at[1] - 8;
+            if (x < 2 || x + 30 >= Minecraft.getInstance().getWindow().getGuiScaledWidth() - 2 || y < 18 || y > Minecraft.getInstance().getWindow().getGuiScaledHeight() - 26) continue;
+            railSeen[i] = (float) Anim.approach(railSeen[i], unhidden(spot(i).add(0, 0.02, 0)), 18, Scene.frameDt);
+            float a = alpha * (hoverSpot == i ? 1 : 0.82f) * railSeen[i];
+            if (a < 0.02f) continue;
+            g.pose().pushMatrix();
+            g.pose().translate((float) x, (float) y);
+            g.fill(-2, -2, 32, 7, color(a * 0.55f, 12, 16, 19));
+            g.fill(0, 0, 30, 4, color(a * 0.5f, 75, 80, 82));
             int filled = (int) Math.round(30 * shownProgress[i]);
             if (filled > 0) {
                 int fill = cookingLit ? soul ? color(a, 103, 211, 231) : color(a, 255, 188, 99)
                         : color(a, 155, 176, 183);
-                g.fill(x, y, x + filled, y + 4, fill);
+                g.fill(0, 0, filled, 4, fill);
             }
+            g.pose().popMatrix();
         }
     }
 
     private static int color(float alpha, int red, int green, int blue) {
         return Math.max(0, Math.min(255, Math.round(alpha * 255))) << 24 | red << 16 | green << 8 | blue;
     }
+
     @Override public java.util.List<Vec3> workSamples() { return RemainingLayouts.samples(this, super.workSamples()); }
     @Override public float layoutHeldScale() { int slot = target == Target.FOOD ? hoverSpot : target == Target.PLACE ? placeSpot : -1; return slot < 0 ? 1 : geometry().scale(slot); }
 }

@@ -24,14 +24,16 @@ public final class Settings {
     static final ClientConfig.IntValue LEAVE_SPEED;
     static final ClientConfig.IntValue LEAN_STRENGTH;
     static final ClientConfig.IntValue SCENE_ZOOM;
-    static final ClientConfig.BooleanValue QUICK_RETURN;
+    static final ClientConfig.IntValue QUICK_MODE;
     static final ClientConfig.IntValue QUICK_WINDOW;
+    static final ClientConfig.IntValue ARM_STYLE;
     static final ClientConfig.BooleanValue LOOK_TOGGLES;
     static final ClientConfig.BooleanValue LETTERBOX;
     static final ClientConfig.BooleanValue LIVING_CAMERA;
     static final ClientConfig.BooleanValue CAMERA_SHAKE;
     static final ClientConfig.BooleanValue SCREEN_FLASH;
     static final ClientConfig.BooleanValue CLIENT_ONLY_MODE;
+    static final ClientConfig.BooleanValue SERVER_HINT_SEEN;
     static final ClientConfig.BooleanValue DEVELOPER_MODE;
 
     static {
@@ -42,6 +44,7 @@ public final class Settings {
                 .translation("cinematic.configuration.heightLogic").define("heightLogic", true);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
+            if (kind == StationKind.ADDON) continue;
             String key = key(kind);
             SCENES.put(kind, b.comment("Whether " + key + " plays its scene (false: the block keeps its usual window).")
                     .translation("cinematic.configuration." + key).define(key, true));
@@ -63,10 +66,12 @@ public final class Settings {
                 .translation("cinematic.configuration.leanStrength").defineInRange("leanStrength", 100, 0, 100);
         SCENE_ZOOM = b.comment("How much the view narrows on the work in a scene, in percent (0: the field of view stays your own).")
                 .translation("cinematic.configuration.sceneZoom").defineInRange("sceneZoom", 100, 0, 100);
-        QUICK_RETURN = b.comment("Coming back to the same station soon after stepping away, the way in is short: a quick lean, no bars.")
-                .translation("cinematic.configuration.quickReturn").define("quickReturn", true);
+        QUICK_MODE = b.comment("0: cinematic entry; 1: quick on a recent return; 2: quick on every entry.")
+                .translation("cinematic.configuration.quickMode").defineInRange("quickMode", 1, 0, 2);
         QUICK_WINDOW = b.comment("For how many seconds after stepping away coming back to the same station is quick.")
                 .translation("cinematic.configuration.quickWindow").defineInRange("quickWindow", 12, 5, 30);
+        ARM_STYLE = b.comment("0: original stretching arms; 1: short natural reach; 2: floating forearms.")
+                .translation("cinematic.configuration.armStyle").defineInRange("armStyle", 0, 0, 2);
         LOOK_TOGGLES = b.comment("Looking round from behind while at work (Left Alt, rebindable): false while the key is held, true pressed on and off.")
                 .translation("cinematic.configuration.lookToggles").define("lookToggles", false);
         LETTERBOX = b.comment("Black bars at the top and bottom while the camera moves in and out.")
@@ -82,6 +87,8 @@ public final class Settings {
         CLIENT_ONLY_MODE = b.comment("Show local scenes over supported vanilla menus on a server without Cinematic Interactions. "
                         + "Change from the main menu; the choice takes effect on the next connection.")
                 .translation("cinematic.configuration.clientOnlyMode").define("clientOnlyMode", false);
+        SERVER_HINT_SEEN = b.comment("Whether the multiplayer list has already shown its client-only mode reminder.")
+                .define("serverHintSeen", false);
         b.pop();
         b.translation("cinematic.configuration.developer").push("developer");
         DEVELOPER_MODE = b.comment("Show the local station layout editors and enable their G shortcut. Saved layouts apply even when this is false.")
@@ -106,7 +113,7 @@ public final class Settings {
 
     /** How fast the camera leans in once the player has arrived: 1 as made, 2 twice as fast. */
     public static double approachSpeed() {
-        return percent(APPROACH_SPEED);
+        return quickMode() == 2 ? 1.0 : percent(APPROACH_SPEED);
     }
 
     /** How fast the player steps away: 1 as made, 2 twice as fast. */
@@ -131,6 +138,7 @@ public final class Settings {
 
     /** Whether this block plays its scene; otherwise it keeps its usual window. */
     public static boolean scene(StationKind kind) {
+        if (kind == StationKind.ADDON) return true;
         return get(SCENES.get(kind));
     }
 
@@ -146,9 +154,12 @@ public final class Settings {
         return get(CAMPFIRE_INVITE);
     }
 
-    /** Coming back to the same station soon: a quick way in. */
-    public static boolean quickReturn() {
-        return get(QUICK_RETURN);
+    public static int quickMode() {
+        return SPEC.isLoaded() ? QUICK_MODE.get() : QUICK_MODE.getDefault();
+    }
+
+    public static int armStyle() {
+        return SPEC.isLoaded() ? ARM_STYLE.get() : ARM_STYLE.getDefault();
     }
 
     /** Seconds after stepping away that coming back is quick. */

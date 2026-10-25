@@ -27,6 +27,17 @@ public final class EnchantFx {
     private EnchantFx() {}
 
     public static final Identifier CIRCLE = Cinematic.id("textures/fx/magic_circle.png");
+    public static final Identifier PIXEL_CIRCLE = Cinematic.id("textures/fx/enchant_circle_pixel.png");
+    private static final RenderType PIXEL_RENDER = RenderType.create("cinematic_enchant_pixel",
+            net.minecraft.client.renderer.rendertype.RenderSetup.builder(CinematicPipelines.ENCHANT_CIRCLE)
+                    .withTexture("Sampler0", PIXEL_CIRCLE).sortOnUpload().createRenderSetup());
+    public static final double OUTER_LIFT = 0.012, INNER_LIFT = 0.020, HINT_LIFT = 0.028, SOCKET_LIFT = 0.016;
+
+    public enum CirclePalette {
+        VIOLET(0xAB00F9, 0xC566FF), RED(0xA3303B, 0xCF5354), LAPIS(0x3B78D9, 0x9CC8FF);
+        final int top, bottom;
+        CirclePalette(int top, int bottom) { this.top = top; this.bottom = bottom; }
+    }
     public static final Identifier GLOW = Cinematic.id("textures/fx/glow.png");
     public static final Identifier BEAM = Cinematic.id("textures/fx/beam.png");
 
@@ -112,6 +123,45 @@ public final class EnchantFx {
     /** Texture corners of a quad, and its corners wound both ways (seen from either side). */
     private static final float[][] QUAD_UV = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     private static final int[][] BOTH_WAYS = {{0, 1, 2, 3}, {3, 2, 1, 0}};
+
+    private static void pixelQuad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] corners, CirclePalette palette, float brightness, boolean surface) {
+        float presence = Math.max(0, Math.min(1, brightness / 0.4f));
+        int alpha = clamp(presence * presence * (3 - 2 * presence));
+        if (alpha == 0) return;
+        int[][] windings = surface ? new int[][] {{3, 2, 1, 0}} : BOTH_WAYS;
+        for (int[] order : windings) for (int i : order) {
+            int rgb = i < 2 ? palette.top : palette.bottom;
+            vc.addVertex(pose, (float) corners[i].x, (float) corners[i].y, (float) corners[i].z)
+                    .setColor((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255, alpha)
+                    .setUv(QUAD_UV[i][0], QUAD_UV[i][1])
+                    .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightCoordsUtil.FULL_BRIGHT)
+                    .setNormal(pose, 0, 1, 0);
+        }
+    }
+
+    public static void circle(PoseStack pose, SceneBuffers buffers, Vec3 cam, Vec3 center, double radius, double angle,
+            CirclePalette palette, float brightness) {
+        Vec3[] corners = new Vec3[4];
+        for (int i = 0; i < 4; i++) {
+            double a = angle + Math.PI / 4 + i * Math.PI / 2, d = radius * Math.sqrt(2);
+            corners[i] = new Vec3(center.x + Math.cos(a) * d - cam.x, center.y - cam.y, center.z + Math.sin(a) * d - cam.z);
+        }
+        pixelQuad(buffers.getBuffer(PIXEL_RENDER), pose.last(), corners, palette, brightness, true);
+    }
+
+    public static void circleBillboard(PoseStack pose, SceneBuffers buffers, Camera camera, Vec3 center, double radius,
+            double angle, CirclePalette palette, float brightness) {
+        org.joml.Vector3fc left = camera.leftVector(), up = camera.upVector();
+        Vec3 cam = camera.position();
+        Vec3[] corners = new Vec3[4];
+        for (int i = 0; i < 4; i++) {
+            double a = angle + Math.PI / 4 + i * Math.PI / 2;
+            double x = Math.cos(a) * radius * Math.sqrt(2), y = Math.sin(a) * radius * Math.sqrt(2);
+            corners[i] = new Vec3(center.x + left.x() * x + up.x() * y - cam.x,
+                    center.y + left.y() * x + up.y() * y - cam.y, center.z + left.z() * x + up.z() * y - cam.z);
+        }
+        pixelQuad(buffers.getBuffer(PIXEL_RENDER), pose.last(), corners, palette, brightness, false);
+    }
 
     private static void quad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] c, float r, float g, float b, Vec3 normal) {
         int ri = clamp(r), gi = clamp(g), bi = clamp(b);

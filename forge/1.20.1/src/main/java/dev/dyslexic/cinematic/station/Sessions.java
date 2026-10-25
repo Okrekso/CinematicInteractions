@@ -1,5 +1,6 @@
 package dev.dyslexic.cinematic.station;
 
+import dev.dyslexic.cinematic.api.AddonStations;
 import dev.dyslexic.cinematic.campfire.CampfireActions;
 import dev.dyslexic.cinematic.enchant.EnchantActions;
 import dev.dyslexic.cinematic.furnace.FurnaceActions;
@@ -16,6 +17,7 @@ import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.MenuProvider;
@@ -32,7 +34,12 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class Sessions {
     private Sessions() {}
 
-    public record Session(ResourceKey<Level> dimension, BlockPos pos, Direction side, StationKind kind) {}
+    public record Session(ResourceKey<Level> dimension, BlockPos pos, Direction side, StationKind kind,
+                          @Nullable ResourceLocation addonId) {
+        public Session(ResourceKey<Level> dimension, BlockPos pos, Direction side, StationKind kind) {
+            this(dimension, pos, side, kind, null);
+        }
+    }
 
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final double REACH_SQR = 6.0 * 6.0;
@@ -67,6 +74,10 @@ public final class Sessions {
             return;
         }
         ServerLevel level = player.serverLevel();
+        if (action.action() == StationActionPayload.Action.CHOOSE) {
+            RecipeChoices.choose(player, level, session, action.index());
+            return;
+        }
         if (action.action() == StationActionPayload.Action.QUICK) {
             quickMove(player, level, session, action.index());
             return;
@@ -82,6 +93,7 @@ public final class Sessions {
             case CAMPFIRE -> CampfireActions.handle(player, level, session, action);
             case JUKEBOX -> JukeboxActions.handle(player, level, session, action);
             case CHISELED_BOOKSHELF -> ShelfActions.handle(player, level, session, action);
+            case ADDON -> { /* The add-on's real menu owns its own slot and button packets. */ }
         }
     }
 
@@ -104,6 +116,15 @@ public final class Sessions {
 
     private static void begin(ServerPlayer player, BlockPos pos, StationKind kind, Direction side) {
         BlockState state = player.level().getBlockState(pos);
+        if (!kind.matches(state)) {
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
+            return;
+        }
+        AddonStations.Definition addon = kind == StationKind.ADDON ? AddonStations.forBlock(state) : null;
+        if (kind == StationKind.ADDON && addon == null) {
+            dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
+            return;
+        }
         List<Direction> sides = kind.sides(state);
         if (sides.isEmpty()) {
             dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
@@ -112,7 +133,8 @@ public final class Sessions {
         if (!sides.contains(side)) {
             side = sides.get(0);
         }
-        Session session = new Session(player.level().dimension(), pos.immutable(), side, kind);
+        Session session = new Session(player.level().dimension(), pos.immutable(), side, kind,
+                addon == null ? null : addon.id());
         if (!valid(player, session, false) || !kind.usable(player.level(), pos, state)) {
             dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new SessionClosePayload());
             return;
@@ -200,7 +222,8 @@ public final class Sessions {
         if (session == null) {
             return;
         }
-        if (player.tickCount % 5 == 0 && !valid(player, session, true)) {
+        // Furnace block entities can disappear while another player is breaking the block.
+        if ((session.kind().isFurnace() || player.tickCount % 5 == 0) && !valid(player, session, true)) {
             end(player, true);
             return;
         }
@@ -245,15 +268,19 @@ public final class Sessions {
 
     /** {@code opened}: the session's menu should be up by now (the block's own, or just the inventory). */
     private static boolean valid(ServerPlayer player, Session session, boolean opened) {
+        if (!player.level().isLoaded(session.pos())) return false;
+        AddonStations.Definition addon = session.kind() == StationKind.ADDON
+                ? AddonStations.forBlock(player.level().getBlockState(session.pos())) : null;
         boolean menu = session.kind().usesMenu() && opened
-                ? MenuActions.isOpen(session.kind(), player.containerMenu)
+                ? MenuActions.isOpen(session, player.containerMenu)
+                    && (session.kind() != StationKind.ADDON || player.containerMenu.stillValid(player))
                 : player.containerMenu == player.inventoryMenu;
         return player.isAlive()
                 && !player.isSpectator()
                 && player.level().dimension() == session.dimension()
                 && menu
-                && player.level().isLoaded(session.pos())
                 && session.kind().matches(player.level().getBlockState(session.pos()))
+                && (session.kind() != StationKind.ADDON || addon != null && addon.id().equals(session.addonId()))
                 && player.distanceToSqr(session.pos().getCenter()) <= REACH_SQR;
     }
 }

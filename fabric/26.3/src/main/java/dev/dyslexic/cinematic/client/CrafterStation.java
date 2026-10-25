@@ -315,7 +315,7 @@ public final class CrafterStation extends MenuStation<CrafterMenu> implements Sp
                 pose.pushPose();
                 Vec3 pivot = at.subtract(cam);
                 pose.translate(pivot.x, pivot.y, pivot.z);
-                pose.rotate(Axis.YP.rotationDegrees((float) layout.rotation(i)));
+                pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees((float) layout.rotation(i))));
                 pose.translate(-pivot.x, -pivot.y, -pivot.z);
                 ItemPlacer.render(pose, buffers, cam, stack, at.add(0, 0.001, 0), side, 4242L + i, 0.55f * grow, 0f, light);
                 pose.popPose();
@@ -364,7 +364,7 @@ public final class CrafterStation extends MenuStation<CrafterMenu> implements Sp
             EnchantFx.billboard(pose, buffers, cam, at, 0.1, clock * 0.3, EnchantFx.GLOW, g, powered ? g * 0.3f : g * 0.85f, powered ? g * 0.25f : g * 0.7f);
             pose.pushPose();
             pose.translate(at.x - camera.x, at.y - camera.y, at.z - camera.z);
-            pose.rotate(Axis.YP.rotationDegrees((float) (clock * (target == Target.RESULT ? 70 : 32) % 360)));
+            pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees((float) (clock * (target == Target.RESULT ? 70 : 32) % 360))));
             float size = target == Target.RESULT ? 0.22f : 0.19f;
             float scale = ItemPlacer.isBlock(result) ? size * 1.6f : size;
             pose.scale(scale, scale, scale);

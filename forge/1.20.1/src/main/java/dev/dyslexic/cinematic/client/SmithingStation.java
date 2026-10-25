@@ -56,6 +56,38 @@ public final class SmithingStation extends SurfaceStation<SmithingMenu> {
     /** Heights of the middles of the template and the material lying on the gear (each item is 1/16 of its size thick). */
     static final double ON_GEAR = 0.025, ON_TEMPLATE = 0.041;
 
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+
+    @Override RecipeChoiceStrip choices() { return choiceStrip; }
+
+    @Override public void tick() {
+        super.tick();
+        Minecraft mc = Minecraft.getInstance();
+        SmithingMenu menu = menu();
+        if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly()
+                || menu == null || mc.level == null) {
+            choiceStrip.clear();
+            return;
+        }
+        var input = new net.minecraft.world.SimpleContainer(menu.getSlot(0).getItem(),
+                menu.getSlot(1).getItem(), menu.getSlot(2).getItem());
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level,
+                net.minecraft.world.item.crafting.RecipeType.SMITHING, input);
+        if (competing.size() < 2) {
+            choiceStrip.clear();
+            return;
+        }
+        List<ItemStack> outputs = new ArrayList<>();
+        int inUse = -1;
+        ItemStack result = menu.getSlot(3).getItem();
+        for (int i = 0; i < competing.size(); i++) {
+            ItemStack output = competing.get(i).assemble(input, mc.level.registryAccess());
+            outputs.add(output);
+            if (inUse < 0 && !result.isEmpty() && ItemStack.isSameItemSameTags(output, result)) inUse = i;
+        }
+        choiceStrip.set(outputs, inUse);
+    }
+
     public enum Target { NONE, PLACE, ITEM }
 
     public final Vec3 top;

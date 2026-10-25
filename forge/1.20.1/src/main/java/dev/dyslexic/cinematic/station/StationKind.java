@@ -1,5 +1,6 @@
 package dev.dyslexic.cinematic.station;
 
+import dev.dyslexic.cinematic.api.AddonStations;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -55,7 +56,9 @@ public enum StationKind {
      * Crouched at its front: books are drawn out by the spine and slid back in, and a book with writing in it is opened
      * and read right there. Only its front is used, as in vanilla.
      */
-    CHISELED_BOOKSHELF;
+    CHISELED_BOOKSHELF,
+    /** A registered add-on block with its own menu and scene. Keep last: ordinals cross the network. */
+    ADDON;
 
     private static final List<Direction> ANY_SIDE = List.of(Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST);
 
@@ -112,7 +115,7 @@ public enum StationKind {
         if (state.is(Blocks.CHISELED_BOOKSHELF)) {
             return CHISELED_BOOKSHELF;
         }
-        return null;
+        return AddonStations.forBlock(state) == null ? null : ADDON;
     }
 
     public boolean matches(BlockState state) {
@@ -127,7 +130,7 @@ public enum StationKind {
     /** Worked through the block's own vanilla menu, which the server opens without its window. */
     public boolean usesMenu() {
         return switch (this) {
-            case ENCHANTING, ANVIL, GRINDSTONE, SMITHING, STONECUTTER, LOOM, CARTOGRAPHY, BREWING, LECTERN, BEACON -> true;
+            case ENCHANTING, ANVIL, GRINDSTONE, SMITHING, STONECUTTER, LOOM, CARTOGRAPHY, BREWING, LECTERN, BEACON, ADDON -> true;
             default -> false;
         };
     }
@@ -148,6 +151,10 @@ public enum StationKind {
      */
     public List<Direction> sides(BlockState state) {
         return switch (this) {
+            case ADDON -> {
+                AddonStations.Definition definition = AddonStations.forBlock(state);
+                yield definition == null ? List.of() : definition.usableSides(state);
+            }
             case FURNACE, SMOKER, BLAST_FURNACE -> List.of(state.getValue(AbstractFurnaceBlock.FACING));
             case ANVIL -> {
                 Direction facing = state.getValue(AnvilBlock.FACING);

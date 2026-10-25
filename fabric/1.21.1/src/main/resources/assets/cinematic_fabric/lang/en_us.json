@@ -1,0 +1,15 @@
+{
+  "cinematic.serverHint.title": "Playing on a server",
+  "cinematic.serverHint.message": "Want scenes on a server that doesn't have Cinematic Interactions? Turn on the client-only mode before you connect. It plays the scenes of the supported stations. For the full mode the mod is needed on both the client and the server.",
+  "cinematic.serverHint.enable": "Turn on client-only mode",
+  "cinematic.serverHint.continue": "Continue",
+  "cinematic.serverHint.state": "Client-only mode: %s",
+  "cinematic.serverHint.state.tooltip": "On servers without Cinematic Interactions, supported stations play their scenes over the usual windows. Click to open the setting. It takes effect on the next connection.",
+  "cinematic.recipes.lay_take_back": "First the hands take back what is in the way: %s",
+  "cinematic.recipes.lay_no_room": "No room to take back: %s — free some inventory space",
+  "cinematic.choices.title": "What it makes · Polymorph",
+  "cinematic.choices.in_use": "Chosen: this is what will be made",
+  "cinematic.choices.pick": "Click to choose this result",
+  "cinematic.settings.quickMode.short.1": "Quick return",
+  "cinematic.settings.armStyle.short.1": "Natural"
+}

@@ -46,7 +46,7 @@ public final class EnchantRenderer {
             ClientEnchants.Entry entry = e.getValue();
             double flash = clock - entry.flashAt;
             double boost = flash >= 0 && flash < 1.2 ? 1.2 * (1 - flash / 1.2) : 0;
-            drawCircle(pose, buffers, cam, pos, 0.28 + boost, clock);
+            drawCircle(pose, buffers, cam, pos, 0.28 + boost, clock, entry.item.isEmpty() || entry.lapis > 0);
             Vec3 at = EnchantStation.itemPosition(pos, entry.side, clock);
             if (!entry.item.isEmpty()) {
                 EnchantStation.drawFloating(pose, buffers, cam, entry.item, at, (float) (clock * 40 + SpatialLayouts.current(StationKind.ENCHANTING).rotation(0)), 0.34f * SpatialLayouts.current(StationKind.ENCHANTING).scale(0));
@@ -66,7 +66,7 @@ public final class EnchantRenderer {
             if (at.kind() == StationKind.ENCHANTING && !drawn.contains(at.pos()) && (mine == null || !mine.pos.equals(at.pos()))
                     && at.pos().distToCenterSqr(cam) < MAX_DISTANCE_SQR && frustum.isVisible(visibleBox(at.pos()))) {
                 drawn.add(at.pos());
-                drawCircle(pose, buffers, cam, at.pos(), 0.28, clock);
+                drawCircle(pose, buffers, cam, at.pos(), 0.28, clock, true);
             }
         }
     }
@@ -76,10 +76,11 @@ public final class EnchantRenderer {
         return new AABB(pos).inflate(0.5).expandTowards(0, 2.0, 0);
     }
 
-    private static void drawCircle(PoseStack pose, SceneBuffers buffers, Vec3 cam, BlockPos pos, double glow, double clock) {
+    private static void drawCircle(PoseStack pose, SceneBuffers buffers, Vec3 cam, BlockPos pos, double glow, double clock, boolean ready) {
         float g = (float) glow;
         Vec3 top = EnchantFx.top(pos);
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, clock * 0.25, 0.62f * g, 0.4f * g, 1.0f * g);
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -clock * 0.42, 0.4f * g, 0.7f * g, 1.0f * g);
+        EnchantFx.CirclePalette palette = ready ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED;
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.OUTER_LIFT, 0), 0.47, clock * 0.25, palette, 0.85f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.INNER_LIFT, 0), 0.25, -clock * 0.42, palette, 0.55f * g);
     }
 }

@@ -91,5 +91,6 @@ public final class StationEvents {
         TableStore store = TableStore.get(level);
         for (BlockPos pos : store.inChunk(chunk.getPos())) PacketDistributor.sendToPlayer(player, TableActions.contents(pos, store.get(pos)));
         FurnaceWatch.chunkSent(player, chunk);
+        dev.dyslexic.cinematic.brewing.BrewingWatch.chunkSent(player, chunk);
     }
 }

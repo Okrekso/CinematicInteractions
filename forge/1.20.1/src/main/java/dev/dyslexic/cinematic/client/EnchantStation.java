@@ -52,6 +52,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
     public static final double RITUAL_LENGTH = 1.5;
     public static final double RITUAL_PEAK = 0.5;
     private static final float ITEM_SIZE = 0.34f;
+    private static final double SIGIL_TEXT_LIFT = 0.01;
 
     public enum Target { NONE, SURFACE, ITEM, LAPIS, OFFER }
 
@@ -543,8 +544,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
             canEnchant = offered(k) && affordable(k);
         }
         EnchantFx.CirclePalette tablePalette = canEnchant ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED;
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, spin, tablePalette, 0.85f * g);
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -spin * 1.7, tablePalette, 0.55f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.OUTER_LIFT, 0), 0.47, spin, tablePalette, 0.85f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.INNER_LIFT, 0), 0.25, -spin * 1.7, tablePalette, 0.55f * g);
 
         boolean outro = Scene.phase == Scene.Phase.OUTRO;
         double fade = outro ? 1 - Anim.smoother(Scene.time / 0.45) : 1;
@@ -565,11 +566,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         if (presence > 0.01) {
             float socket = (float) ((0.50 + 0.42 * lapisFocus) * presence);
             boolean wrong = this.target == Target.LAPIS && !Hands.carried().isEmpty() && !Hands.carried().is(Items.LAPIS_LAZULI);
-            EnchantFx.circle(pose, buffers, cam, corner().add(0, 0.006, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
+            EnchantFx.circle(pose, buffers, cam, corner().add(0, EnchantFx.SOCKET_LIFT, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
                     wrong ? EnchantFx.CirclePalette.RED : EnchantFx.CirclePalette.LAPIS, socket);
-            if (lapis == 0 && t < 0) {
-                EnchantFx.lapisGhost(pose, buffers, camera, corner().add(0, 0.052 + Math.sin(clock * 1.5) * 0.004, 0), socket, geometry().scale(1), (float) -geometry().rotation(1));
-            }
         }
         if (lapis > 0 && fade > 0.01) {
             drawLapis(pose, buffers, cam, corner(), lapis, light, (float) fade * geometry().scale(1), (float) -geometry().rotation(1));
@@ -622,7 +620,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         if (target == Target.SURFACE && !Hands.carried().isEmpty() && aim != null) {
             float p = (float) (0.25 + 0.1 * Math.sin(clock * 5));
-            EnchantFx.circle(pose, buffers, camera, top.add(0, 0.006, 0), 0.16, -clock,
+            EnchantFx.circle(pose, buffers, camera, top.add(0, EnchantFx.HINT_LIFT, 0), 0.16, -clock,
                     EnchantFx.CirclePalette.VIOLET, p);
         }
     }
@@ -652,7 +650,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         double clock = Scene.clock();
         float size = (float) (0.13 * appear * (hovered ? 1.2 : 1.0) * geometry().scale(k + 2));
-        float b = brightness * (hovered ? 1.35f : 0.85f);
+        float b = brightness * (hovered ? 1.35f : 0.85f) * Math.min(1f, appear);
         float r = affordable ? 0.55f : 0.5f;
         float g = affordable ? 0.45f : 0.12f;
         float bl = affordable ? 1.0f : 0.16f;
@@ -663,8 +661,10 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
 
         Font font = Minecraft.getInstance().font;
         Vec3 cam = camera.getPosition();
+        var look = camera.getLookVector();
+        Vec3 text = at.subtract(look.x() * SIGIL_TEXT_LIFT, look.y() * SIGIL_TEXT_LIFT, look.z() * SIGIL_TEXT_LIFT);
         pose.pushPose();
-        pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+        pose.translate(text.x - cam.x, text.y - cam.y, text.z - cam.z);
         // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
         pose.mulPose(Axis.ZP.rotationDegrees((float) -geometry().rotation(k + 2)));
@@ -672,7 +672,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         pose.scale(-s, -s, s);
         String number = String.valueOf(cost);
         int numberColor = affordable ? 0xFFF4EEFF : 0xFFFF6B6B;
-        font.drawInBatch(number, -font.width(number) / 2f, -4.5f, numberColor, false, pose.last().pose(), buffers, Font.DisplayMode.NORMAL,
+        font.drawInBatch(number, -font.width(number) / 2f, -4.5f, numberColor, true, pose.last().pose(), buffers, Font.DisplayMode.NORMAL,
                 0, LightTexture.FULL_BRIGHT);
         FormattedCharSequence rune = runes[k];
         if (rune != null) {

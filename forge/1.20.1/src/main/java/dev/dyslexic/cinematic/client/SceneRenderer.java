@@ -37,7 +37,10 @@ public final class SceneRenderer {
         PoseStack pose = event.getPoseStack();
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
 
-        Scene.updateCursor();
+        // A second player can remove the station between the last client tick and this frame.
+        // Do not render a scene against the replacement block's missing properties.
+        boolean stationPresent = Scene.station == null || Scene.station.stillThere(level);
+        if (stationPresent) Scene.updateCursor();
         Hands.update(cam, camera.getYRot());
 
         TableRenderer.renderAll(pose, buffers, cam, event.getFrustum(), level);
@@ -48,7 +51,7 @@ public final class SceneRenderer {
         Fx.renderSparks(pose, buffers, camera, Scene.frameDt);
 
         ClientStation station = Scene.station;
-        if (Scene.active() && station != null) {
+        if (Scene.active() && station != null && stationPresent) {
             int light = LevelRenderer.getLightColor(level, station.lightPos());
             if (Scene.phase == Scene.Phase.ACTIVE) {
                 station.renderWorld(pose, buffers, cam, light);

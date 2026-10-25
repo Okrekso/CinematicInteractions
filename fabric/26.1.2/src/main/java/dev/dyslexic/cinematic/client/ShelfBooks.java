@@ -407,7 +407,7 @@ public final class ShelfBooks {
                 HIDDEN.put(pos, mask);
             }
             // the shelf's chunk section is built again, with the slots as they are drawn now
-        mc.levelRenderer.setSectionDirty(SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getY()),
+            mc.levelRenderer.setSectionDirty(SectionPos.blockToSectionCoord(pos.getX()), SectionPos.blockToSectionCoord(pos.getY()),
                     SectionPos.blockToSectionCoord(pos.getZ()));
         }
     }

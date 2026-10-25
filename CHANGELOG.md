@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.28 beta — October 25, 2026
+
+New beta ports are available for NeoForge 1.21.1, Fabric 1.21.11, Fabric 26.1.1, 26.1.2, 26.2 and 26.3, and Forge 1.20.1. Each has its own prerelease and JAR on the [releases page](https://github.com/dcvke/CinematicInteractions/releases).
+
+- Brought current crafting controls, station interactions, arm styles and entrance options to the supported ports.
+- Carried over recipe compatibility and recent campfire, enchantment and rendering improvements where applicable.
+- Corrected the bright furnace overlay with shaders in the newer Fabric ports.
+- Updated the Forge 1.20.1 port with current scenes, optional Polymorph support and crash prevention when a station is broken during a scene.
+
+**Known issue:** Natural Reach arms can render incorrectly in some situations. Use Stretched or Floating Hands if needed. A fix is planned for a future update. Forge 1.20.1 also has an unconfirmed intermittent connection stall on Forge 47.4.20; please attach a log if you encounter it.
+
 ## Beta — October 19, 2026
 
 The latest beta adds an optional client-only preview for supported workstation scenes. It can be enabled from the main menu to use those scenes on servers without Cinematic Interactions installed. Shared items, other players' poses, campfire interactions, and the remaining stations still require the mod on the server.

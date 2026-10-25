@@ -41,8 +41,9 @@ public final class ClientOnlySmoke {
     }
 
     public static void tick() {
-        if (!ENABLED || stage == 0 || stage == 99 || stage == -1) return;
         Minecraft mc = Minecraft.getInstance();
+        if (ENABLED && stage == 0 && mc.gui.screen() instanceof TitleScreen) onScreen(mc.gui.screen());
+        if (!ENABLED || stage == 0 || stage == 99 || stage == -1) return;
         if (++ticks > 1000) { fail("timeout at " + stage); return; }
         if (mc.player == null || mc.level == null || mc.gameMode == null) return;
         if (ClientOnly.serverHasMod()) { fail("server unexpectedly has Cinematic"); return; }

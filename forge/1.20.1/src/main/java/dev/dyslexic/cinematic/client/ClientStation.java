@@ -331,6 +331,13 @@ public abstract class ClientStation {
     /** Extras over the scene (progress indicators...). */
     public void renderScreen(GuiGraphics graphics, Font font, float alpha) {}
 
+    @Nullable
+    RecipeChoiceStrip choices() { return null; }
+
+    void chose(int index) {
+        RecipeChoiceStrip.send(pos, kind(), index);
+    }
+
     /** Tooltip for what the cursor is over, or null. */
     @Nullable
     public List<Component> tooltip(ItemStack carried) {

@@ -30,6 +30,19 @@ public final class Fx {
     private Fx() {}
 
     static final RandomSource RANDOM = RandomSource.create();
+    private static final Identifier WHITE = Identifier.withDefaultNamespace("textures/misc/white.png");
+
+    /** Furnace light must use the emissive pipeline: lightning becomes a white reflective surface in shader packs. */
+    static RenderType flatGlow() {
+        return glow(WHITE);
+    }
+
+    static void glowVertex(VertexConsumer vc, org.joml.Matrix4f pose, float x, float y, float z,
+            int r, int g, int b, Vec3 normal) {
+        vc.addVertex(pose, x, y, z).setColor(r, g, b, 255).setUv(0.5f, 0.5f)
+                .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightCoordsUtil.FULL_BRIGHT)
+                .setNormal((float) normal.x, (float) normal.y, (float) normal.z);
+    }
 
     /**
      * A flat see-through highlight lying on a face (the cell of a table, the opening of a furnace): drawn without writing

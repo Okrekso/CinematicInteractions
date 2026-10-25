@@ -63,7 +63,7 @@ record TableLayout(double x, double z, double rotation, double width, double dep
     void cellPose(PoseStack pose, BlockPos pos, int index, Vec3 camera) {
         Vec3 at = cell(pos, index).subtract(camera);
         pose.translate(at.x, at.y + 0.002, at.z);
-        pose.rotate(Axis.YP.rotationDegrees((float) rotation));
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees((float) rotation)));
         pose.scale((float) width, 1, (float) depth);
     }
 
@@ -77,7 +77,7 @@ record TableLayout(double x, double z, double rotation, double width, double dep
         pose.pushPose();
         Vec3 d = base.subtract(camera);
         pose.translate(d.x, d.y, d.z);
-        pose.rotate(Axis.YP.rotationDegrees((float) rotation));
+        pose.mulPose(new org.joml.Matrix4f().rotation(Axis.YP.rotationDegrees((float) rotation)));
         pose.translate(-d.x, -d.y, -d.z);
         if (one) ItemPlacer.renderOne(pose, buffers, camera, stack, base, facing, seed, scale * (float) itemScale, tilt, light);
         else ItemPlacer.render(pose, buffers, camera, stack, base, facing, seed, scale * (float) itemScale, tilt, light, opacity);

@@ -27,13 +27,16 @@ public final class Settings {
     static final ForgeConfigSpec.IntValue LEAN_STRENGTH;
     static final ForgeConfigSpec.IntValue SCENE_ZOOM;
     static final ForgeConfigSpec.BooleanValue QUICK_RETURN;
+    static final ForgeConfigSpec.IntValue QUICK_MODE;
     static final ForgeConfigSpec.IntValue QUICK_WINDOW;
+    static final ForgeConfigSpec.IntValue ARM_STYLE;
     static final ForgeConfigSpec.BooleanValue LOOK_TOGGLES;
     static final ForgeConfigSpec.BooleanValue LETTERBOX;
     static final ForgeConfigSpec.BooleanValue LIVING_CAMERA;
     static final ForgeConfigSpec.BooleanValue CAMERA_SHAKE;
     static final ForgeConfigSpec.BooleanValue SCREEN_FLASH;
     static final ForgeConfigSpec.BooleanValue CLIENT_ONLY_MODE;
+    static final ForgeConfigSpec.BooleanValue SERVER_HINT_SEEN;
     static final ForgeConfigSpec.BooleanValue DEVELOPER_MODE;
 
     static {
@@ -67,8 +70,12 @@ public final class Settings {
                 .translation("cinematic.configuration.sceneZoom").defineInRange("sceneZoom", 100, 0, 100);
         QUICK_RETURN = b.comment("Coming back to the same station soon after stepping away, the way in is short: a quick lean, no bars.")
                 .translation("cinematic.configuration.quickReturn").define("quickReturn", true);
+        QUICK_MODE = b.comment("0: cinematic entry; 1: quick on a recent return; 2: quick on every entry. -1 keeps the old quickReturn setting.")
+                .translation("cinematic.configuration.quickMode").defineInRange("quickMode", -1, -1, 2);
         QUICK_WINDOW = b.comment("For how many seconds after stepping away coming back to the same station is quick.")
                 .translation("cinematic.configuration.quickWindow").defineInRange("quickWindow", 12, 5, 30);
+        ARM_STYLE = b.comment("0: original stretching arms; 1: natural reach; 2: floating forearms.")
+                .translation("cinematic.configuration.armStyle").defineInRange("armStyle", 0, 0, 2);
         LOOK_TOGGLES = b.comment("Looking round from behind while at work (Left Alt, rebindable): false while the key is held, true pressed on and off.")
                 .translation("cinematic.configuration.lookToggles").define("lookToggles", false);
         LETTERBOX = b.comment("Black bars at the top and bottom while the camera moves in and out.")
@@ -84,6 +91,8 @@ public final class Settings {
         CLIENT_ONLY_MODE = b.comment("On a server without Cinematic Interactions, show local scenes over supported vanilla menus. "
                         + "Set this from the main menu; it takes effect on the next connection. Other stations keep their vanilla behavior.")
                 .translation("cinematic.configuration.clientOnlyMode").define("clientOnlyMode", false);
+        SERVER_HINT_SEEN = b.comment("Whether the one-time server-list note has already been answered.")
+                .define("serverHintSeen", false);
         b.pop();
         b.translation("cinematic.configuration.developer").push("developer");
         DEVELOPER_MODE = b.comment("Show the local station layout editors and enable their G shortcut. Saved layouts apply even when this is false.")
@@ -108,7 +117,7 @@ public final class Settings {
 
     /** How fast the camera leans in once the player has arrived: 1 as made, 2 twice as fast. */
     public static double approachSpeed() {
-        return percent(APPROACH_SPEED);
+        return quickMode() == 2 ? 1.0 : percent(APPROACH_SPEED);
     }
 
     /** How fast the player steps away: 1 as made, 2 twice as fast. */
@@ -150,7 +159,16 @@ public final class Settings {
 
     /** Coming back to the same station soon: a quick way in. */
     public static boolean quickReturn() {
-        return get(QUICK_RETURN);
+        return quickMode() != 0;
+    }
+
+    public static int quickMode() {
+        int mode = SPEC.isLoaded() ? QUICK_MODE.get() : QUICK_MODE.getDefault();
+        return mode < 0 ? (get(QUICK_RETURN) ? 1 : 0) : mode;
+    }
+
+    public static int armStyle() {
+        return SPEC.isLoaded() ? ARM_STYLE.get() : ARM_STYLE.getDefault();
     }
 
     /** Seconds after stepping away that coming back is quick. */

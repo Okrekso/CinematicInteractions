@@ -118,7 +118,7 @@ public final class FurnaceStation extends ClientStation {
     }
 
     private void drawHint(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
-        if (hint.isEmpty() || Minecraft.getInstance().level == null) return;
+        if (hint.isEmpty() || Minecraft.getInstance().level == null || !stillThere(Minecraft.getInstance().level)) return;
         ClientFurnaces.Entry entry = ClientFurnaces.get(pos);
         ItemStack inside = entry == null ? ItemStack.EMPTY : entry.items[FurnaceZones.INPUT];
         if (!inside.isEmpty()) {
@@ -410,10 +410,42 @@ public final class FurnaceStation extends ClientStation {
         litDuration = state.litDuration();
         cookingProgress = state.cookingProgress();
         cookingTotalTime = state.cookingTotalTime();
+        furnaceChoice = state.choice();
+    }
+
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+    private String furnaceChoice = "";
+
+    @Override RecipeChoiceStrip choices() { return choiceStrip; }
+
+    @SuppressWarnings("unchecked")
+    private void updateChoices() {
+        Minecraft mc = Minecraft.getInstance();
+        ItemStack input = ClientFurnaces.item(pos, FurnaceZones.INPUT);
+        if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly()
+                || input.isEmpty() || mc.level == null) {
+            choiceStrip.clear();
+            return;
+        }
+        var single = new SimpleContainer(input);
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level,
+                (RecipeType<AbstractCookingRecipe>) layout.recipeType, single);
+        if (competing.size() < 2) {
+            choiceStrip.clear();
+            return;
+        }
+        List<ItemStack> outputs = new java.util.ArrayList<>();
+        int inUse = -1;
+        for (int i = 0; i < competing.size(); i++) {
+            outputs.add(competing.get(i).assemble(single, mc.level.registryAccess()));
+            if (competing.get(i).getId().toString().equals(furnaceChoice)) inUse = i;
+        }
+        choiceStrip.set(outputs, inUse);
     }
 
     @Override
     public void tick() {
+        updateChoices();
         if (Scene.clientOnly()) return;
         if (litTime > 0) {
             litTime--;

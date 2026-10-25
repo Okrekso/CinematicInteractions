@@ -1,5 +1,7 @@
 package dev.dyslexic.cinematic.station;
 
+import dev.dyslexic.cinematic.api.AddonStations;
+
 import dev.dyslexic.cinematic.net.MenuDisplayPayload;
 import dev.dyslexic.cinematic.net.MenuFxPayload;
 import dev.dyslexic.cinematic.net.StationActionPayload;
@@ -46,7 +48,7 @@ public final class MenuActions {
     /** Opens the block's menu for the player; the client keeps it but shows the scene instead of the window. */
     public static boolean open(ServerPlayer player, Session session) {
         MenuProvider provider = provider(player, session.pos(), session.kind());
-        return provider != null && player.openMenu(provider).isPresent() && isOpen(session.kind(), player.containerMenu);
+        return provider != null && player.openMenu(provider).isPresent() && isOpen(session, player.containerMenu);
     }
 
     /** What opens the block's menu, as using the block would (null when it has none, or will not open now). */
@@ -58,12 +60,59 @@ public final class MenuActions {
     /** Closes the menu quietly (the client drops its own copy); vanilla hands back what lay in it. */
     public static void close(ServerPlayer player, Session session) {
         LAST_FX.remove(player.getUUID());
-        if (isOpen(session.kind(), player.containerMenu)) {
+        if (isOpen(session, player.containerMenu)) {
             player.doCloseContainer();
         }
         if (SHOWN.remove(player.getUUID()) != null) {
             show(player, session, List.of());
         }
+    }
+
+    /** Shift-click into a station, ignoring vanilla's fallback shuffle between hotbar and inventory. */
+    public static void quickMove(ServerPlayer player, Session session, int inventorySlot) {
+        AbstractContainerMenu menu = player.containerMenu;
+        if (!isOpen(session, menu) || !menu.stillValid(player) || player.isSpectator()) return;
+        int index = -1;
+        for (int i = 0; i < menu.slots.size(); i++) {
+            var slot = menu.slots.get(i);
+            if (slot.container == player.getInventory() && slot.getContainerSlot() == inventorySlot) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0 || !menu.getSlot(index).hasItem()) return;
+        if (menu instanceof BeaconMenu && beaconPayment(menu, index)) {
+            menu.broadcastChanges();
+            return;
+        }
+        List<ItemStack> before = new ArrayList<>(menu.slots.size());
+        for (var slot : menu.slots) before.add(slot.getItem().copy());
+        menu.clicked(index, 0, net.minecraft.world.inventory.ContainerInput.QUICK_MOVE, player);
+        boolean intoStation = false;
+        for (int i = 0; i < menu.slots.size(); i++) {
+            if (menu.slots.get(i).container != player.getInventory()
+                    && !ItemStack.matches(before.get(i), menu.slots.get(i).getItem())) {
+                intoStation = true;
+                break;
+            }
+        }
+        if (!intoStation) {
+            for (int i = 0; i < menu.slots.size(); i++) {
+                var slot = menu.slots.get(i);
+                if (slot.container == player.getInventory() && !ItemStack.matches(before.get(i), slot.getItem()))
+                    slot.set(before.get(i));
+            }
+        }
+        menu.broadcastChanges();
+    }
+
+    private static boolean beaconPayment(AbstractContainerMenu menu, int index) {
+        var payment = menu.getSlot(0);
+        ItemStack stack = menu.getSlot(index).getItem();
+        if (index == 0 || payment.hasItem() || stack.getCount() <= 1 || !payment.mayPlace(stack)) return false;
+        payment.setByPlayer(stack.split(1));
+        menu.getSlot(index).setChanged();
+        return true;
     }
 
     public static boolean isOpen(StationKind kind, AbstractContainerMenu menu) {
@@ -83,6 +132,12 @@ public final class MenuActions {
         };
     }
 
+    public static boolean isOpen(Session session, AbstractContainerMenu menu) {
+        if (session.kind() != StationKind.ADDON) return isOpen(session.kind(), menu);
+        AddonStations.Definition definition = AddonStations.byId(session.addonId());
+        return definition != null && definition.accepts(menu);
+    }
+
     /** How many of the menu's first slots are inputs that lie on the block for everyone to see. */
     public static int inputs(StationKind kind) {
         return switch (kind) {
@@ -98,7 +153,7 @@ public final class MenuActions {
     /** Keeps onlookers' view of the block's inputs up to date. */
     public static void tick(ServerPlayer player, Session session) {
         int inputs = inputs(session.kind());
-        if (inputs == 0 || !isOpen(session.kind(), player.containerMenu)) {
+        if (inputs == 0 || !isOpen(session, player.containerMenu)) {
             return;
         }
         int fingerprint = 1;
@@ -149,7 +204,7 @@ public final class MenuActions {
         LAST_FX.put(player.getUUID(), now);
         MenuFxPayload fx = MenuFxPayload.beat(session.pos(), session.kind(), player.getId());
         int result = resultSlot(session.kind());
-        if (action.index() == 1 && result >= 0 && isOpen(session.kind(), player.containerMenu)) {
+        if (action.index() == 1 && result >= 0 && isOpen(session, player.containerMenu)) {
             List<ItemStack> items = new ArrayList<>();
             for (int i = 0; i < inputs(session.kind()); i++) {
                 items.add(player.containerMenu.getSlot(i).getItem().copy());
