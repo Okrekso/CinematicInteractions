@@ -39,7 +39,7 @@ public final class Settings {
         b.translation("cinematic.configuration.scenes").push("scenes");
         HEIGHT_LOGIC = b.comment("When a block's work cannot be reached from where the player stands (too high, too far, covered),",
                         "true opens the block's own window instead of the scene; false only says why, over the crosshair.")
-                .translation("cinematic.configuration.heightLogic").define("heightLogic", true);
+                .translation("cinematic.configuration.heightLogic").define("heightLogic", false);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
             if (kind == StationKind.ADDON) continue;

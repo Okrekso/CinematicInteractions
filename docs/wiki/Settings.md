@@ -14,7 +14,7 @@ These are player preferences. Settings are not automatically transferred between
 
 ## Scenes
 
-Enable or disable individual stations. Disabled stations use their ordinary interface or vanilla interaction. With height logic enabled, an inaccessible station falls back to its normal interface. With height logic disabled, a short notice explains why a scene cannot begin.
+Enable or disable individual stations. Disabled stations use their ordinary interface or vanilla interaction. Height logic is disabled by default: a short notice explains why a scene cannot begin. With height logic enabled, an inaccessible station falls back to its normal interface instead.
 
 ## Interface
 

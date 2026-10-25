@@ -6,7 +6,7 @@ Check that the JAR matches the exact Minecraft version and loader. Remove duplic
 
 ## A block opens its normal screen
 
-Check that its scene is enabled. The mod also uses the normal screen when a workstation is too high, too low, obstructed, or cannot be approached safely with height logic enabled. Leave enough space to stand at the working side of the block. Chests and barrels intentionally keep normal screens.
+Check that its scene is enabled. When a workstation is too high, too low, obstructed, or cannot be approached safely, a short notice above the hotbar says why; with height logic enabled, the normal screen opens instead. Leave enough space to stand at the working side of the block. Chests and barrels intentionally keep normal screens.
 
 ## How do I sit at a campfire?
 
