@@ -28,11 +28,3 @@ displayTest="IGNORE_ALL_VERSION"
     versionRange="${minecraft_version_range}"
     ordering="NONE"
     side="BOTH"
-
-# Optional: with it, the settings get a nicer screen of their own; without it, the mod's own simple settings screen is used.
-[[dependencies.${mod_id}]]
-    modId="cloth_config"
-    mandatory=false
-    versionRange="[11,)"
-    ordering="NONE"
-    side="CLIENT"

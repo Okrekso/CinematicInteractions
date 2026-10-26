@@ -9,9 +9,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
 
 /**
- * The player's own settings (config/cinematic-client.toml). Without Cloth Config they are edited on
- * {@link SettingsScreen}; with it, on {@link ClothScreen}. Write them through {@link #set}. The client-only choice is captured on connection; other values
- * are read where they are used.
+ * The player's own settings (config/cinematic-client.toml), edited on {@link SettingsScreen}. Write them through
+ * {@link #set}. The client-only choice is captured on connection; other values are read where they are used.
  */
 public final class Settings {
     private Settings() {}
@@ -35,6 +34,7 @@ public final class Settings {
     static final ForgeConfigSpec.BooleanValue LIVING_CAMERA;
     static final ForgeConfigSpec.BooleanValue CAMERA_SHAKE;
     static final ForgeConfigSpec.BooleanValue SCREEN_FLASH;
+    static final ForgeConfigSpec.BooleanValue REDUCE_MOTION;
     static final ForgeConfigSpec.BooleanValue CLIENT_ONLY_MODE;
     static final ForgeConfigSpec.BooleanValue SERVER_HINT_SEEN;
     static final ForgeConfigSpec.BooleanValue DEVELOPER_MODE;
@@ -44,7 +44,7 @@ public final class Settings {
         b.translation("cinematic.configuration.scenes").push("scenes");
         HEIGHT_LOGIC = b.comment("When a block's work cannot be reached from where the player stands (too high, too far, covered),",
                         "true opens the block's own window instead of the scene; false only says why, over the crosshair.")
-                .translation("cinematic.configuration.heightLogic").define("heightLogic", true);
+                .translation("cinematic.configuration.heightLogic").define("heightLogic", false);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
             String key = key(kind);
@@ -86,6 +86,8 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        REDUCE_MOTION = b.comment("Turns the letterbox bars, the breathing camera, the shake and the flashes off at once, whatever they are set to.")
+                .translation("cinematic.configuration.reduceMotion").define("reduceMotion", false);
         b.pop();
         b.translation("cinematic.configuration.multiplayer").push("multiplayer");
         CLIENT_ONLY_MODE = b.comment("On a server without Cinematic Interactions, show local scenes over supported vanilla menus. "
@@ -181,25 +183,26 @@ public final class Settings {
         return get(LOOK_TOGGLES);
     }
 
+    // (reduce motion turns every effect off, whatever each is set to)
     public static boolean letterbox() {
-        return get(LETTERBOX);
+        return get(LETTERBOX) && !get(REDUCE_MOTION);
     }
 
     public static boolean livingCamera() {
-        return get(LIVING_CAMERA);
+        return get(LIVING_CAMERA) && !get(REDUCE_MOTION);
     }
 
     public static boolean cameraShake() {
-        return get(CAMERA_SHAKE);
+        return get(CAMERA_SHAKE) && !get(REDUCE_MOTION);
     }
 
     public static boolean screenFlash() {
-        return get(SCREEN_FLASH);
+        return get(SCREEN_FLASH) && !get(REDUCE_MOTION);
     }
 
     // Forge 1.20.1 writes the file on every set() and reloads it from a watcher thread. A reload that reads the file
     // while a later write is under way puts an older value back in memory, or "corrects" the half-read file to the
-    // defaults and saves those over it (Cloth's Save sets many values at once). Values set in the last few seconds
+    // defaults and saves those over it (Done on the settings screen sets many values at once). Values set in the last few seconds
     // are therefore set again after any reload, on the game thread.
     private static final Map<ForgeConfigSpec.ConfigValue<?>, Object> RECENT = new LinkedHashMap<>();
     private static long recentUntil;

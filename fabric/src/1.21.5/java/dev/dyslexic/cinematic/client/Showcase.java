@@ -2424,26 +2424,18 @@ public final class Showcase {
             act = "o";
             closeWindow();
             Minecraft mc = Minecraft.getInstance();
-            Screen screen = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cloth-config") ? ClothScreen.create(null) : new SettingsScreen(null);
-            mc.setScreen(screen);
-            // (NeoForge's own screen goes straight on to the one settings file there is)
-            check("the settings screen opens", mc.screen != null, mc.screen == null ? "-" : mc.screen.getClass().getName());
+            mc.setScreen(new SettingsScreen(null));
+            check("the settings screen opens", mc.screen instanceof SettingsScreen, mc.screen == null ? "-" : mc.screen.getClass().getName());
             pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() - 4);
         });
-        step(20, () -> shot("o1_settings_scenes"));
-        // over the height logic switch, for its tooltip
-        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.3, 143));
-        step(16, () -> shot("o2_settings_tooltip"));
-        step(2, () -> {
-            Minecraft mc = Minecraft.getInstance();
-            pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6);
-            mc.screen.mouseScrolled(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6, 0, -6);
-        });
-        step(20, () -> shot("o3_settings_blocks"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.interface").getString()));
-        step(16, () -> shot("o4_settings_interface"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.camera").getString()));
-        step(16, () -> shot("o5_settings_camera"));
+        step(20, () -> shot("o1_settings_general"));
+        // over the first option, for its description under the list
+        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.4, 78));
+        step(16, () -> shot("o2_settings_description"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.stations").getString()));
+        step(16, () -> shot("o3_settings_stations"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.camera").getString()));
+        step(16, () -> shot("o4_settings_camera"));
         step(2, () -> Minecraft.getInstance().setScreen(null));
 
         // the height logic off: no window, a word on why

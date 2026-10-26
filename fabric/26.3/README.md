@@ -37,8 +37,8 @@ Cinematic Interactions поддерживаемые станции открыв�
 Нужны Minecraft **26.3**, Java **25**, Fabric Loader **0.19.5+** и Fabric API **0.163.0+26.3**.
 Для полного режима один и тот же JAR устанавливается в `mods` клиента и сервера. Пробный клиентский режим
 работает с этим JAR только на клиенте при включённом переключателе.
-Для доступа к настройкам через список модов установите Mod Menu; Cloth Config добавляет экран с вкладками,
-а при его отсутствии используется встроенный экран.
+Для доступа к настройкам через список модов установите Mod Menu. Экран настроек с поиском и вкладками
+встроен в мод, Cloth Config не нужен.
 
 Профили из NeoForge можно скопировать в `config`: `cinematic-table-layouts.json`,
 `cinematic-furnace-layouts.json`, `cinematic-surface-layouts.json`, `cinematic-spatial-layouts.json`.
@@ -55,7 +55,7 @@ $env:JAVA_HOME = 'путь к JDK 25'
 
 Игровой JAR: `build/libs/Cinematic Interaction-Fabric-26.3-0.18.28.jar`.
 Зависимости: Fabric Loader **0.19.5+**, Fabric API **0.163.0+26.3**. Для полного режима один и тот же JAR нужен на клиенте и сервере; пробный клиентский режим работает без серверного мода.
-Cloth Config и Mod Menu необязательны; без Cloth Config доступен встроенный экран настроек.
+Mod Menu необязателен; Cloth Config больше не используется.
 
 ## Проверка
 

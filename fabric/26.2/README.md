@@ -20,8 +20,8 @@ NeoForge: сцены станций, редакторы, режим разраб
 Новая сборка 0.18.4 с клиентским режимом: `build/previews/CinematicInteraction-0.18.4-Fabric-26.2-client-only.jar`.
 Опубликованный JAR не заменён.
 
-Mod Menu добавляет кнопку настроек; Cloth Config — экран с вкладками. Оба дополнения необязательны.
-Без Cloth Config используется встроенный экран. Настройки находятся в `config/cinematic-client.json`.
+Mod Menu добавляет кнопку настроек и необязателен. Экран настроек с поиском и вкладками встроен в мод,
+Cloth Config не нужен. Настройки находятся в `config/cinematic-client.json`.
 Локальные профили совместимы с NeoForge и Fabric 26.3:
 
 - `cinematic-table-layouts.json`;
@@ -45,7 +45,7 @@ $env:JAVA_HOME = 'путь к JDK 25'
 
 `-PwithPunchy` подключает только тестовый Punchy 2.8f для 26.2. `-PwithShaders` добавляет
 Iris 1.11.4 и Sodium 0.9.2; встроенные библиотеки Iris извлекаются автоматически.
-Cloth Config 26.2.155 и Mod Menu 20.0.3 подключаются к игре только с `-PwithSettings`.
+Mod Menu 20.0.3 подключается к игре только с `-PwithSettings`.
 `-Pfrom=<акт>` начинает проверку с выбранной станции, `-Ponly=true` завершает её после этого акта,
 `-PeditorBatch=true` пропускает повторяющиеся проверки высоты, `-PtraceMixins` экспортирует преобразованные классы.
 

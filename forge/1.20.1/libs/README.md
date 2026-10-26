@@ -1,1 +1,0 @@
-`cloth-config-11.1.136-forge.jar` is an optional compile-time dependency for the Forge 1.20.1 source project. It is not bundled in the Cinematic Interactions release JAR. The library's LGPL-3.0 license is included inside that JAR as `LICENSE.md`.

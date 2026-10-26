@@ -13,7 +13,6 @@ dependencies {
     implementation 'net.fabricmc:fabric-loader:0.19.5'
     implementation 'net.fabricmc.fabric-api:fabric-api:0.163.0+26.3'
     if (project.hasProperty('withPunchy')) runtimeOnly 'maven.modrinth:8aoMKplv:ZTKLyIXH'
-    compileOnly 'maven.modrinth:cloth-config:fg2uyxOW'
     compileOnly 'maven.modrinth:modmenu:kyy7dbrZ'
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
     // Optional native APIs; none of these mods are packaged in the release JAR.
@@ -30,7 +29,6 @@ dependencies {
     if (project.hasProperty('withInventoryEffects')) runtimeOnly 'maven.modrinth:inventory-interactions:9dCHnYUV'
     if (project.hasProperty('withNoXpAnvils')) runtimeOnly files(fileTree('test-mods/no-xp') { include '*.jar' })
     if (project.hasProperty('withSettings')) {
-        runtimeOnly 'maven.modrinth:cloth-config:fg2uyxOW'
         runtimeOnly 'maven.modrinth:modmenu:kyy7dbrZ'
     }
     if (project.hasProperty('withShaders')) {

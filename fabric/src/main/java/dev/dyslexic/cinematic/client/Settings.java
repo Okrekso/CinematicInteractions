@@ -7,8 +7,8 @@ import java.util.Map;
 import dev.dyslexic.cinematic.client.ClientConfig;
 
 /**
- * The player's own settings (config/cinematic-client.json). Mod Menu opens {@link SettingsScreen}, or
- * {@link ClothScreen} when Cloth Config is present. Values are read where used, so changes apply at once.
+ * The player's own settings (config/cinematic-client.json), edited on {@link SettingsScreen}. Values are read where
+ * used, so changes apply at once.
  */
 public final class Settings {
     private Settings() {}
@@ -30,13 +30,14 @@ public final class Settings {
     static final ClientConfig.BooleanValue LIVING_CAMERA;
     static final ClientConfig.BooleanValue CAMERA_SHAKE;
     static final ClientConfig.BooleanValue SCREEN_FLASH;
+    static final ClientConfig.BooleanValue REDUCE_MOTION;
 
     static {
         ClientConfig.Builder b = new ClientConfig.Builder();
         b.translation("cinematic.configuration.scenes").push("scenes");
         HEIGHT_LOGIC = b.comment("When a block's work cannot be reached from where the player stands (too high, too far, covered),",
                         "true opens the block's own window instead of the scene; false only says why, over the crosshair.")
-                .translation("cinematic.configuration.heightLogic").define("heightLogic", true);
+                .translation("cinematic.configuration.heightLogic").define("heightLogic", false);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
             String key = key(kind);
@@ -74,6 +75,8 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        REDUCE_MOTION = b.comment("Turns the letterbox bars, the breathing camera, the shake and the flashes off at once, whatever they are set to.")
+                .translation("cinematic.configuration.reduceMotion").define("reduceMotion", false);
         b.pop();
         SPEC = b.build();
     }
@@ -145,19 +148,20 @@ public final class Settings {
         return get(LOOK_TOGGLES);
     }
 
+    // (reduce motion turns every effect off, whatever each is set to)
     public static boolean letterbox() {
-        return get(LETTERBOX);
+        return get(LETTERBOX) && !get(REDUCE_MOTION);
     }
 
     public static boolean livingCamera() {
-        return get(LIVING_CAMERA);
+        return get(LIVING_CAMERA) && !get(REDUCE_MOTION);
     }
 
     public static boolean cameraShake() {
-        return get(CAMERA_SHAKE);
+        return get(CAMERA_SHAKE) && !get(REDUCE_MOTION);
     }
 
     public static boolean screenFlash() {
-        return get(SCREEN_FLASH);
+        return get(SCREEN_FLASH) && !get(REDUCE_MOTION);
     }
 }

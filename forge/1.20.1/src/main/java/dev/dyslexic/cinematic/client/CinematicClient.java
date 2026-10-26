@@ -37,7 +37,6 @@ import net.minecraftforge.event.level.LevelEvent;
 import net.minecraftforge.eventbus.api.EventPriority;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 
@@ -63,11 +62,9 @@ public final class CinematicClient {
                 ShelfLayoutBooks::new));
         ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Settings.SPEC);
         modBus.addListener(Settings::onReloading);
-        // the settings screen: Cloth Config's when it is installed, the mod's own simple one otherwise (Forge 1.20.1 has
-        // no settings screen of its own to build on)
+        // the settings screen (Forge 1.20.1 has no settings screen of its own to build on)
         ModLoadingContext.get().registerExtensionPoint(ConfigScreenHandler.ConfigScreenFactory.class,
-                () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> ModList.get().isLoaded("cloth_config")
-                        ? ClothScreen.create(parent) : new SettingsScreen(parent)));
+                () -> new ConfigScreenHandler.ConfigScreenFactory((mc, parent) -> new SettingsScreen(parent)));
         MinecraftForge.EVENT_BUS.register(Events.class);
         FirstPersonBodyCompat.register();
     }

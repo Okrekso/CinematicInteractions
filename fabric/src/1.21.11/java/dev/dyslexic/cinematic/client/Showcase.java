@@ -1847,43 +1847,18 @@ public final class Showcase {
     private static void developerOptionsScript() {
         step(8, () -> {
             Minecraft mc = Minecraft.getInstance();
-            mc.setScreen(net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cloth-config")
-                    ? ClothScreen.create(null) : new SettingsScreen(null));
+            mc.setScreen(new SettingsScreen(null));
         });
-        step(15, () -> check("developer settings section opens", clickSettingsSection(Minecraft.getInstance().screen,
-                Component.translatable("cinematic.configuration.developer").getString()), "Cloth tab or NeoForge section"));
+        step(15, () -> {
+            check("advanced settings tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                    Component.translatable("cinematic.settings.tab.advanced").getString()), "tab button");
+            if (Minecraft.getInstance().screen instanceof SettingsScreen settings) settings.showDeveloper();
+        });
         step(18, () -> {
-            if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cloth-config")) verifyProfileControls();
+            verifyProfileControls();
             shot("pz_developer_settings");
             check("developer mode defaults off", !Settings.DEVELOPER_MODE.getDefault(), "editor access is opt-in");
         });
-        step(3, () -> Minecraft.getInstance().setScreen(new DeveloperSettingsScreen(null)));
-        for (int page = 0; page < 3; page++) {
-            int currentPage = page;
-            step(4, () -> {
-                var screen = Minecraft.getInstance().screen;
-                var buttons = screen.children().stream().filter(net.minecraft.client.gui.components.Button.class::isInstance)
-                        .map(net.minecraft.client.gui.components.Button.class::cast).toList();
-                for (int row = 0; row < 6; row++) {
-                    StationKind kind = StationKind.values()[currentPage * 6 + row];
-                    int selected = LayoutProfiles.selected(kind);
-                    var button = buttons.get(row + 1);
-                    button.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-                    check("fallback profile cycles " + kind, LayoutProfiles.selected(kind) == (selected + 1) % 3, "saved JSON selection");
-                    button.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-                    button.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-                    check("fallback profile restores " + kind, LayoutProfiles.selected(kind) == selected, "original profile restored");
-                }
-                if (currentPage == 0) {
-                    boolean mode = Settings.DEVELOPER_MODE.get();
-                    buttons.getFirst().onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-                    check("fallback developer switch", Settings.DEVELOPER_MODE.get() != mode, "same developer gate");
-                    buttons.getFirst().onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-                    shot("pz_fallback_developer_settings");
-                }
-                buttons.getLast().onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-            });
-        }
         step(3, () -> Minecraft.getInstance().setScreen(null));
     }
 
@@ -1902,7 +1877,8 @@ public final class Showcase {
         try {
             if (first instanceof net.minecraft.client.gui.components.CycleButton<?> cycle) {
                 cycle.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
-                check("NeoForge profile button saves", LayoutProfiles.selected(StationKind.TABLE) == next, "shared JSON selection");
+                check("profile choice waits for Done", LayoutProfiles.selected(StationKind.TABLE) == selected && cycle.getValue().equals(next),
+                        "cancel does not write a profile");
                 while (!cycle.getValue().equals(selected)) cycle.onPress(new net.minecraft.client.input.KeyEvent(GLFW.GLFW_KEY_ENTER, 0, 0));
             } else {
                 first.getClass().getMethod("setValue", int.class).invoke(first, next + 1);
@@ -3611,28 +3587,23 @@ public final class Showcase {
             act = "o";
             closeWindow();
             Minecraft mc = Minecraft.getInstance();
-            Screen screen = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cloth-config") ? ClothScreen.create(null) : new SettingsScreen(null);
-            mc.setScreen(screen);
-            // (NeoForge's own screen goes straight on to the one settings file there is)
-            check("the settings screen opens", mc.screen != null, mc.screen == null ? "-" : mc.screen.getClass().getName());
+            mc.setScreen(new SettingsScreen(null));
+            check("the settings screen opens", mc.screen instanceof SettingsScreen, mc.screen == null ? "-" : mc.screen.getClass().getName());
             pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() - 4);
         });
-        step(20, () -> shot("o1_settings_scenes"));
-        // over the height logic switch, for its tooltip
-        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.3, 143));
-        step(16, () -> shot("o2_settings_tooltip"));
-        step(2, () -> {
-            Minecraft mc = Minecraft.getInstance();
-            pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6);
-            mc.screen.mouseScrolled(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6, 0, -6);
-        });
-        step(20, () -> shot("o3_settings_blocks"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.interface").getString()));
-        step(16, () -> shot("o4_settings_interface"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.camera").getString()));
-        step(16, () -> shot("o5_settings_camera"));
-        step(2, () -> check("developer tab opens", clickSettingsSection(Minecraft.getInstance().screen, Component.translatable("cinematic.configuration.developer").getString()), "profile selectors available"));
-        step(16, () -> { verifyProfileControls(); shot("o5_settings_developer"); });
+        step(20, () -> shot("o1_settings_general"));
+        // over the first option, for its description under the list
+        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.4, 78));
+        step(16, () -> shot("o2_settings_description"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.stations").getString()));
+        step(16, () -> shot("o3_settings_stations"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.camera").getString()));
+        step(16, () -> shot("o4_settings_camera"));
+        step(2, () -> check("advanced tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                Component.translatable("cinematic.settings.tab.advanced").getString()), "client-only switch visible in-game"));
+        step(16, () -> shot("o5_settings_advanced"));
+        step(2, () -> { if (Minecraft.getInstance().screen instanceof SettingsScreen settings) settings.showDeveloper(); });
+        step(16, () -> { verifyProfileControls(); shot("o6_settings_profiles"); });
         step(2, () -> Minecraft.getInstance().setScreen(null));
 
         // the height logic off: no window, a word on why

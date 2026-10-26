@@ -22,6 +22,5 @@
     "java": ">=21",
     "fabric-api": ">=0.116.17"
   },
-  "suggests": {"cloth-config": "*", "modmenu": "*"},
-  "breaks": {"cloth-config": "<15"}
+  "suggests": {"modmenu": "*"}
 }

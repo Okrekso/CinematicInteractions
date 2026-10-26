@@ -129,11 +129,10 @@ public final class CinematicClient implements ClientModInitializer {
     }
 
     /**
-     * The settings screen (NeoForge registers it as the mod's config screen; on Fabric, Mod Menu opens it): Cloth
-     * Config's when it is installed, the built-in one otherwise.
+     * The settings screen (NeoForge registers it as the mod's config screen; on Fabric, Mod Menu opens it).
      */
     public static Screen settingsScreen(Screen parent) {
-        return net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("cloth-config") ? ClothScreen.create(parent) : new SettingsScreen(parent);
+        return new SettingsScreen(parent);
     }
 
     /** NeoForge's PlayerTickEvent.Post for the local player (LocalPlayerMixin, right after Player.tick). */

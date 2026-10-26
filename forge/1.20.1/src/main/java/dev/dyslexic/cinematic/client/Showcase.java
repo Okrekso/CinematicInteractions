@@ -2834,8 +2834,11 @@ public final class Showcase {
             mc.setScreen(mod.getCustomExtension(net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class).orElseThrow()
                     .screenFunction().apply(mc, null));
         });
-        step(15, () -> check("developer settings section opens", clickSettingsSection(Minecraft.getInstance().screen,
-                Component.translatable("cinematic.configuration.developer").getString()), "Cloth tab or NeoForge section"));
+        step(15, () -> {
+            check("advanced settings tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                    Component.translatable("cinematic.settings.tab.advanced").getString()), "tab button");
+            if (Minecraft.getInstance().screen instanceof SettingsScreen settings) settings.showDeveloper();
+        });
         step(18, () -> {
             verifyProfileControls();
             shot("pz_developer_settings");
@@ -2859,7 +2862,8 @@ public final class Showcase {
         try {
             if (first instanceof net.minecraft.client.gui.components.CycleButton<?> cycle) {
                 cycle.onPress();
-                check("NeoForge profile button saves", LayoutProfiles.selected(StationKind.TABLE) == next, "shared JSON selection");
+                check("profile choice waits for Done", LayoutProfiles.selected(StationKind.TABLE) == selected && cycle.getValue().equals(next),
+                        "cancel does not write a profile");
                 while (!cycle.getValue().equals(selected)) cycle.onPress();
             } else {
                 first.getClass().getMethod("setValue", int.class).invoke(first, next + 1);
@@ -4655,29 +4659,22 @@ public final class Showcase {
             Screen screen = mod.getCustomExtension(net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class).orElseThrow()
                     .screenFunction().apply(mc, null);
             mc.setScreen(screen);
-            // (NeoForge's own screen goes straight on to the one settings file there is)
-            check("the settings screen opens", mc.screen != null, mc.screen == null ? "-" : mc.screen.getClass().getName());
+            check("the settings screen opens", mc.screen instanceof SettingsScreen, mc.screen == null ? "-" : mc.screen.getClass().getName());
             pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() - 4);
         });
-        step(20, () -> shot("o1_settings_scenes"));
-        // over the height logic switch, for its tooltip
-        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.3, 143));
-        step(16, () -> shot("o2_settings_tooltip"));
-        step(2, () -> {
-            Minecraft mc = Minecraft.getInstance();
-            pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6);
-            mc.screen.mouseScrolled(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6, -6);
-        });
-        step(20, () -> shot("o3_settings_blocks"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.interface").getString()));
-        step(16, () -> shot("o4_settings_interface"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.camera").getString()));
-        step(16, () -> shot("o5_settings_camera"));
-        step(2, () -> check("multiplayer tab opens", clickSettingsSection(Minecraft.getInstance().screen,
-                Component.translatable("cinematic.configuration.multiplayer").getString()), "client-only switch visible in-game"));
-        step(16, () -> shot("o5a_settings_multiplayer"));
-        step(2, () -> check("developer tab opens", clickSettingsSection(Minecraft.getInstance().screen, Component.translatable("cinematic.configuration.developer").getString()), "profile selectors available"));
-        step(16, () -> { verifyProfileControls(); shot("o5_settings_developer"); });
+        step(20, () -> shot("o1_settings_general"));
+        // over the first option, for its description under the list
+        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.4, 78));
+        step(16, () -> shot("o2_settings_description"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.stations").getString()));
+        step(16, () -> shot("o3_settings_stations"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.camera").getString()));
+        step(16, () -> shot("o4_settings_camera"));
+        step(2, () -> check("advanced tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                Component.translatable("cinematic.settings.tab.advanced").getString()), "client-only switch visible in-game"));
+        step(16, () -> shot("o5_settings_advanced"));
+        step(2, () -> { if (Minecraft.getInstance().screen instanceof SettingsScreen settings) settings.showDeveloper(); });
+        step(16, () -> { verifyProfileControls(); shot("o6_settings_profiles"); });
         step(2, () -> Minecraft.getInstance().setScreen(null));
 
         // the height logic off: no window, a word on why

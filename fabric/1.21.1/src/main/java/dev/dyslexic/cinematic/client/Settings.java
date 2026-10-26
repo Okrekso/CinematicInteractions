@@ -7,7 +7,7 @@ import java.util.Map;
 
 /**
  * The player's own settings (config/cinematic-client.json; NeoForge keeps the same keys in cinematic-client.toml).
- * Mod Menu opens {@link ClothScreen} when Cloth Config is installed, {@link SettingsScreen} otherwise. The client-only choice is captured on connection; other values
+ * Mod Menu opens {@link SettingsScreen}. The client-only choice is captured on connection; other values
  * are read where they are used.
  */
 public final class Settings {
@@ -33,6 +33,7 @@ public final class Settings {
     static final ClientConfig.BooleanValue LIVING_CAMERA;
     static final ClientConfig.BooleanValue CAMERA_SHAKE;
     static final ClientConfig.BooleanValue SCREEN_FLASH;
+    static final ClientConfig.BooleanValue REDUCE_MOTION;
     static final ClientConfig.BooleanValue CLIENT_ONLY_MODE;
     /** Not a setting: remembers that the server list has shown its note about the client-only mode ({@link ServerListHint}). */
     static final ClientConfig.BooleanValue SERVER_HINT_SEEN;
@@ -43,7 +44,7 @@ public final class Settings {
         b.translation("cinematic.configuration.scenes").push("scenes");
         HEIGHT_LOGIC = b.comment("When a block's work cannot be reached from where the player stands (too high, too far, covered),",
                         "true opens the block's own window instead of the scene; false only says why, over the crosshair.")
-                .translation("cinematic.configuration.heightLogic").define("heightLogic", true);
+                .translation("cinematic.configuration.heightLogic").define("heightLogic", false);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
             if (kind == StationKind.ADDON) continue;
@@ -84,6 +85,8 @@ public final class Settings {
                 .translation("cinematic.configuration.cameraShake").define("cameraShake", true);
         SCREEN_FLASH = b.comment("The screen flashes at big moments (the light of a spell, white-hot metal).")
                 .translation("cinematic.configuration.screenFlash").define("screenFlash", true);
+        REDUCE_MOTION = b.comment("Turns the letterbox bars, the breathing camera, the shake and the flashes off at once, whatever they are set to.")
+                .translation("cinematic.configuration.reduceMotion").define("reduceMotion", false);
         b.pop();
         b.translation("cinematic.configuration.multiplayer").push("multiplayer");
         CLIENT_ONLY_MODE = b.comment("On a server without Cinematic Interactions, show local scenes over supported vanilla menus. "
@@ -175,19 +178,20 @@ public final class Settings {
         return get(LOOK_TOGGLES);
     }
 
+    // (reduce motion turns every effect off, whatever each is set to)
     public static boolean letterbox() {
-        return get(LETTERBOX);
+        return get(LETTERBOX) && !get(REDUCE_MOTION);
     }
 
     public static boolean livingCamera() {
-        return get(LIVING_CAMERA);
+        return get(LIVING_CAMERA) && !get(REDUCE_MOTION);
     }
 
     public static boolean cameraShake() {
-        return get(CAMERA_SHAKE);
+        return get(CAMERA_SHAKE) && !get(REDUCE_MOTION);
     }
 
     public static boolean screenFlash() {
-        return get(SCREEN_FLASH);
+        return get(SCREEN_FLASH) && !get(REDUCE_MOTION);
     }
 }
