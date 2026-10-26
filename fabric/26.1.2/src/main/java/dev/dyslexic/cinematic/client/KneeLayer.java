@@ -24,8 +24,12 @@ import net.minecraft.world.item.equipment.Equippable;
 
 /** The raised campfire leg, split at its knee. Armor uses Minecraft's equipment layer renderer. */
 public final class KneeLayer extends RenderLayer<AvatarRenderState, PlayerModel> {
-    public static final float THIGH = -2.2f;
-    public static final float KNEE = 1.95f;
+    /**
+     * The thigh's pitch (well above level, the knee high) and the shin's bend at the knee: the shin leans
+     * forward from the knee and the foot comes down onto the ground in front of the seat.
+     */
+    public static final float THIGH = -2.1f;
+    public static final float KNEE = 1.5f;
     public static boolean bends = true;
 
     private final EquipmentLayerRenderer equipment;

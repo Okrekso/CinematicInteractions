@@ -13,8 +13,12 @@ import net.minecraftforge.client.event.EntityRenderersEvent;
 
 /** A raised knee made of a thigh and shin instead of the straight vanilla leg. */
 public final class KneeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
-    public static final float THIGH = -2.2f;
-    public static final float KNEE = 1.95f;
+    /**
+     * The thigh's pitch (well above level, the knee high) and the shin's bend at the knee: the shin leans
+     * forward from the knee and the foot comes down onto the ground in front of the seat.
+     */
+    public static final float THIGH = -2.1f;
+    public static final float KNEE = 1.5f;
 
     public KneeLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
         super(parent);

@@ -16,8 +16,8 @@ import net.minecraft.client.renderer.entity.layers.RenderLayer;
  */
 public final class KneeLayer extends RenderLayer<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> {
     /** The raised thigh, above the horizontal (the model's leg rotation), and the shin's turn at the knee from it. */
-    public static final float THIGH = -2.2f;
-    public static final float KNEE = 1.95f;
+    public static final float THIGH = -2.1f;
+    public static final float KNEE = 1.5f;
     /** For the walkthrough's before/after: the straight vanilla leg. */
     public static boolean bends = true;
 

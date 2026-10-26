@@ -2,6 +2,7 @@ package dev.dyslexic.cinematic.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.dyslexic.cinematic.client.ClientPayloads;
+import dev.dyslexic.cinematic.client.KneeLayer;
 import dev.dyslexic.cinematic.client.PropLayer;
 import dev.dyslexic.cinematic.station.StationKind;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -18,6 +19,7 @@ public abstract class PlayerRendererMixin {
     @Inject(method = "<init>", at = @At("TAIL"))
     private void cinematic$layer(EntityRendererProvider.Context context, boolean slim, CallbackInfo ci) {
         ((PlayerRenderer) (Object) this).addLayer(new PropLayer((PlayerRenderer) (Object) this));
+        ((PlayerRenderer) (Object) this).addLayer(new KneeLayer((PlayerRenderer) (Object) this));
     }
 
     @Inject(method = "render(Lnet/minecraft/client/player/AbstractClientPlayer;FFLcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At("HEAD"))

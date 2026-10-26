@@ -58,6 +58,7 @@ public final class CinematicClient {
         modBus.addListener(BrewingBottles::hideVanillaBottles);
         modBus.addListener(ShelfBooks::emptySlots);
         modBus.addListener(PropLayer::addTo);
+        modBus.addListener(KneeLayer::addTo);
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.BREWING_STAND,
                 BrewingBottles::new));
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> event.registerBlockEntityRenderer(BlockEntityType.CHISELED_BOOKSHELF,

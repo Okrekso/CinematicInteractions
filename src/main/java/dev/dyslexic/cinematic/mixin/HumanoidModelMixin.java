@@ -4,10 +4,12 @@ import dev.dyslexic.cinematic.client.AnvilStation;
 import dev.dyslexic.cinematic.client.ClientMenus;
 import dev.dyslexic.cinematic.client.ClientPayloads;
 import dev.dyslexic.cinematic.client.GrindstoneStation;
+import dev.dyslexic.cinematic.client.KneeLayer;
 import dev.dyslexic.cinematic.client.StonecutterStation;
 import dev.dyslexic.cinematic.client.ShelfBooks;
 import dev.dyslexic.cinematic.station.StationKind;
 import net.minecraft.client.model.HumanoidModel;
+import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -15,6 +17,7 @@ import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -43,9 +46,31 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
     @Final
     public ModelPart leftLeg;
 
+    @Shadow
+    @Final
+    public ModelPart body;
+
+    @Shadow
+    @Final
+    public ModelPart head;
+
+    /** How far the body leans back from the hips while sitting by a campfire, on the left hand. */
+    @Unique
+    private static final float CINEMATIC$LEAN = 0.45f;
+
+    /** The body and head were moved back by {@link #cinematic$leanBack} (Minecraft resets neither of their z itself). */
+    @Unique
+    private boolean cinematic$leaned;
+
     @Inject(method = "setupAnim(Lnet/minecraft/world/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
     private void cinematic$stationPose(T entity, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw,
             float headPitch, CallbackInfo ci) {
+        if (cinematic$leaned) {
+            // (the model is shared by every player it draws: the next one sits up straight again)
+            body.z = 0f;
+            head.z = 0f;
+            cinematic$leaned = false;
+        }
         if (!(entity instanceof Player)) {
             return;
         }
@@ -74,12 +99,29 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
                 leftLeg.xRot = -1.45f;
                 leftLeg.yRot = -0.22f;
                 leftLeg.zRot = 0f;
-                rightArm.xRot = -1.05f + Mth.sin(t * 0.6f) * 0.03f;
-                rightArm.yRot = -0.1f;
-                rightArm.zRot = 0.05f;
-                leftArm.xRot = 0.35f;
-                leftArm.yRot = 0f;
-                leftArm.zRot = -0.32f;
+                if (KneeLayer.sitting(entity.getId())) {
+                    // KneeLayer draws this leg bent at the knee instead (the renderer shows every part again next frame)
+                    rightLeg.xRot = KneeLayer.THIGH;
+                    rightLeg.visible = false;
+                    if ((Object) this instanceof PlayerModel<?> player) {
+                        player.rightPants.visible = false;
+                    }
+                    cinematic$leanBack();
+                    // leaning back, the right forearm lies over the raised knee and the left hand is on the ground behind
+                    rightArm.xRot = -1.5f + Mth.sin(t * 0.6f) * 0.03f;
+                    rightArm.yRot = -0.3f;
+                    rightArm.zRot = 0.05f;
+                    leftArm.xRot = 0.4f;
+                    leftArm.yRot = 0f;
+                    leftArm.zRot = -0.25f;
+                } else {
+                    rightArm.xRot = -1.05f + Mth.sin(t * 0.6f) * 0.03f;
+                    rightArm.yRot = -0.1f;
+                    rightArm.zRot = 0.05f;
+                    leftArm.xRot = 0.35f;
+                    leftArm.yRot = 0f;
+                    leftArm.zRot = -0.32f;
+                }
             }
             case LOOM -> {
                 // throwing the shuttle across the warp from hand to hand
@@ -158,5 +200,24 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
                 leftArm.zRot = -0.06f;
             }
         }
+    }
+
+    /**
+     * Tilts the body back about the hips (the legs stay where they are): the torso turns, and the head and the
+     * shoulders move with its top, 12 and 10 pixels above the hips.
+     */
+    @Unique
+    private void cinematic$leanBack() {
+        float cos = Mth.cos(CINEMATIC$LEAN), sin = Mth.sin(CINEMATIC$LEAN);
+        body.xRot = -CINEMATIC$LEAN;
+        body.y = 12f - 12f * cos;
+        body.z = 12f * sin;
+        head.y = body.y;
+        head.z = body.z;
+        rightArm.y = 12f - 10f * cos;
+        rightArm.z = 10f * sin;
+        leftArm.y = rightArm.y;
+        leftArm.z = rightArm.z;
+        cinematic$leaned = true;
     }
 }
