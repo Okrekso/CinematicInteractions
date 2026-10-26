@@ -1,0 +1,101 @@
+plugins {
+    id 'fabric-loom' version '1.17.21'
+}
+
+version = mod_version
+group = 'dev.dyslexic.cinematic'
+base.archivesName = 'Cinematic Interaction-Fabric-1.20.1'
+
+repositories {
+    maven { url = 'https://maven.parchmentmc.org/' }
+    maven { url = 'https://maven.shedaniel.me/' }
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    // Mojang names with Parchment parameters: exactly the names of the NeoForge 1.21.1 sources this port follows.
+    mappings loom.layered {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${minecraft_version}:${parchment_mappings_version}@zip")
+    }
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+    // Optional: Mod Menu's settings button. It is not bundled or required.
+    modCompileOnly "com.terraformersmc:modmenu:${modmenu_version}"
+    if (project.hasProperty('withSettings')) {
+        modRuntimeOnly "com.terraformersmc:modmenu:${modmenu_version}"
+    }
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    // Optional integrations, compiled against their Fabric 1.20.1 builds on Modrinth and never bundled: JEI 15.74.0.230
+    // (the plugin is found through the "jei_mod_plugin" entrypoint), Inventory Particles 3.2.0 / Inventory
+    // Interactions 2.2.0 and Polymorph 0.49.11.
+    modCompileOnly 'maven.modrinth:jei:NKdcms4C'
+    modCompileOnly 'maven.modrinth:inventory-particles:JDwRa5Wi'
+    modCompileOnly 'maven.modrinth:inventory-interactions:t3ypx0EB'
+    modCompileOnly 'maven.modrinth:polymorph:YGcahGOD'
+    // Local test mods for a run (Iris, Sodium, JEI ...): nothing in this folder goes into the release JAR.
+    if (project.hasProperty('withTestMods')) {
+        modRuntimeOnly fileTree("test-mods/${project.findProperty('withTestMods')}") { include '*.jar' }
+    }
+}
+
+loom {
+    accessWidenerPath = file('src/main/resources/cinematic.accesswidener')
+    runs {
+        client { client(); runDir 'run/client' }
+        server { server(); runDir 'run/server'; programArg '--nogui' }
+        clientOnlySmoke {
+            client()
+            runDir "run/${project.findProperty('clientOnlySmokeDir') ?: 'client-only-smoke'}"
+            vmArg '-Dcinematic.clientOnlySmoke=true'
+            programArgs '--width', '1280', '--height', '720'
+        }
+        if (project.hasProperty('joinTest')) {
+            // A real network join (packets are encoded, unlike singleplayer): run joinServer, then joinClient.
+            joinServer { server(); runDir 'run/join-server'; programArg '--nogui' }
+            joinClient {
+                client()
+                runDir 'run/join-client'
+                programArgs '--quickPlayMultiplayer', '127.0.0.1:25589'
+                if (project.hasProperty('serverSmoke')) vmArg '-Dcinematic.serverSmoke=true'
+            }
+        }
+        showcase {
+            client()
+            runDir "run/${project.findProperty('showcaseDir') ?: 'showcase'}"
+            vmArg '-Dcinematic.showcase=true'
+            if (project.hasProperty('traceMixins')) vmArg '-Dmixin.debug.export=true'
+            vmArg "-Dcinematic.showcase.world=${project.findProperty('showcaseWorld') ?: 'cinematic-showcase'}"
+            vmArg "-Dcinematic.showcase.from=${project.findProperty('from') ?: '0'}"
+            vmArg "-Dcinematic.showcase.only=${project.findProperty('only') ?: 'false'}"
+            vmArg "-Dcinematic.showcase.editorBatch=${project.findProperty('editorBatch') ?: 'false'}"
+            programArgs '--width', "${project.findProperty('showcaseWidth') ?: '1600'}", '--height', "${project.findProperty('showcaseHeight') ?: '900'}"
+        }
+    }
+}
+
+sourceSets.main.resources {
+    // textures, translations, the hammer model and the icon are shared with the Forge 1.20.1 port (same game version)
+    srcDirs = ['src/main/resources', '../../forge/1.20.1/src/main/resources']
+    exclude 'META-INF/**', 'cinematic.mixins.json', 'pack.mcmeta'
+}
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    withSourcesJar()
+}
+tasks.named('sourcesJar') { duplicatesStrategy = DuplicatesStrategy.EXCLUDE }
+jar { from('../../LICENSE') }
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    options.compilerArgs += ['-Xmaxerrs', '1000']
+}
+
+// (The add-on example of the NeoForge project is written for 1.21's game code, so it is not compiled here.)
