@@ -14,7 +14,6 @@ import net.minecraft.client.renderer.entity.layers.EquipmentLayerRenderer;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
 import net.minecraft.client.renderer.entity.state.AvatarRenderState;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
-import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.EquipmentClientInfo;
 import net.minecraft.core.Direction;
 import net.minecraft.core.component.DataComponents;
@@ -55,10 +54,12 @@ public final class KneeLayer extends RenderLayer<AvatarRenderState, PlayerModel>
         if (!sitting(player.id)) return;
         pose.pushPose();
         getParentModel().rightLeg.translateAndRotate(pose);
+        // the hurt flash, as on the rest of the body
+        int overlay = net.minecraft.client.renderer.entity.LivingEntityRenderer.getOverlayCoords(player, 0f);
         if (!player.isInvisible) {
-            submitParts(nodes, pose, light, skinThigh, skinShin, RenderTypes.entitySolid(player.skin.body().texturePath()));
+            submitParts(nodes, pose, light, overlay, skinThigh, skinShin, RenderTypes.entitySolid(player.skin.body().texturePath()));
             if (player.showRightPants) {
-                submitParts(nodes, pose, light, pantsThigh, pantsShin,
+                submitParts(nodes, pose, light, overlay, pantsThigh, pantsShin,
                         RenderTypes.entityTranslucent(player.skin.body().texturePath()));
             }
         }
@@ -69,11 +70,11 @@ public final class KneeLayer extends RenderLayer<AvatarRenderState, PlayerModel>
         pose.popPose();
     }
 
-    private static void submitParts(SubmitNodeCollector nodes, PoseStack pose, int light, ModelPart thigh,
+    private static void submitParts(SubmitNodeCollector nodes, PoseStack pose, int light, int overlay, ModelPart thigh,
             ModelPart shin, net.minecraft.client.renderer.rendertype.RenderType type) {
         pose.pushPose();
         pose.scale(1f, 8f / 6f, 1f);
-        nodes.submitModelPart(thigh, pose, type, light, OverlayTexture.NO_OVERLAY, null);
+        nodes.submitModelPart(thigh, pose, type, light, overlay, null);
         pose.popPose();
         pose.pushPose();
         pose.translate(0, 6f / 16f, 0);
@@ -82,7 +83,7 @@ public final class KneeLayer extends RenderLayer<AvatarRenderState, PlayerModel>
         //?} else if <26.3 {
         /*pose.mulPose(com.mojang.math.Axis.XP.rotation(KNEE));
         *///?}
-        nodes.submitModelPart(shin, pose, type, light, OverlayTexture.NO_OVERLAY, null);
+        nodes.submitModelPart(shin, pose, type, light, overlay, null);
         pose.popPose();
     }
 

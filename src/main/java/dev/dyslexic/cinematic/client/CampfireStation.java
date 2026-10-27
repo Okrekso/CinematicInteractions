@@ -366,8 +366,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
                 if (carried.isEmpty() && !food.get(picked).isEmpty()) { target = Target.FOOD; hoverSpot = picked; aim = spot(picked); }
                 else if (!carried.isEmpty()) {
                     target = Target.PLACE;
-                    Minecraft mc = Minecraft.getInstance();
-                    boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
+                    boolean cookable = cookable(carried);
                     placeSpot = cookable && food.get(picked).isEmpty() ? picked : -1;
                     aim = spot(picked);
                 }
@@ -394,8 +393,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             return;
         }
         target = Target.PLACE;
-        Minecraft mc = Minecraft.getInstance();
-        boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
+        boolean cookable = cookable(carried);
         double best = Double.MAX_VALUE;
         for (int j = 0; j < CampfireActions.SPOTS && cookable; j++) {
             double d = hit.distanceToSqr(spot(j));
@@ -478,9 +476,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             return lines;
         }
         if (target == Target.PLACE && placeSpot < 0) {
-            Minecraft mc = Minecraft.getInstance();
-            boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
-            return List.of(Component.translatable(cookable ? "cinematic.campfire.full" : "cinematic.campfire.not_food").withStyle(ChatFormatting.RED));
+            return List.of(Component.translatable(cookable(carried) ?"cinematic.campfire.full" : "cinematic.campfire.not_food").withStyle(ChatFormatting.RED));
         }
         return null;
     }
@@ -556,6 +552,18 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             railShown[i] = new double[]{x, y, at[0] - 15, at[1] - 8};
             //?}
         }
+    }
+
+    /** Whether the food cooks on a campfire. Not getCookableRecipe: it answers nothing once all four spots are taken. */
+    private static boolean cookable(ItemStack carried) {
+        Level level = Minecraft.getInstance().level;
+        //? if >=1.21 {
+        return level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CAMPFIRE_COOKING,
+                new net.minecraft.world.item.crafting.SingleRecipeInput(carried), level).isPresent();
+        //?} else if <1.21 {
+        /*return level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CAMPFIRE_COOKING,
+                new net.minecraft.world.SimpleContainer(carried), level).isPresent();
+        *///?}
     }
 
     private static int color(float alpha, int red, int green, int blue) {
