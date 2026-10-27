@@ -1,0 +1,123 @@
+plugins {
+    id 'fabric-loom' version '1.17.21'
+}
+
+version = mod_version
+group = 'dev.dyslexic.cinematic'
+base.archivesName = 'Cinematic Interaction-Fabric-1.21.11'
+repositories {
+    maven { url = 'https://maven.terraformersmc.com/releases/' }
+    maven { url = 'https://api.modrinth.com/maven'; content { includeGroup 'maven.modrinth' } }
+}
+dependencies {
+    minecraft 'com.mojang:minecraft:1.21.11'
+    mappings loom.officialMojangMappings()
+    modImplementation 'net.fabricmc:fabric-loader:0.17.3'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.141.6+1.21.11'
+    if (project.hasProperty('withPunchy')) modRuntimeOnly 'maven.modrinth:8aoMKplv:eJb6UKkD'
+    modCompileOnly 'com.terraformersmc:modmenu:17.0.1'
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+    // Optional native APIs; none of these mods are packaged in the release JAR.
+    modCompileOnly 'maven.modrinth:inventory-particles:g8u9pJD7'
+    modCompileOnly 'maven.modrinth:inventory-interactions:HCeV4fPP'
+    modCompileOnly 'maven.modrinth:polymorph-unofficial-port:NG5AcziD'
+    modCompileOnly 'maven.modrinth:jei:SSgIBCFq'
+    if (project.hasProperty('withPolymorph')) modRuntimeOnly 'maven.modrinth:polymorph-unofficial-port:NG5AcziD'
+    if (project.hasProperty('withJei')) modRuntimeOnly 'maven.modrinth:jei:SSgIBCFq'
+    if (project.hasProperty('withInventoryParticles') || project.hasProperty('withInventoryEffects')) {
+        modRuntimeOnly 'maven.modrinth:inventory-particles:g8u9pJD7'
+        modRuntimeOnly 'maven.modrinth:mossylib:qmnlT27V'
+    }
+    if (project.hasProperty('withInventoryEffects')) modRuntimeOnly 'maven.modrinth:inventory-interactions:HCeV4fPP'
+    if (project.hasProperty('withSettings')) {
+        modRuntimeOnly 'com.terraformersmc:modmenu:17.0.1'
+    }
+    if (project.hasProperty('withShaders')) {
+        modRuntimeOnly 'maven.modrinth:iris:ka9PDlsN'
+        modRuntimeOnly 'maven.modrinth:sodium:rkdTcxoT'
+        runtimeOnly files('test-mods/libraries/antlr4-runtime-4.13.1.jar',
+                'test-mods/libraries/glsl-transformer-3.0.0-pre3.jar', 'test-mods/libraries/jcpp-1.4.14.jar')
+    }
+}
+
+// Development launches do not expose Iris's embedded parser libraries as ordinary Java libraries.
+tasks.register('prepareIrisRuntime') {
+    onlyIf { project.hasProperty('withShaders') }
+    doLast {
+        def iris = configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.find {
+            it.moduleVersion.id.group == 'maven.modrinth' && it.name == 'iris'
+        }
+        if (iris == null) throw new GradleException('Iris runtime artifact is missing')
+        copy {
+            from zipTree(iris.file)
+            include 'META-INF/jars/antlr4*.jar', 'META-INF/jars/glsl-transformer*.jar', 'META-INF/jars/jcpp*.jar'
+            eachFile { path = name }
+            includeEmptyDirs = false
+            into 'test-mods/libraries'
+        }
+    }
+}
+tasks.matching { it.name in ['configureLaunch', 'generateDLIConfig'] }.configureEach {
+    dependsOn 'prepareIrisRuntime'
+}
+loom {
+    accessWidenerPath = file('src/main/resources/cinematic.accesswidener')
+    runs {
+        client { client(); runDir 'run/client' }
+        clientOnlySmoke { client(); runDir 'run/client-only-smoke'; vmArg '-Dcinematic.clientOnlySmoke=true' }
+        server { server(); runDir 'run/server'; programArg '--nogui' }
+        if (project.hasProperty('joinTest')) {
+            // A real network join (packets are encoded, unlike singleplayer): run joinServer, then joinClient.
+            joinServer { server(); runDir 'run/join-server'; programArg '--nogui' }
+            joinClient { client(); runDir 'run/join-client'; programArgs '--quickPlayMultiplayer', '127.0.0.1:25589' }
+        }
+        showcase {
+            client()
+            runDir "run/${project.hasProperty('withShaders') ? 'showcase-iris' : 'showcase'}"
+            vmArg '-Dcinematic.showcase=true'
+            if (project.hasProperty('traceMixins')) vmArg '-Dmixin.debug.export=true'
+            vmArg "-Dcinematic.showcase.world=cinematic-showcase-${System.currentTimeMillis()}"
+            vmArg "-Dcinematic.showcase.from=${project.findProperty('from') ?: '0'}"
+            vmArg "-Dcinematic.showcase.only=${project.findProperty('only') ?: 'false'}"
+            vmArg "-Dcinematic.showcase.editorBatch=${project.findProperty('editorBatch') ?: 'false'}"
+            programArgs '--width', project.findProperty('showcaseWidth') ?: '1600', '--height', project.findProperty('showcaseHeight') ?: '900'
+        }
+    }
+}
+sourceSets.main.resources {
+    srcDirs = ['src/main/resources', '../src/1.21.5/resources', '../../src/main/resources']
+    exclude 'META-INF/accesstransformer.cfg', 'META-INF/neoforge.mods.toml', 'cinematic.mixins.json'
+}
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    inputs.property 'version', project.version
+    filesMatching('fabric.mod.json') { expand version: project.version }
+}
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+    withSourcesJar()
+}
+tasks.named('sourcesJar') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+jar {
+    from('../../LICENSE')
+}
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+    options.compilerArgs += ['-Xmaxerrs', '1000']
+}
+
+tasks.register('extractFabricReferences') {
+    doLast {
+        configurations.compileClasspath.resolvedConfiguration.resolvedArtifacts.findAll {
+            it.moduleVersion.id.group == 'net.fabricmc.fabric-api'
+        }.each { artifact ->
+            def id = artifact.moduleVersion.id
+            def source = configurations.detachedConfiguration(dependencies.create("${id.group}:${id.name}:${id.version}:sources"))
+            source.transitive = false
+            source.files.each { jar -> copy { from zipTree(jar); into 'refs/fabric' } }
+        }
+    }
+}
