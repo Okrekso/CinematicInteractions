@@ -172,7 +172,7 @@ Sodium 0.8.13 и Complementary Reimagined r5.9.3. Проверен фактич�
 используют включённый Complementary Reimagined r5.9.3, Iris 1.10.8 и Sodium 0.8.14.
 Просмотрены игровые кадры; без дополнений клиент проверен на минимальном Loader 0.17.3.
 Production build и серверная инициализация без дополнений успешны. Это не проверка двух живых
-клиентов на отдельном сервере. Подробные результаты — в [Fabric TESTING](../fabric/TESTING.md),
+клиентов на отдельном сервере. Подробные результаты — в [Fabric TESTING](ports/fabric-1.21/TESTING.md),
 команды и зависимости — в [инструкции 1.21.11](../fabric/docs/inventory-effects-1.21.11.md).
 
 Журналы, кадры, исходный diff и аудит находятся в `build/inventory-compat-1.21.11/`.

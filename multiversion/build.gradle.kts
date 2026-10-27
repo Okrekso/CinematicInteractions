@@ -94,8 +94,7 @@ loom {
 }
 
 sourceSets.main {
-    // textures, translations and models are shared with the other ports
-    resources.srcDir(rootProject.file("../fabric/src/1.21.5/resources"))
+    // textures, translations and models are shared with the root project
     resources.srcDir(rootProject.file("../src/main/resources"))
     resources.exclude("META-INF/accesstransformer.cfg", "META-INF/neoforge.mods.toml", "cinematic.mixins.json")
 }

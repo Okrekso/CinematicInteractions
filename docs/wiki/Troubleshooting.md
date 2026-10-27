@@ -18,7 +18,7 @@ No. Both sides need the mod; Fabric also needs Fabric API on both sides. The mod
 
 ## Does it support shaders?
 
-Iris/Sodium combinations have been checked on selected versions, including 1.21.10 and 1.21.11 with Complementary Reimagined. Compatibility with every shader, resource pack, or modpack is not guaranteed. See [recorded test coverage](https://github.com/dcvke/CinematicInteractions/blob/main/fabric/TESTING.md).
+Iris/Sodium combinations have been checked on selected versions, including 1.21.10 and 1.21.11 with Complementary Reimagined. Compatibility with every shader, resource pack, or modpack is not guaranteed. See [recorded test coverage](https://github.com/dcvke/CinematicInteractions/blob/main/docs/ports/fabric-1.21/TESTING.md).
 
 For a rendering issue, report whether it also happens without shaders and include the exact Iris/Sodium versions, shader pack, resource packs, and a recording if possible.
 

@@ -26,8 +26,8 @@ with [Stonecutter](https://stonecutter.kikugie.dev/) 0.9. It replaces the separa
   plain Loom. The `loom-back-compat` plugin picks the right one.
 - Dependency versions per Minecraft version are in `stonecutter.properties.toml`, including the mixins
   that one version does not have (`mixins.exclude`).
-- Resources (textures, translations, models) still come from `../src/main/resources` and
-  `../fabric/src/1.21.5/resources`, as before.
+- Textures, translations and models are shared with the root project (`../src/main/resources`); this
+  project's `src/main/resources` only adds the Fabric metadata and the 1.21.4+ item model definitions.
 
 ## Building
 
