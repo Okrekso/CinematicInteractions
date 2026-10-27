@@ -15,8 +15,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+//? if neoforge {
 import net.neoforged.neoforge.event.entity.player.PlayerEnchantItemEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if forge {
+/*import net.minecraft.stats.Stats;
+*///?}
 
 /**
  * The enchanting table runs on the real vanilla menu, opened without its window ({@link MenuActions}): the scene
@@ -27,10 +31,17 @@ public final class EnchantActions {
     private EnchantActions() {}
 
     private static final Map<UUID, Integer> SHOWN = new HashMap<>();
+    //? if <1.21 {
+    /*/^* How many items each player at a table had enchanted (their statistic) when last looked at. ^/
+    private static final Map<UUID, Integer> ENCHANTED = new HashMap<>();
+    *///?}
 
     /** The player stepped away (the menu itself is closed by {@link MenuActions}): nothing floats over the table any more. */
     public static void close(ServerPlayer player, Session session) {
         SHOWN.remove(player.getUUID());
+        //? if <1.21 {
+        /*ENCHANTED.remove(player.getUUID());
+        *///?}
         show(player, session, ItemStack.EMPTY, 0);
     }
 
@@ -53,6 +64,7 @@ public final class EnchantActions {
                 new EnchantDisplayPayload(session.pos(), item.copy(), lapis, session.side().get2DDataValue()));
     }
 
+    //? if neoforge {
     /** The menu enchanted something: everyone nearby sees the flash. */
     public static void onEnchant(PlayerEnchantItemEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
@@ -61,7 +73,29 @@ public final class EnchantActions {
         Session session = Sessions.get(player);
         if (session == null || session.kind() != StationKind.ENCHANTING) {
             return;
+    //?} else if fabric {
+    /*/^* The menu enchanted something (EnchantmentMenuMixin): everyone nearby sees the flash. ^/
+    public static void onEnchant(ServerPlayer player) {
+        Session session = Sessions.get(player);
+        if (session == null || session.kind() != StationKind.ENCHANTING) {
+            return;
+    *///?} else if forge {
+    /*/^*
+     * Every tick at a table: the menu enchanted something, and everyone nearby sees the flash. Forge 1.20.1 has no event
+     * for it, but the vanilla menu counts every enchantment in the player's statistics, so a rise of that count is one.
+     ^/
+    public static void watch(ServerPlayer player, Session session) {
+        int count = player.getStats().getValue(Stats.CUSTOM.get(Stats.ENCHANT_ITEM));
+        Integer last = ENCHANTED.put(player.getUUID(), count);
+        if (last != null && count > last) {
+            flare(player, session);
+    *///?}
         }
+    //? if <1.21 {
+    /*}
+
+    private static void flare(ServerPlayer player, Session session) {
+    *///?}
         ServerLevel level = player.serverLevel();
         dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(session.pos()), new EnchantFxPayload(session.pos(), player.getId()));
         double x = session.pos().getX() + 0.5;

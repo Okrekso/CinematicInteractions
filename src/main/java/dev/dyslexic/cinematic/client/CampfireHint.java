@@ -45,7 +45,11 @@ public final class CampfireHint {
 
     /** The campfire under the crosshair that the player could sit by, or null. */
     @Nullable
-    private static BlockPos target() {
+    //? if !forge {
+    static BlockPos target() {
+    //?} else if forge {
+    /*private static BlockPos target() {
+    *///?}
         Minecraft mc = Minecraft.getInstance();
         BlockPos pos = looked();
         if (pos == null || mc.player == null) {
@@ -87,7 +91,7 @@ public final class CampfireHint {
             return;
         }
         Font font = Minecraft.getInstance().font;
-        Component key = SIT.getTranslatedKeyMessage();
+        Component key = KeyLabels.of(SIT);
         Component text = Component.translatable("cinematic.campfire.sit");
         int keyW = Math.max(11, font.width(key) + 6);
         int w = 6 + keyW + 5 + font.width(text) + 7;

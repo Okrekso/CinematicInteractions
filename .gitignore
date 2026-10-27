@@ -60,3 +60,7 @@ run-showcase*/config/*
 # Python helper cache
 __pycache__/
 *.pyc
+
+### Stonecutter ###
+# local test mods for the development runs (test-mods/<target>/...)
+test-mods/

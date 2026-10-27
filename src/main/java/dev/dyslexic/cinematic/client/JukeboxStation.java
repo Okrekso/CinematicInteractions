@@ -14,7 +14,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -22,7 +24,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.JukeboxBlock;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import org.joml.Quaternionf;
 
 /**
@@ -76,7 +82,11 @@ public final class JukeboxStation extends ClientStation implements SpatialTarget
     }
 
     static boolean isRecord(ItemStack stack) {
+        //? if >=1.21 {
         return stack.has(DataComponents.JUKEBOX_PLAYABLE);
+        //?} else if <1.21 {
+        /*return dev.dyslexic.cinematic.station.JukeboxActions.isRecord(stack);
+        *///?}
     }
 
     @Override
@@ -252,7 +262,11 @@ public final class JukeboxStation extends ClientStation implements SpatialTarget
         if (!sent && t >= (move == Move.EJECT ? EJECT_SEND : INSERT_SEND)) {
             sent = true;
             // index 0: the record in hand (or taking one out), 1: the record in hotbar slot "button"
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.JUKEBOX, StationActionPayload.Action.CLICK,
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.JUKEBOX, StationActionPayload.Action.CLICK,
+            *///?}
                     from < 0 ? 0 : 1, Math.max(from, 0), false, 0));
             if (move == Move.INSERT) {
                 Fx.motes(layoutPoint(0).add(0, 0.06, 0), 0.12, 10, 1.0f, 0.82f, 0.45f, 0.25);
@@ -386,9 +400,13 @@ public final class JukeboxStation extends ClientStation implements SpatialTarget
     @Override
     public Component hint() {
         if (move != Move.NONE && !record.isEmpty()) {
+            //? if >=1.21 {
             Minecraft mc = Minecraft.getInstance();
             Component song = mc.level == null ? null : net.minecraft.world.item.JukeboxSong.fromStack(mc.level.registryAccess(), record)
                     .map(holder -> holder.value().description()).orElse(null);
+            //?} else if <1.21 {
+            /*Component song = record.getItem() instanceof net.minecraft.world.item.RecordItem disc ? disc.getDisplayName() : null;
+            *///?}
             return Component.literal("♪ ").append(song != null ? song : record.getHoverName());
         }
         if (playing()) {

@@ -13,7 +13,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.sounds.SoundEvent;
@@ -57,8 +59,77 @@ public final class SmithingStation extends SurfaceStation<SmithingMenu> {
     /** Heights of the middles of the template and the material lying on the gear (each item is 1/16 of its size thick). */
     static final double ON_GEAR = 0.025, ON_TEMPLATE = 0.041;
 
+    //? if >=1.21 {
     public enum Target { NONE, PLACE, ITEM }
 
+    // ---- competing recipes (Polymorph): the strip shows the results, the server's result slot tells which is in use ----
+
+    //?}
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+
+    //? if >=1.21 {
+    @Override
+    RecipeChoiceStrip choices() {
+        return choiceStrip;
+    }
+    //?} else if <1.21 {
+    /*@Override RecipeChoiceStrip choices() { return choiceStrip; }
+    *///?}
+
+    //? if >=1.21 {
+    @Override
+    public void tick() {
+    //?} else if <1.21 {
+    /*@Override public void tick() {
+    *///?}
+        super.tick();
+        Minecraft mc = Minecraft.getInstance();
+        SmithingMenu menu = menu();
+        //? if >=1.21 {
+        if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly() || menu == null || mc.level == null) {
+        //?} else if <1.21 {
+        /*if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly()
+                || menu == null || mc.level == null) {
+        *///?}
+            choiceStrip.clear();
+            return;
+        }
+        //? if >=1.21 {
+        var input = new net.minecraft.world.item.crafting.SmithingRecipeInput(menu.getSlot(0).getItem(), menu.getSlot(1).getItem(), menu.getSlot(2).getItem());
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level, net.minecraft.world.item.crafting.RecipeType.SMITHING, input);
+        //?} else if <1.21 {
+        /*var input = new net.minecraft.world.SimpleContainer(menu.getSlot(0).getItem(),
+                menu.getSlot(1).getItem(), menu.getSlot(2).getItem());
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level,
+                net.minecraft.world.item.crafting.RecipeType.SMITHING, input);
+        *///?}
+        if (competing.size() < 2) {
+            choiceStrip.clear();
+            return;
+        }
+        //? if >=1.21 {
+        List<ItemStack> outputs = new java.util.ArrayList<>();
+        //?} else if <1.21 {
+        /*List<ItemStack> outputs = new ArrayList<>();
+        *///?}
+        int inUse = -1;
+        ItemStack result = menu.getSlot(3).getItem();
+        for (int i = 0; i < competing.size(); i++) {
+            //? if >=1.21 {
+            ItemStack output = competing.get(i).value().assemble(input, mc.level.registryAccess());
+            //?} else if <1.21 {
+            /*ItemStack output = competing.get(i).assemble(input, mc.level.registryAccess());
+            *///?}
+            outputs.add(output);
+            if (inUse < 0 && !result.isEmpty() && ItemStack.isSameItemSameComponents(output, result)) inUse = i;
+        }
+        choiceStrip.set(outputs, inUse);
+    }
+
+    //? if <1.21 {
+    /*public enum Target { NONE, PLACE, ITEM }
+
+    *///?}
     public final Vec3 top;
     public Target target = Target.NONE;
     public int hoverSlot = -1;
@@ -234,12 +305,21 @@ public final class SmithingStation extends SurfaceStation<SmithingMenu> {
             }
             mc.gameMode.handleInventoryMouseClick(menu.containerId, 3, 0, toInventory ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
         });
+        //? if >=1.21 {
         Scene.sound(SoundEvents.ARMOR_EQUIP_NETHERITE.value(), 0.5f, 1.0f);
+        //?} else if <1.21 {
+        /*Scene.sound(SoundEvents.ARMOR_EQUIP_NETHERITE, 0.5f, 1.0f);
+        *///?}
     }
 
     /** A trim runs in the colour of its material; anything else (the netherite upgrade) like molten metal. */
     static float[] moltenColor(ItemStack result) {
+        //? if >=1.21 {
         ArmorTrim trim = result.get(DataComponents.TRIM);
+        //?} else if <1.21 {
+        /*net.minecraft.client.multiplayer.ClientLevel level = net.minecraft.client.Minecraft.getInstance().level;
+        ArmorTrim trim = level == null ? null : ArmorTrim.getTrim(level.registryAccess(), result).orElse(null);
+        *///?}
         if (trim != null) {
             TextColor color = trim.material().value().description().getStyle().getColor();
             if (color != null) {

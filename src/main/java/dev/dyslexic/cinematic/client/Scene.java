@@ -2,6 +2,9 @@ package dev.dyslexic.cinematic.client;
 
 import dev.dyslexic.cinematic.api.client.AddonScenes;
 import dev.dyslexic.cinematic.Cinematic;
+//? if fabric && <1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.ArrayList;
@@ -24,7 +27,11 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric && >=1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 
 /**
  * Runs a scene at a station: the approach (INTRO), the work (ACTIVE) and stepping away (OUTRO). Times are
@@ -44,13 +51,12 @@ public final class Scene {
     public static final double OUTRO_LENGTH = 1.05;
     /** How long the camera takes to lean in once the player has arrived. */
     public static final double LEAN_LENGTH = 1.2;
-    /** The lean when coming straight back to the station just stepped away from ({@link #quick}). */
+    /** The lean for a quick return or the always-quick setting ({@link #quick}). */
     static final double QUICK_LEAN_LENGTH = 0.4;
     /** How long this scene's lean takes. */
     private static double leanLength = LEAN_LENGTH;
     /**
-     * Coming back to the same station within a few seconds of stepping away from it (Settings.quickReturn): a short way
-     * in, a quick lean without the bars, so going back and forth to it is not a cutscene every time.
+     * A short lean without the bars. It can happen on a recent return or on every entry, depending on the player's setting.
      */
     static boolean quick;
     /** A station used while the last one was still being stepped away from, begun once that is over. */
@@ -59,6 +65,23 @@ public final class Scene {
     @Nullable
     private static StationKind pendingKind;
     private static double pendingAt;
+    //? if >=1.21 {
+    /**
+     * A station used in the air (a jump, its landing): the way in is planned from where the feet will stand, so it
+     * begins once they are on the ground. Planned from mid-air, the walk started from a height the body was not at and
+     * the fall that followed let the scene go before it opened, with no window either.
+     */
+    @Nullable
+    private static BlockPos landingPos;
+    @Nullable
+    private static StationKind landingKind;
+    //?} else if <1.21 {
+    /*@Nullable private static BlockPos landingPos;
+    @Nullable private static StationKind landingKind;
+    *///?}
+    private static int landingTicks;
+    /** How long a use in the air waits for the ground (ticks) before the block's own window opens instead. */
+    private static final int LANDING_WAIT = 30;
     /** The station last stepped away from, and when (the clock), for {@link #quick}. */
     @Nullable
     private static BlockPos leftPos;
@@ -229,6 +252,12 @@ public final class Scene {
             // an empty jukebox and no record to put in it: nothing happens, as in vanilla
             return;
         }
+        if (airborne(player)) {
+            landingPos = pos.immutable();
+            landingKind = kind;
+            landingTicks = 0;
+            return;
+        }
         Choice choice = choose(pos, kind, player);
         refused = choice.plan().why();
         if (!choice.plan().scene()) {
@@ -243,7 +272,8 @@ public final class Scene {
         transition = false;
         transitionFrom = null;
         // back at the station just stepped away from: the quick way in
-        quick = Settings.quickReturn() && pos.equals(leftPos) && clock - leftAt <= Settings.quickWindow();
+        quick = Settings.quickMode() == 2 || Settings.quickMode() == 1
+                && pos.equals(leftPos) && clock - leftAt <= Settings.quickWindow();
         leanLength = quick ? QUICK_LEAN_LENGTH : LEAN_LENGTH;
         savedCamera = mc.options.getCameraType();
         if (!savedCamera.isFirstPerson()) {
@@ -274,8 +304,8 @@ public final class Scene {
         clientMenuId = player.containerMenu.containerId;
         transition = false;
         transitionFrom = null;
-        quick = false;
-        leanLength = LEAN_LENGTH;
+        quick = Settings.quickMode() == 2;
+        leanLength = quick ? QUICK_LEAN_LENGTH : LEAN_LENGTH;
         savedCamera = mc.options.getCameraType();
         if (!savedCamera.isFirstPerson()) mc.options.setCameraType(CameraType.FIRST_PERSON);
         CameraRig.reset();
@@ -342,8 +372,13 @@ public final class Scene {
         neighbor = null;
         lastHurtTime = player.hurtTime;
         if (!clientOnly) player.setSprinting(false);
+        awaitingMenu = !clientOnly && station.kind().usesMenu();
         if (!clientOnly) {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(station.pos, station.kind(), StationActionPayload.Action.BEGIN, 0, 0, false,
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(station.pos, station.kind(), StationActionPayload.Action.BEGIN, 0, 0, false,
+            *///?}
                     station.sideDirection().get2DDataValue()));
         }
     }
@@ -406,6 +441,9 @@ public final class Scene {
         if (phase != Phase.ACTIVE || neighbor == null || neighborKind == null || player == null || station.busy()) {
             return;
         }
+        //? if <1.21 {
+        /*if (neighborKind == StationKind.ADDON && !AddonScenes.available(mc.level.getBlockState(neighbor))) return;
+        *///?}
         Choice choice = choose(neighbor, neighborKind, player);
         if (!choice.plan().scene()) {
             Cinematic.LOGGER.info("[Cinematic] {} at {}: cannot move over ({})", neighborKind, neighbor.toShortString(), choice.plan().why());
@@ -420,12 +458,18 @@ public final class Scene {
         old.onEnd();
         // the server puts the item in hand back into the inventory on LEAVE; it leaves the hand at once
         player.inventoryMenu.setCarried(net.minecraft.world.item.ItemStack.EMPTY);
+        //? if !forge {
         PacketDistributor.sendToServer(StationActionPayload.of(old.pos, old.kind(), StationActionPayload.Action.LEAVE));
+        //?} else if forge {
+        /*ClientNet.sendToServer(StationActionPayload.of(old.pos, old.kind(), StationActionPayload.Action.LEAVE));
+        *///?}
+        released = old;
+        releasedAt = clock;
         Hands.beginTransition();
         station = choice.station();
         transition = true;
-        quick = false;
-        leanLength = LEAN_LENGTH;
+        quick = Settings.quickMode() == 2;
+        leanLength = quick ? QUICK_LEAN_LENGTH : LEAN_LENGTH;
         refused = "";
         startIntro(choice.plan(), player);
         sound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.22f, 1.25f);
@@ -449,7 +493,9 @@ public final class Scene {
             case LOOM -> new LoomStation(pos, side);
             case CARTOGRAPHY -> new CartographyStation(pos, side);
             case BREWING -> new BrewingStation(pos, side);
+            //? if >=1.21 {
             case CRAFTER -> new CrafterStation(pos, side, state);
+            //?}
             case CAMPFIRE -> new CampfireStation(pos, player);
             case LECTERN -> new LecternStation(pos, side);
             case BEACON -> new BeaconStation(pos, side);
@@ -479,6 +525,10 @@ public final class Scene {
         time = 0;
         station.clearCursor();
         station.onEnd();
+        //? if <1.21 {
+        /*released = station;
+        releasedAt = clock;
+        *///?}
         sendLeave();
         sound(SoundEvents.ARMOR_EQUIP_LEATHER.value(), 0.3f, 0.9f);
     }
@@ -496,6 +546,7 @@ public final class Scene {
     private static final java.util.Set<StationKind> OWN_WINDOW = java.util.EnumSet.noneOf(StationKind.class);
     private static final java.util.Set<net.minecraft.resources.ResourceLocation> OWN_ADDON_WINDOWS = new java.util.HashSet<>();
 
+    //? if >=1.21 {
     /**
      * The server answered with a menu the scene cannot stand in for: its window shows instead and the scene ends at
      * once. The server started no session for it (it checks the menu too), so nothing is sent back.
@@ -517,10 +568,109 @@ public final class Scene {
         finish(false);
     }
 
+    /**
+     * The menu the server opens in answer to this attempt's BEGIN has not come yet. Only that answer can tell that a mod
+     * gave the block a menu of its own: a menu that opens later belongs to something else.
+     */
+    //?}
+    private static boolean awaitingMenu;
+    //? if >=1.21 {
+    /** The station last let go of (LEAVE sent), and when: a menu the server opened for it may still be on its way. */
+    @Nullable
+    private static ClientStation released;
+    //?} else if <1.21 {
+    /*@Nullable private static ClientStation released;
+    *///?}
+    private static double releasedAt;
+    /** How long after letting a station go a menu of its kind is taken for the late answer to that station's BEGIN. */
+    private static final double LATE_ANSWER = 5;
+
+    //? if >=1.21 {
+    /** What a menu screen that opens while a scene plays is to the scene ({@link CinematicClient#onScreenOpening}). */
+    enum MenuAnswer {
+        /** The menu of the station worked at: the scene stands in for its window. */
+        OURS,
+        /** The server's answer to a station the player has already let go of: the server closes it on that LEAVE. */
+        LATE,
+        /** This attempt's answer, but not a menu the scene plays: a mod replaced the block's menu, its window opens. */
+        FOREIGN,
+        /** Some other menu (another block, a command, a mod): the screen goes its own way. */
+        UNRELATED
+    }
+    //?} else if <1.21 {
+    /*enum MenuAnswer { OURS, LATE, FOREIGN, UNRELATED }
+    *///?}
+
+    /** Tells which of {@link MenuAnswer} a menu the server has just opened is; never the player's own inventory. */
+    static MenuAnswer answer(net.minecraft.world.inventory.AbstractContainerMenu menu) {
+        if (phase != Phase.OUTRO && station != null && accepts(station, menu)) {
+            awaitingMenu = false;
+            return MenuAnswer.OURS;
+        }
+        // stepping away (the station has let its menu go), or already at another station: the late answer to an old BEGIN
+        if (released != null && clock - releasedAt <= LATE_ANSWER && accepts(released, menu)) {
+            return MenuAnswer.LATE;
+        }
+        if (phase != Phase.OUTRO && awaitingMenu) {
+            awaitingMenu = false;
+            return MenuAnswer.FOREIGN;
+        }
+        return MenuAnswer.UNRELATED;
+    }
+
+    /** Whether {@code menu} is the menu the scene of {@code at} plays on. */
+    private static boolean accepts(ClientStation at, net.minecraft.world.inventory.AbstractContainerMenu menu) {
+        //? if >=1.21 {
+        if (!at.kind().usesMenu()) {
+            return false;
+        //?} else if <1.21 {
+        /*if (at.kind() == StationKind.ADDON && Minecraft.getInstance().level != null) {
+            var definition = dev.dyslexic.cinematic.api.AddonStations.forBlock(Minecraft.getInstance().level.getBlockState(at.pos));
+            return definition != null && definition.accepts(menu);
+        *///?}
+        }
+        //? if >=1.21 {
+        if (at.kind() == StationKind.ADDON) {
+            var level = Minecraft.getInstance().level;
+            var definition = level == null ? null : dev.dyslexic.cinematic.api.AddonStations.forBlock(level.getBlockState(at.pos));
+            return definition != null && definition.accepts(menu);
+        //?} else if <1.21 {
+        /*return at.kind().usesMenu() && dev.dyslexic.cinematic.station.MenuActions.isOpen(at.kind(), menu);
+    }
+
+    /^*
+     * The server answered with a menu the scene cannot stand in for: its window shows instead and the scene ends at
+     * once. The server started no session for it (it checks the menu too), so nothing is sent back.
+     ^/
+    static void yieldToWindow() {
+        if (phase == Phase.NONE || station == null) {
+            return;
+        *///?}
+        }
+        //? if >=1.21 {
+        return dev.dyslexic.cinematic.station.MenuActions.isOpen(at.kind(), menu);
+        //?} else if <1.21 {
+        /*if (station.kind() == StationKind.ADDON && Minecraft.getInstance().level != null) {
+            var definition = dev.dyslexic.cinematic.api.AddonStations.forBlock(Minecraft.getInstance().level.getBlockState(station.pos));
+            if (definition != null) OWN_ADDON_WINDOWS.add(definition.id());
+        } else if (station.kind() != StationKind.LECTERN) OWN_WINDOW.add(station.kind());
+        Cinematic.LOGGER.info("[Cinematic] {} opened a menu of its own ({}): its window instead of the scene", station.kind(),
+                Minecraft.getInstance().player == null ? "-" : Minecraft.getInstance().player.containerMenu.getClass().getName());
+        leaveSent = true;
+        finish(false);
+        *///?}
+    }
+
     /** A new connection: every block plays its scene again until it shows otherwise. */
     public static void forgetOwnWindows() {
         OWN_WINDOW.clear();
         OWN_ADDON_WINDOWS.clear();
+        awaitingMenu = false;
+        released = null;
+        //? if <1.21 {
+        /*landingPos = null;
+        landingKind = null;
+        *///?}
     }
 
     /** Ends at once, without the closing shot. */
@@ -560,7 +710,11 @@ public final class Scene {
      * itself was taken from vanilla to start the scene, and with it the swing).
      */
     private static void openWindow(BlockPos pos, StationKind kind) {
+        //? if !forge {
         PacketDistributor.sendToServer(window(pos, kind));
+        //?} else if forge {
+        /*ClientNet.sendToServer(window(pos, kind));
+        *///?}
         LocalPlayer player = Minecraft.getInstance().player;
         if (player != null) {
             player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
@@ -585,6 +739,9 @@ public final class Scene {
 
     private static void finish(boolean closeScreen) {
         Minecraft mc = Minecraft.getInstance();
+        //? if <1.21 {
+        /*awaitingMenu = false;
+        *///?}
         FreeLook.reset();
         transition = false;
         transitionFrom = null;
@@ -628,9 +785,20 @@ public final class Scene {
             return;
         }
         if (!leaveSent && station != null && Minecraft.getInstance().getConnection() != null) {
+            //? if >=1.21 {
             PacketDistributor.sendToServer(StationActionPayload.of(station.pos, station.kind(), StationActionPayload.Action.LEAVE));
+            released = station;
+            releasedAt = clock;
+            //?} else if fabric && <1.21 {
+            /*PacketDistributor.sendToServer(StationActionPayload.of(station.pos, station.kind(), StationActionPayload.Action.LEAVE));
+            *///?} else if forge {
+            /*ClientNet.sendToServer(StationActionPayload.of(station.pos, station.kind(), StationActionPayload.Action.LEAVE));
+            *///?}
         }
         leaveSent = true;
+        //? if >=1.21 {
+        awaitingMenu = false;
+        //?}
     }
 
     private static void enterActive() {
@@ -688,11 +856,71 @@ public final class Scene {
         }
     }
 
+    /** In the air of its own accord: not flying, swimming, climbing, gliding or riding (those stay as they were). */
+    private static boolean airborne(LocalPlayer player) {
+        return !player.onGround() && !player.isInWater() && !player.isInLava() && !player.onClimbable()
+                && !player.getAbilities().flying && !player.isFallFlying() && !player.isPassenger();
+    }
+
+    /** A use made in the air: begun on landing, or the block's own window if the ground does not come soon. */
+    private static void tickLanding(Minecraft mc) {
+        BlockPos pos = landingPos;
+        StationKind kind = landingKind;
+        LocalPlayer player = mc.player;
+        //? if >=1.21 {
+        if (pos == null || kind == null) {
+            return;
+        }
+        //?} else if <1.21 {
+        /*if (pos == null || kind == null) return;
+        *///?}
+        if (phase != Phase.NONE || player == null || mc.level == null || !kind.matches(mc.level.getBlockState(pos))
+                || mc.screen != null) {
+            landingPos = null;
+            landingKind = null;
+            return;
+        }
+        boolean landed = !airborne(player);
+        //? if >=1.21 {
+        if (!landed && ++landingTicks < LANDING_WAIT) {
+            return;
+        }
+        //?} else if <1.21 {
+        /*if (!landed && ++landingTicks < LANDING_WAIT) return;
+        *///?}
+        landingPos = null;
+        landingKind = null;
+        //? if >=1.21 {
+        if (player.distanceToSqr(pos.getCenter()) > 36) {
+            return;
+        }
+        if (landed) {
+            begin(pos, kind);
+        } else if (kind != StationKind.CAMPFIRE) {
+            Cinematic.LOGGER.info("[Cinematic] {} at {}: used in the air and still falling, the block's own window instead",
+                    kind, pos.toShortString());
+            openWindow(pos, kind);
+        }
+        //?} else if <1.21 {
+        /*if (player.distanceToSqr(pos.getCenter()) > 36) return;
+        if (landed) begin(pos, kind);
+        else if (kind != StationKind.CAMPFIRE) openWindow(pos, kind);
+        *///?}
+    }
+
     public static void tick() {
+        //? if >=1.21 {
+        Minecraft mc = Minecraft.getInstance();
+        tickLanding(mc);
+        //?} else if <1.21 {
+        /*tickLanding(Minecraft.getInstance());
+        *///?}
         if (phase == Phase.NONE) {
             return;
         }
-        Minecraft mc = Minecraft.getInstance();
+        //? if <1.21 {
+        /*Minecraft mc = Minecraft.getInstance();
+        *///?}
         LocalPlayer player = mc.player;
         if (player == null || mc.level == null || station == null) {
             finish(false);

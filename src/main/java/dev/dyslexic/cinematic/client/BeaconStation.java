@@ -22,7 +22,9 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.Holder;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundSetBeaconPacket;
 import net.minecraft.resources.ResourceLocation;
@@ -60,7 +62,11 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
     public enum Target { NONE, POWER, PAYMENT, TOP }
 
     /** One power in the crown: the effect, the tier it needs (0..3), whether it is the second power. */
+    //? if >=1.21 {
     private record Power(Holder<MobEffect> effect, int tier, boolean secondary, boolean upgrade) {}
+    //?} else if <1.21 {
+    /*private record Power(MobEffect effect, int tier, boolean secondary, boolean upgrade) {}
+    *///?}
 
     /**
      * A power's icon and its level as they hang in the air this frame: drawn over the frame where they are seen
@@ -76,7 +82,11 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
     public Target target = Target.NONE;
     public int hoverPower = -1;
     @Nullable
+    //? if >=1.21 {
     private Holder<MobEffect> primary, secondary;
+    //?} else if <1.21 {
+    /*private MobEffect primary, secondary;
+    *///?}
     private boolean chosenRead;
     private int lastHover = -1;
     private double burstAt = -10;
@@ -120,11 +130,19 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
     private List<Power> powers() {
         List<Power> list = new ArrayList<>();
         for (int tier = 0; tier < 3; tier++) {
+            //? if >=1.21 {
             for (Holder<MobEffect> effect : BeaconBlockEntity.BEACON_EFFECTS.get(tier)) {
+            //?} else if <1.21 {
+            /*for (MobEffect effect : BeaconBlockEntity.BEACON_EFFECTS[tier]) {
+            *///?}
                 list.add(new Power(effect, tier, false, false));
             }
         }
+        //? if >=1.21 {
         for (Holder<MobEffect> effect : BeaconBlockEntity.BEACON_EFFECTS.get(3)) {
+        //?} else if <1.21 {
+        /*for (MobEffect effect : BeaconBlockEntity.BEACON_EFFECTS[3]) {
+        *///?}
             list.add(new Power(effect, 3, true, false));
         }
         if (primary != null) {
@@ -363,8 +381,13 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
 
     /** Lights the beacon with the chosen powers: the window's confirm, on the beat of the move. */
     private void light() {
+        //? if >=1.21 {
         Holder<MobEffect> first = primary;
         Holder<MobEffect> second = levels() >= 4 ? secondary : null;
+        //?} else if <1.21 {
+        /*MobEffect first = primary;
+        MobEffect second = levels() >= 4 ? secondary : null;
+        *///?}
         lightingWith = payment().copy();
         burstColor = color(first);
         Scene.sound(SoundEvents.BEACON_AMBIENT, 1f, 1.4f);
@@ -414,8 +437,13 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
         Scene.sound(SoundEvents.BEACON_DEACTIVATE, 0.3f, 1.6f);
     }
 
+    //? if >=1.21 {
     static float[] color(@Nullable Holder<MobEffect> effect) {
         int rgb = effect == null ? 0xFFF2B0 : effect.value().getColor();
+    //?} else if <1.21 {
+    /*static float[] color(@Nullable MobEffect effect) {
+        int rgb = effect == null ? 0xFFF2B0 : effect.getColor();
+    *///?}
         float r = (rgb >> 16 & 255) / 255f, g = (rgb >> 8 & 255) / 255f, b = (rgb & 255) / 255f;
         float max = Math.max(0.1f, Math.max(r, Math.max(g, b)));
         return new float[]{r / max, g / max, b / max};
@@ -586,8 +614,13 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
         for (int[] order : new int[][]{{0, 1, 2, 3}, {3, 2, 1, 0}}) {
             for (int i : order) {
                 Vec3 p = c[i].subtract(cam);
+                //? if >=1.21 {
                 vc.addVertex(pose.last(), (float) p.x, (float) p.y, (float) p.z).setColor(ri, gi, bi, 255).setUv(uv[i][0], uv[i][1])
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(pose.last(), 0, 1, 0);
+                //?} else if <1.21 {
+                /*vc.addVertex(pose.last().pose(), (float) p.x, (float) p.y, (float) p.z).color(ri, gi, bi, 255).setUv(uv[i][0], uv[i][1])
+                        .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(LightTexture.FULL_BRIGHT).normal(pose.last().normal(), 0, 1, 0).endVertex();
+                *///?}
             }
         }
     }
@@ -672,16 +705,33 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
         if (Scene.phase != Scene.Phase.ACTIVE) {
             return;
         }
-        Vector3f up = Minecraft.getInstance().gameRenderer.getMainCamera().getUpVector();
+        //? if !forge {
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Vector3f up = camera.getUpVector();
+        //?} else if forge {
+        /*Vector3f up = Minecraft.getInstance().gameRenderer.getMainCamera().getUpVector();
+        *///?}
         Vec3 upward = new Vec3(up.x(), up.y(), up.z());
-        for (Icon icon : icons) {
+        //? if !forge {
+        for (int i = 0; i < icons.size(); i++) {
+            Icon icon = icons.get(i);
+        //?} else if forge {
+        /*for (Icon icon : icons) {
+        *///?}
             double[] at = Picking.toGui(icon.at()), edge = Picking.toGui(icon.at().add(upward.scale(icon.half())));
             if (at == null || edge == null) {
                 continue;
             }
             // GUI pixels for a block of the world there
             double perBlock = Math.hypot(edge[0] - at[0], edge[1] - at[1]) / icon.half();
-            float a = Math.min(1, icon.alpha()) * alpha;
+            //? if !forge {
+            if (i >= seen.length) seen = java.util.Arrays.copyOf(seen, i + 8);
+            seen[i] = (float) Anim.approach(seen[i], unhidden(camera, icon), 18, Scene.frameDt);
+            float a = Math.min(1, icon.alpha()) * alpha * seen[i];
+            if (a < 0.02f) continue;
+            //?} else if forge {
+            /*float a = Math.min(1, icon.alpha()) * alpha;
+            *///?}
             g.pose().pushPose();
             g.pose().translate(at[0], at[1], 0);
             g.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-icon.rotation()));
@@ -704,6 +754,36 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
     }
 
     // ---- what others see -------------------------------------------------------------------------------
+    //? if !forge {
+
+    /** How much of each icon is in sight (eased): drawn over the frame, it would show through the hands and blocks otherwise. */
+    private float[] seen = new float[16];
+    /** Points of an icon (fractions of its half size, across and up) tried against the hands and the blocks. */
+    private static final double[][] ICON_SAMPLES = {{0, 0}, {-0.7, -0.7}, {0.7, -0.7}, {-0.7, 0.7}, {0.7, 0.7}, {0, 0.8}, {0, -0.8}, {0.8, 0}, {-0.8, 0}};
+
+    float iconSeen(int index) {
+        return index < seen.length ? seen[index] : 1f;
+    }
+
+    /** The share of an icon nothing hides from the eyes: no arm in front of it, no block between. */
+    private static float unhidden(Camera camera, Icon icon) {
+        Minecraft mc = Minecraft.getInstance();
+        Vec3 eye = camera.getPosition();
+        Vector3f l = camera.getLeftVector(), u = camera.getUpVector();
+        int clear = 0;
+        for (double[] at : ICON_SAMPLES) {
+            Vec3 point = icon.at().add(new Vec3(l.x(), l.y(), l.z()).scale(at[0] * icon.half())).add(new Vec3(u.x(), u.y(), u.z()).scale(at[1] * icon.half()));
+            boolean hidden = Hands.hides(eye, camera.getYRot(), point);
+            if (!hidden && mc.level != null && mc.player != null) {
+                var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, point, net.minecraft.world.level.ClipContext.Block.VISUAL,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+                hidden = hit.getType() != net.minecraft.world.phys.HitResult.Type.MISS && hit.getLocation().distanceToSqr(eye) < point.distanceToSqr(eye) - 0.01;
+            }
+            if (!hidden) clear++;
+        }
+        return clear / (float) ICON_SAMPLES.length;
+    }
+    //?}
 
     /** The payment floating over someone else's beacon. */
     static void drawContents(PoseStack pose, MultiBufferSource buffers, Camera camera, BlockPos pos, Direction side, List<ItemStack> items) {
@@ -747,7 +827,11 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
                 }
                 Power power = list.get(hoverPower);
                 List<Component> lines = new ArrayList<>();
+                //? if >=1.21 {
                 Component name = Component.translatable(power.effect().value().getDescriptionId());
+                //?} else if <1.21 {
+                /*Component name = Component.translatable(power.effect().getDescriptionId());
+                *///?}
                 lines.add(power.upgrade() ? name.copy().append(" II") : name);
                 lines.add(Component.translatable(power.secondary() ? "block.minecraft.beacon.secondary" : "block.minecraft.beacon.primary")
                         .withStyle(ChatFormatting.DARK_GRAY));

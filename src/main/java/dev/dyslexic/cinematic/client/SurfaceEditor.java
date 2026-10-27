@@ -251,7 +251,11 @@ final class SurfaceEditor implements LayoutEditor {
         var matrix = pose.last().pose();
         for (double[] p : new double[][]{{x0,z0},{x1,z0},{x1,z1},{x0,z1}}) {
             Vec3 v = at.add(across.scale(p[0])).add(out.scale(p[1])).subtract(camera);
+            //? if >=1.21 {
             vertex.addVertex(matrix, (float) v.x, (float) v.y, (float) v.z).setColor(103, 211, 231, alpha);
+            //?} else if <1.21 {
+            /*vertex.addVertex(matrix, (float) v.x, (float) v.y, (float) v.z).color(103, 211, 231, alpha).endVertex();
+            *///?}
         }
     }
     double[] togglePoint() { layout(); return new double[]{toggleX + 15 * scale, toggleY + 14 * scale}; }

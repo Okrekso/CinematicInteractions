@@ -6,7 +6,7 @@ import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.resources.ResourceLocation;
 
-/** Found by JEI only when JEI is installed; it hands the runtime to the field guide and registers nothing of its own. */
+/** Found by JEI only when JEI is installed (on Fabric through the "jei_mod_plugin" entrypoint); it hands the runtime to the field guide and registers nothing of its own. */
 @JeiPlugin
 public final class CinematicJeiPlugin implements IModPlugin {
     @Override

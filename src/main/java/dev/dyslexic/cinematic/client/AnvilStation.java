@@ -16,7 +16,9 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundRenameItemPacket;
 import net.minecraft.sounds.SoundEvent;
@@ -243,8 +245,11 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
     }
 
     private boolean affordable() {
+        // the menu's own result slot decides, as in its window: anvil mods change the price (Easy Anvils renames for
+        // free, and lets a cost of 0 through), and vanilla's own rule is the same check
+        AnvilMenu menu = menu();
         LocalPlayer player = Minecraft.getInstance().player;
-        return player != null && cost() > 0 && (player.getAbilities().instabuild || player.experienceLevel >= cost());
+        return menu != null && player != null && menu.getSlot(menu.getResultSlot()).mayPickup(player);
     }
 
     /** Both pieces are there but vanilla refuses: the work would cost 40 levels or more. */
@@ -297,7 +302,11 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
         if (menu == null || item.isEmpty() || mc.player == null) {
             return false;
         }
+        //? if >=1.21 {
         String value = !item.has(DataComponents.CUSTOM_NAME) && name.equals(item.getHoverName().getString()) ? "" : name;
+        //?} else if <1.21 {
+        /*String value = !item.hasCustomHoverName() && name.equals(item.getHoverName().getString()) ? "" : name;
+        *///?}
         if (!menu.setItemName(value)) {
             return false;
         }
@@ -332,7 +341,11 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
             mc.gameMode.handleInventoryMouseClick(menu.containerId, 2, 0, toInventory ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
         });
         showMove(shift);
+        //? if >=1.21 {
         Scene.sound(SoundEvents.ARMOR_EQUIP_IRON.value(), 0.5f, 0.9f);
+        //?} else if <1.21 {
+        /*Scene.sound(SoundEvents.ARMOR_EQUIP_IRON, 0.5f, 0.9f);
+        *///?}
     }
 
     @Override
@@ -678,10 +691,19 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
         Vec3 cam = camera.getPosition();
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+        // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
+        //? if >=1.21 {
         pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees((float) SpatialLayouts.current(StationKind.ANVIL).rotation(2)));
+        //?} else if <1.21 {
+        /*pose.mulPose(com.mojang.math.Axis.ZP.rotationDegrees((float) -SpatialLayouts.current(StationKind.ANVIL).rotation(2)));
+        *///?}
         scale *= geometryScale(2);
+        //? if >=1.21 {
         pose.scale(scale, -scale, scale);
+        //?} else if <1.21 {
+        /*pose.scale(-scale, -scale, scale);
+        *///?}
         int background = backdrop > 0 ? (int) (backdrop * 255) << 24 : 0;
         font.drawInBatch(text, -font.width(text) / 2f, -4f, color, false, pose.last().pose(), buffers, Font.DisplayMode.NORMAL, background,
                 LightTexture.FULL_BRIGHT);

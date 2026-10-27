@@ -16,4 +16,11 @@ public final class ClientBridge {
     public static BiPredicate<BlockPos, StationKind> vanillaUse = (pos, kind) -> false;
     /** Where on the block the last use touched (a chiseled bookshelf: which book). */
     public static Vec3 useAt = Vec3.ZERO;
+    //? if fabric {
+    /*/^*
+     * Set when a use started a scene: the hand swing vanilla adds for that use is skipped, as on NeoForge (a block's own
+     * window opened instead swings the hand itself, Scene.openWindow). Cleared once that use is handled.
+     ^/
+    public static boolean swallowSwing;
+    *///?}
 }

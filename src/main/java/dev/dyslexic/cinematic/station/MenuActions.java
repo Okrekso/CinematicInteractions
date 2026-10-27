@@ -19,7 +19,9 @@ import net.minecraft.world.inventory.AnvilMenu;
 import net.minecraft.world.inventory.BeaconMenu;
 import net.minecraft.world.inventory.BrewingStandMenu;
 import net.minecraft.world.inventory.CartographyTableMenu;
+//? if >=1.21 {
 import net.minecraft.world.inventory.CrafterMenu;
+//?}
 import net.minecraft.world.inventory.EnchantmentMenu;
 import net.minecraft.world.inventory.GrindstoneMenu;
 import net.minecraft.world.inventory.LecternMenu;
@@ -28,7 +30,9 @@ import net.minecraft.world.inventory.SmithingMenu;
 import net.minecraft.world.inventory.StonecutterMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /**
  * Stations that run on the block's real vanilla menu, opened without its window (enchanting table, anvil,
@@ -87,6 +91,12 @@ public final class MenuActions {
         if (index < 0 || !menu.getSlot(index).hasItem()) {
             return;
         }
+        //? if fabric {
+        /*if (menu instanceof BeaconMenu && beaconPayment(menu, index)) {
+            menu.broadcastChanges();
+            return;
+        }
+        *///?}
         List<ItemStack> before = new ArrayList<>(menu.slots.size());
         for (var slot : menu.slots) before.add(slot.getItem().copy());
         menu.clicked(index, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, player);
@@ -106,6 +116,24 @@ public final class MenuActions {
             }
         }
         menu.broadcastChanges();
+    //? if fabric {
+    /*}
+
+    /^*
+     * NeoForge patches the beacon's quick move so that one item of a whole stack goes onto the payment slot ("Forge Fix
+     * Shift Clicking in beacons with stacks larger then 1"); the vanilla menu Fabric runs only takes a stack of one.
+     * The scene keeps NeoForge's rule: one item of a larger stack, onto an empty payment slot that takes it.
+     ^/
+    private static boolean beaconPayment(AbstractContainerMenu menu, int index) {
+        var payment = menu.getSlot(0);
+        ItemStack stack = menu.getSlot(index).getItem();
+        if (index == 0 || payment.hasItem() || stack.getCount() <= 1 || !payment.mayPlace(stack)) {
+            return false;
+        }
+        payment.setByPlayer(stack.split(1));
+        menu.getSlot(index).setChanged();
+        return true;
+    *///?}
     }
 
     public static boolean isOpen(StationKind kind, AbstractContainerMenu menu) {
@@ -118,7 +146,9 @@ public final class MenuActions {
             case LOOM -> menu instanceof LoomMenu;
             case CARTOGRAPHY -> menu instanceof CartographyTableMenu;
             case BREWING -> menu instanceof BrewingStandMenu;
+            //? if >=1.21 {
             case CRAFTER -> menu instanceof CrafterMenu;
+            //?}
             case LECTERN -> menu instanceof LecternMenu;
             case BEACON -> menu instanceof BeaconMenu;
             default -> false;
@@ -138,7 +168,9 @@ public final class MenuActions {
             case SMITHING, LOOM -> 3;
             case STONECUTTER, BEACON -> 1;
             case BREWING -> 5;
+            //? if >=1.21 {
             case CRAFTER -> 9;
+            //?}
             default -> 0;
         };
     }
@@ -146,7 +178,11 @@ public final class MenuActions {
     /** Keeps onlookers' view of the block's inputs up to date. */
     public static void tick(ServerPlayer player, Session session) {
         int inputs = inputs(session.kind());
+        //? if >=1.21 {
         if (inputs == 0 || !isOpen(session.kind(), player.containerMenu)) {
+        //?} else if <1.21 {
+        /*if (inputs == 0 || !isOpen(session, player.containerMenu)) {
+        *///?}
             return;
         }
         int fingerprint = 1;
@@ -197,7 +233,11 @@ public final class MenuActions {
         LAST_FX.put(player.getUUID(), now);
         MenuFxPayload fx = MenuFxPayload.beat(session.pos(), session.kind(), player.getId());
         int result = resultSlot(session.kind());
+        //? if >=1.21 {
         if (action.index() == 1 && result >= 0 && isOpen(session.kind(), player.containerMenu)) {
+        //?} else if <1.21 {
+        /*if (action.index() == 1 && result >= 0 && isOpen(session, player.containerMenu)) {
+        *///?}
             List<ItemStack> items = new ArrayList<>();
             for (int i = 0; i < inputs(session.kind()); i++) {
                 items.add(player.containerMenu.getSlot(i).getItem().copy());

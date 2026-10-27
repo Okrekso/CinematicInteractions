@@ -11,21 +11,36 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.RecipeHolder;
+//?} else if <1.21 {
+/*import dev.dyslexic.cinematic.RecipeRef;
+*///?}
 import net.minecraft.world.item.crafting.RecipeType;
+//? if <1.21 {
+/*import net.minecraft.world.item.crafting.RecipeManager;
+*///?}
 import net.minecraft.world.item.crafting.ShapedRecipe;
 import net.minecraft.world.item.crafting.ShapelessRecipe;
 
 /** Local recipe reference: never places items or asks the server to unlock/craft a recipe. */
 final class TableRecipeGuide {
     static final class Entry {
+        //? if >=1.21 {
         final RecipeHolder<CraftingRecipe> holder;
+        //?} else if <1.21 {
+        /*final RecipeRef<CraftingRecipe> holder;
+        *///?}
         final ItemStack result;
         final List<Ingredient> ingredients;
         final String search;
         boolean craftable;
 
+        //? if >=1.21 {
         Entry(RecipeHolder<CraftingRecipe> holder, ItemStack result) {
+        //?} else if <1.21 {
+        /*Entry(RecipeRef<CraftingRecipe> holder, ItemStack result) {
+        *///?}
             this.holder = holder;
             this.result = result;
             ingredients = holder.value().getIngredients().stream().filter(i -> !i.isEmpty()).toList();
@@ -44,6 +59,9 @@ final class TableRecipeGuide {
     private final TableStation station;
     private List<ItemStack> snapshot = List.of();
     private boolean indexed;
+    //? if <1.21 {
+    /*private RecipeManager indexedManager;
+    *///?}
 
     TableRecipeGuide(TableStation station) {
         this.station = station;
@@ -54,9 +72,21 @@ final class TableRecipeGuide {
     void tick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
+        //? if >=1.21 {
         if (!indexed) {
             for (var holder : mc.level.getRecipeManager().getAllRecipesFor(RecipeType.CRAFTING)) {
                 var recipe = holder.value();
+        //?} else if <1.21 {
+        /*RecipeManager manager = mc.level.getRecipeManager();
+        // On a remote server the scene can open before the recipe-sync packet arrives. Do not cache
+        // that initial empty manager forever; checking again stops as soon as recipes are indexed.
+        if (!indexed || indexedManager != manager || (entries.isEmpty() && !manager.getAllRecipesFor(RecipeType.CRAFTING).isEmpty())) {
+            var selectedId = selected == null ? null : selected.holder.id();
+            entries.clear();
+            selected = null;
+            for (CraftingRecipe recipe : manager.getAllRecipesFor(RecipeType.CRAFTING)) {
+                var holder = RecipeRef.of(recipe);
+        *///?}
                 // Dynamic special recipes have no fixed ingredient diagram; their vanilla GUI remains available.
                 if (recipe.isSpecial() || !(recipe instanceof ShapedRecipe || recipe instanceof ShapelessRecipe)
                         || !recipe.canCraftInDimensions(3, 3) || recipe.isIncomplete()) continue;
@@ -65,7 +95,14 @@ final class TableRecipeGuide {
             }
             entries.sort(Comparator.comparing((Entry e) -> e.result.getHoverName().getString())
                     .thenComparing(e -> e.holder.id().toString()));
+            //? if <1.21 {
+            /*if (selectedId != null) selected = entry(selectedId);
+            snapshot = List.of();
+            *///?}
             indexed = true;
+            //? if <1.21 {
+            /*indexedManager = manager;
+            *///?}
         }
         List<ItemStack> next = new ArrayList<>();
         for (int i = 0; i < 36; i++) next.add(mc.player.getInventory().getItem(i).copy());
@@ -235,6 +272,162 @@ final class TableRecipeGuide {
     }
 
     /**
+     * What lies where the chosen recipe has no place for it (a cell outside the diagram, or the wrong item in one), and
+     * fits back into the inventory: {world cell, {@link TableStation#TAKE}, count}. Laying out a recipe takes these back
+     * first, so the last recipe's leftovers never block the new one; what does not fit stays ({@link #stuck}).
+     */
+    List<int[]> takeBackMoves() {
+        //? if >=1.21 {
+        if (takeRevision == revision && takeCache != null) {
+            return takeCache;
+        }
+        //?} else if <1.21 {
+        /*if (takeRevision == revision && takeCache != null) return takeCache;
+        *///?}
+        takeRevision = revision;
+        takeCache = new ArrayList<>();
+        stuckCount = 0;
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=1.21 {
+        if (selected == null || mc.player == null) {
+            return takeCache;
+        }
+        // the inventory as Inventory.add fills it: stacks of the same item first, then empty slots
+        //?} else if <1.21 {
+        /*if (selected == null || mc.player == null) return takeCache;
+        *///?}
+        ItemStack[] room = new ItemStack[36];
+        for (int slot = 0; slot < 36; slot++) room[slot] = mc.player.getInventory().getItem(slot).copy();
+        for (int logical = 0; logical < 9; logical++) {
+            if (!wrong(logical)) continue;
+            ItemStack lying = actual(logical);
+            if (fits(room, lying)) {
+                //? if >=1.21 {
+                takeCache.add(new int[]{TableGrid.worldIndex(station.side, logical / 3, logical % 3), TableStation.TAKE, lying.getCount()});
+                //?} else if <1.21 {
+                /*takeCache.add(new int[] {TableGrid.worldIndex(station.side, logical / 3, logical % 3), TableStation.TAKE, lying.getCount()});
+                *///?}
+            } else {
+                stuckCount++;
+            }
+        }
+        return takeCache;
+    }
+
+    /** Cells holding the wrong item that the inventory has no room to take back (worked out by {@link #takeBackMoves}). */
+    int stuck() {
+        takeBackMoves();
+        return stuckCount;
+    }
+
+    //? if >=1.21 {
+    @Nullable
+    private List<int[]> takeCache;
+    //?} else if <1.21 {
+    /*@Nullable private List<int[]> takeCache;
+    *///?}
+    private int takeRevision = -1;
+    private int stuckCount;
+
+    /** Whether all of {@code stack} goes into {@code room}; if it does, it is put there. */
+    private static boolean fits(ItemStack[] room, ItemStack stack) {
+        int left = stack.getCount();
+        for (ItemStack slot : room) {
+            //? if >=1.21 {
+            if (!slot.isEmpty() && ItemStack.isSameItemSameComponents(slot, stack)) left -= Math.max(0, slot.getMaxStackSize() - slot.getCount());
+            //?} else if <1.21 {
+            /*if (!slot.isEmpty() && ItemStack.isSameItemSameComponents(slot, stack))
+                left -= Math.max(0, slot.getMaxStackSize() - slot.getCount());
+            *///?}
+        }
+        //? if >=1.21 {
+        for (ItemStack slot : room) {
+            if (left > 0 && slot.isEmpty()) left -= stack.getMaxStackSize();
+        }
+        //?} else if <1.21 {
+        /*for (ItemStack slot : room) if (left > 0 && slot.isEmpty()) left -= stack.getMaxStackSize();
+        *///?}
+        if (left > 0) return false;
+        int put = stack.getCount();
+        //? if >=1.21 {
+        for (int i = 0; i < room.length && put > 0; i++) {
+            if (!room[i].isEmpty() && ItemStack.isSameItemSameComponents(room[i], stack)) {
+                int move = Math.min(put, room[i].getMaxStackSize() - room[i].getCount());
+                if (move > 0) { room[i].grow(move); put -= move; }
+        //?} else if <1.21 {
+        /*for (ItemStack slot : room) {
+            if (put > 0 && !slot.isEmpty() && ItemStack.isSameItemSameComponents(slot, stack)) {
+                int move = Math.min(put, slot.getMaxStackSize() - slot.getCount());
+                if (move > 0) { slot.grow(move); put -= move; }
+        *///?}
+            }
+        }
+        for (int i = 0; i < room.length && put > 0; i++) {
+            if (room[i].isEmpty()) {
+                int move = Math.min(put, stack.getMaxStackSize());
+                room[i] = stack.copyWithCount(move);
+                put -= move;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * How many cells of the diagram one "Lay out" fills once what lies in the way has been taken back: the items taken
+     * back count as being at hand, since they may belong in another cell of the new recipe.
+     */
+    int layableAfterTakingBack() {
+        Minecraft mc = Minecraft.getInstance();
+        if (selected == null || mc.player == null) return 0;
+        //? if >=1.21 {
+        List<int[]> back = takeBackMoves();
+        //?}
+        List<ItemStack> stacks = new ArrayList<>();
+        //? if >=1.21 {
+        for (int slot = -1; slot < 36; slot++) stacks.add(slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot));
+        //?} else if <1.21 {
+        /*for (int slot = -1; slot < 36; slot++)
+            stacks.add(slot < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(slot));
+        *///?}
+        List<Integer> cleared = new ArrayList<>();
+        //? if >=1.21 {
+        for (int[] move : back) {
+        //?} else if <1.21 {
+        /*for (int[] move : takeBackMoves()) {
+        *///?}
+            int logical = logicalOf(move[0]);
+            cleared.add(logical);
+            stacks.add(actual(logical));
+        }
+        List<Ingredient> needed = new ArrayList<>();
+        for (int logical = 0; logical < 9; logical++) {
+            //? if >=1.21 {
+            if (!grid[logical].isEmpty() && !placed[logical] && (actual(logical).isEmpty() || cleared.contains(logical))) {
+            //?} else if <1.21 {
+            /*if (!grid[logical].isEmpty() && !placed[logical] && (actual(logical).isEmpty() || cleared.contains(logical)))
+            *///?}
+                needed.add(grid[logical]);
+            //? if >=1.21 {
+            }
+            //?}
+        }
+        return (int) Arrays.stream(match(needed, units(stacks))).filter(i -> i >= 0).count();
+    }
+
+    private int logicalOf(int world) {
+        //? if >=1.21 {
+        for (int logical = 0; logical < 9; logical++) {
+        //?} else if <1.21 {
+        /*for (int logical = 0; logical < 9; logical++)
+        *///?}
+            if (TableGrid.worldIndex(station.side, logical / 3, logical % 3) == world) return logical;
+        //? if >=1.21 {
+        }
+        //?}
+        return -1;
+    }
+
+    /**
      * Shift + "Lay out": every cell of the diagram brought up to {@code sets} items, the most whole sets the items at
      * hand allow. Each cell holds a single kind of item, so a tag ingredient picks the kinds that go furthest, and
      * no cell passes its kind's stack limit. {@code current} is how many whole sets already lie on the table; when
@@ -279,6 +472,22 @@ final class TableRecipeGuide {
             stock.set(kind, stock.get(kind) + stack.getCount());
             kindSlots.get(kind).add(slot);
         }
+        // what will be taken back first is at hand too (where it lands is known only after: the moves re-plan then)
+        List<Integer> takenBack = new ArrayList<>();
+        for (int[] move : takeBackMoves()) {
+            int logical = logicalOf(move[0]);
+            takenBack.add(logical);
+            ItemStack stack = actual(logical);
+            int kind = kindOf(kinds, stack);
+            if (kind < 0) {
+                kinds.add(stack);
+                stock.add(0);
+                kindSlots.add(new ArrayList<>());
+                kind = kinds.size() - 1;
+            }
+            stock.set(kind, stock.get(kind) + stack.getCount());
+            if (!kindSlots.get(kind).contains(TableStation.REPLAN)) kindSlots.get(kind).add(TableStation.REPLAN);
+        }
         // The diagram's cells: those already holding the right item keep that kind; empty ones choose a kind.
         List<Integer> cells = new ArrayList<>();
         List<Integer> fixedKind = new ArrayList<>();
@@ -289,7 +498,7 @@ final class TableRecipeGuide {
         int upper = Integer.MAX_VALUE;
         for (int logical = 0; logical < 9; logical++) {
             if (grid[logical].isEmpty()) continue;
-            ItemStack lying = actual(logical);
+            ItemStack lying = takenBack.contains(logical) ? ItemStack.EMPTY : actual(logical);
             if (!lying.isEmpty() && !grid[logical].test(lying)) continue;
             cells.add(logical);
             if (!lying.isEmpty()) {
@@ -333,6 +542,12 @@ final class TableRecipeGuide {
                 int world = TableGrid.worldIndex(station.side, logical / 3, logical % 3);
                 for (int slot : kindSlots.get(chosen[i])) {
                     if (need <= 0) break;
+                    if (slot == TableStation.REPLAN) {
+                        // a stand-in for what is taken back: counted, never sent
+                        moves.add(new int[]{world, slot, need});
+                        need = 0;
+                        break;
+                    }
                     int take = Math.min(need, left[slot + 1]);
                     if (take <= 0) continue;
                     left[slot + 1] -= take;

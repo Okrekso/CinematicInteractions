@@ -66,7 +66,11 @@ public final class FurnaceRenderer {
                 drawGlow(pose, buffers, cam, pos, facing, layout, appearance, heat, frontSeen, topSeen);
             }
         }
+        //? if !forge {
         if (mine != null && Scene.clientOnly()) {
+        //?} else if forge {
+        /*if (mine != null && Scene.clientOnly() && mine.stillThere(level)) {
+        *///?}
             ClientFurnaces.Entry entry = ClientFurnaces.get(mine.pos);
             if (entry != null) {
                 BlockState state = level.getBlockState(mine.pos);

@@ -13,13 +13,20 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.inventory.BrewingStandMenu;
 import net.minecraft.world.item.ItemStack;
+//? if >=1.21 {
 import net.minecraft.world.item.alchemy.PotionContents;
+//?} else if <1.21 {
+/*import net.minecraft.world.item.PotionItem;
+import net.minecraft.world.item.alchemy.PotionUtils;
+*///?}
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -257,8 +264,13 @@ public final class BrewingStation extends MenuStation<BrewingStandMenu> implemen
     }
 
     static float[] color(ItemStack stack) {
+        //? if >=1.21 {
         PotionContents contents = stack.get(DataComponents.POTION_CONTENTS);
         int rgb = contents == null ? 0x3F76E4 : contents.getColor();
+        //?} else if <1.21 {
+        /*// in 1.20.1 a potion is its tag (PotionUtils), not a component
+        int rgb = stack.getItem() instanceof PotionItem ? PotionUtils.getColor(stack) : 0x3F76E4;
+        *///?}
         float r = (rgb >> 16 & 255) / 255f, g = (rgb >> 8 & 255) / 255f, b = (rgb & 255) / 255f;
         float max = Math.max(0.1f, Math.max(r, Math.max(g, b)));
         return new float[]{r / max, g / max, b / max};

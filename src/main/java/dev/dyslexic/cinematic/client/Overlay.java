@@ -1,9 +1,18 @@
 package dev.dyslexic.cinematic.client;
 
+//? if neoforge {
 import java.util.Set;
+//?} else if forge {
+/*import java.util.Set;
+*///?}
 import net.minecraft.client.gui.GuiGraphics;
+//? if neoforge {
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
+//?} else if forge {
+/*import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.client.gui.overlay.VanillaGuiOverlay;
+*///?}
 
 /**
  * Hides the HUD during the scene, draws thin letterbox bars while the camera travels and the station's flashes (both can
@@ -12,12 +21,24 @@ import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
 public final class Overlay {
     private Overlay() {}
 
+    // The HUD itself is hidden by GuiMixin and BossHealthOverlayMixin: every vanilla layer but the chat, the subtitles,
+    // the debug screen, the saving indicator and the player list, as NeoForge's layer list does.
+    //? if neoforge {
     private static final Set<ResourceLocation> KEEP = Set.of(VanillaGuiLayers.CHAT, VanillaGuiLayers.SUBTITLE_OVERLAY,
             VanillaGuiLayers.DEBUG_OVERLAY, VanillaGuiLayers.SAVING_INDICATOR, VanillaGuiLayers.TAB_LIST);
 
     public static boolean hides(ResourceLocation layer) {
         return Scene.active() && !KEEP.contains(layer);
     }
+    //?} else if forge {
+    /*/^* What stays on screen (1.20.1 draws the saving indicator outside the overlays, so it stays anyway). ^/
+    private static final Set<ResourceLocation> KEEP = Set.of(VanillaGuiOverlay.CHAT_PANEL.id(), VanillaGuiOverlay.SUBTITLES.id(),
+            VanillaGuiOverlay.DEBUG_TEXT.id(), VanillaGuiOverlay.FPS_GRAPH.id(), VanillaGuiOverlay.PLAYER_LIST.id());
+
+    public static boolean hides(ResourceLocation layer) {
+        return Scene.active() && !KEEP.contains(layer);
+    }
+    *///?}
 
     /** 0..1: how far the bars are in. */
     private static double bars() {

@@ -1,0 +1,24 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.dyslexic.cinematic.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AbstractFurnaceBlockEntityMixin",
+    "BrewingStandBlockEntityMixin"
+  ],
+  "client": [
+    "CampfireRendererMixin",
+    "CameraMixin",
+    "CampfireArmorMixin",
+    "ExperienceOrbRendererMixin",
+    "FirstPersonHandsMixin",
+    "HumanoidModelMixin",
+    "ItemInHandLayerMixin",
+    "LecternRendererMixin",
+    "compat.PunchyCameraStateMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

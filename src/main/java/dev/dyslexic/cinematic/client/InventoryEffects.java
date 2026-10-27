@@ -14,7 +14,13 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.LecternBlockEntity;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.fml.ModList;
+//?} else if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?} else if forge {
+/*import net.minecraftforge.fml.ModList;
+*///?}
 
 /** Read-only visual slots for optional inventory effects; never attached to a menu or sent to the server. */
 final class InventoryEffects {
@@ -35,7 +41,13 @@ final class InventoryEffects {
     private ClickType action = ClickType.PICKUP;
 
     InventoryEffects() {
+        //? if neoforge {
         if (ModList.get().isLoaded("inventory_particles") && supported("inventory_particles", "3.")) {
+        //?} else if fabric {
+        /*if (FabricLoader.getInstance().isModLoaded("inventory_particles") && supported("inventory_particles", "3.")) {
+        *///?} else if forge {
+        /*if (ModList.get().isLoaded("inventory_particles") && supported("inventory_particles", "3.")) {
+        *///?}
             try {
                 bridge = new ParticlesBridge();
             } catch (LinkageError | RuntimeException e) {
@@ -45,7 +57,13 @@ final class InventoryEffects {
     }
 
     private static boolean supported(String id, String major) {
+        //? if neoforge {
         return ModList.get().getModContainerById(id).map(mod -> mod.getModInfo().getVersion().toString().startsWith(major)).orElse(false);
+        //?} else if fabric {
+        /*return FabricLoader.getInstance().getModContainer(id).map(mod -> mod.getMetadata().getVersion().getFriendlyString().startsWith(major)).orElse(false);
+        *///?} else if forge {
+        /*return ModList.get().getModContainerById(id).map(mod -> mod.getModInfo().getVersion().toString().startsWith(major)).orElse(false);
+        *///?}
     }
 
     private void failed(Throwable e) {

@@ -24,7 +24,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
@@ -58,7 +60,11 @@ import net.minecraft.world.level.levelgen.presets.WorldPresets;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.client.model.data.ModelData;
+//?} else if forge {
+/*import net.minecraftforge.client.model.data.ModelData;
+*///?}
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -97,7 +103,9 @@ public final class Showcase {
     private static final BlockPos LOOM = new BlockPos(8, -60, 11);
     private static final BlockPos CARTOGRAPHY = new BlockPos(10, -60, 11);
     private static final BlockPos BREWING = new BlockPos(12, -60, 11);
+    //? if >=1.21 {
     private static final BlockPos CRAFTER = new BlockPos(14, -60, 11);
+    //?}
     private static final BlockPos CAMPFIRE = new BlockPos(11, -60, 17);
     private static final BlockPos SOUL_CAMPFIRE = new BlockPos(15, -60, 17);
     private static final BlockPos LECTERN = new BlockPos(6, -60, 21);
@@ -142,7 +150,11 @@ public final class Showcase {
         mc.execute(() -> {
             try {
                 if (mc.getLevelSource().levelExists(WORLD)) {
+                    //? if >=1.21 {
                     mc.createWorldOpenFlows().openWorld(WORLD, () -> mc.setScreen(new TitleScreen()));
+                    //?} else if <1.21 {
+                    /*mc.createWorldOpenFlows().loadLevel(new TitleScreen(), WORLD);
+                    *///?}
                     return;
                 }
             } catch (Exception e) {
@@ -152,7 +164,11 @@ public final class Showcase {
                     WorldDataConfiguration.DEFAULT);
             mc.createWorldOpenFlows().createFreshLevel(WORLD, settings, new WorldOptions(20261010L, false, false),
                     registry -> registry.registryOrThrow(Registries.WORLD_PRESET).getHolderOrThrow(WorldPresets.FLAT).value()
+                            //? if >=1.21 {
                             .createWorldDimensions(), screen);
+                            //?} else if <1.21 {
+                            /*.createWorldDimensions());
+                            *///?}
         });
     }
 
@@ -175,14 +191,28 @@ public final class Showcase {
         } else if (t == 75) {
             switch (FROM) {
                 case "ip" -> nextAct("ip", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+                //? if <1.21 {
+                /*case "tw" -> nextAct("tw", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+                case "pm", "pf", "ps" -> polymorphAct(FROM);
+                *///?}
                 case "ji" -> nextAct("ji", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
                 case "3" -> nextAct("3", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+                //? if <1.21 {
+                /*case "fb" -> nextAct("fb", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+                *///?}
                 case "4" -> nextAct("4", new Vec3(2.5, -60, 5.4), 180f, SMOKER, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
                 case "5" -> nextAct("5", new Vec3(4.5, -60, 5.4), 180f, BLAST, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+                //? if >=1.21 {
                 case "i" -> {
                     step(2, () -> server(p -> p.serverLevel().setBlockAndUpdate(CRAFTER, Blocks.CRAFTER.defaultBlockState()
                             .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.ORIENTATION, net.minecraft.core.FrontAndTop.UP_SOUTH))));
                     nextAct("i", new Vec3(14.5, -60, 14.4), 180f, CRAFTER, new Vec3(0.5, 0.5, 1), Direction.SOUTH);
+                //?} else if <1.21 {
+                /*case "i", "r" -> {
+                    // Minecraft 1.20.1 has no crafter: its acts are not part of this port
+                    REPORT.add("act " + FROM + ": the crafter is not in Minecraft 1.20.1");
+                    step(2, () -> finish(Minecraft.getInstance()));
+                *///?}
                 }
                 case "6" -> nextAct("6", new Vec3(-4.5, -60, 11.6), 180f, ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP);
                 case "a" -> smithyAct("a", ANVIL);
@@ -201,10 +231,12 @@ public final class Showcase {
                     restock();
                     smithyAct("b", BREWING);
                 }
+                //? if >=1.21 {
                 case "r" -> {
                     restock();
                     smithyAct("r", CRAFTER);
                 }
+                //?}
                 case "f" -> {
                     restock();
                     campfireAct();
@@ -236,6 +268,25 @@ public final class Showcase {
                 case "pn" -> penchantAct();
                 case "av" -> anvilRulesAct();
                 case "sq" -> quickMoveAct();
+                //? if fabric && >=1.21 {
+                /*case "ri" -> reopenAfterInventoryAct();
+                case "jp" -> jumpUseAct();
+                case "tb" -> tableKeepsAct();
+                case "pm" -> polymorphAct();
+                case "vx" -> lookAtFixesAct();
+                case "vy" -> visualFixesAct();
+                *///?} else if fabric && <1.21 {
+                /*case "ri" -> reopenAfterInventoryAct();
+                case "jp" -> jumpUseAct();
+                case "tb" -> tableKeepsAct();
+                case "vx" -> lookAtFixesAct();
+                case "vy" -> visualFixesAct();
+                case "cr" -> customRecipesAct();
+                case "fm" -> foreignMenuAct();
+                *///?} else if forge {
+                /*case "cr" -> customRecipesAct();
+                case "fm" -> foreignMenuAct();
+                *///?}
                 case "d" -> nextAct("d", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
                 case "p" -> nextAct("p", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH);
                 case "z" -> { developerOptionsScript(); step(3, () -> finish(Minecraft.getInstance())); }
@@ -293,6 +344,12 @@ public final class Showcase {
     private static void runScript() {
         switch (act) {
             case "ip" -> inventoryEffectsScript();
+            //? if <1.21 {
+            /*case "tw" -> tableWindowScript();
+            case "pm" -> polymorphScript();
+            case "pf" -> polymorphFurnaceScript();
+            case "ps" -> polymorphSmithingScript();
+            *///?}
             case "ji" -> fieldGuideScript();
             case "0" -> tableScript();
             case "d" -> {
@@ -309,6 +366,9 @@ public final class Showcase {
                 else { developerOptionsScript(); step(3, () -> finish(Minecraft.getInstance())); }
             }
             case "3" -> furnaceScript();
+            //? if <1.21 {
+            /*case "fb" -> furnaceBreakScript();
+            *///?}
             case "4" -> smokerScript();
             case "5" -> blastScript();
             case "6" -> enchantScript();
@@ -319,11 +379,16 @@ public final class Showcase {
             case "l" -> loomScript();
             case "m" -> cartographyScript();
             case "b" -> brewingScript();
+            //? if >=1.21 {
             case "r", "i" -> crafterScript();
+            //?}
             case "u" -> soulCampfireScript();
             case "k" -> lecternScript();
             case "e" -> shelfScript();
             case "n" -> beaconScript();
+            //? if <1.21 {
+            /*case "cr" -> customRecipesScript();
+            *///?}
             default -> campfireScript();
         }
     }
@@ -388,8 +453,11 @@ public final class Showcase {
             level.setBlockAndUpdate(LOOM, Blocks.LOOM.defaultBlockState().setValue(net.minecraft.world.level.block.LoomBlock.FACING, Direction.SOUTH));
             level.setBlockAndUpdate(CARTOGRAPHY, Blocks.CARTOGRAPHY_TABLE.defaultBlockState());
             level.setBlockAndUpdate(BREWING, Blocks.BREWING_STAND.defaultBlockState());
+            // (later versions put a crafter here; 1.20.1 has none)
+            //? if >=1.21 {
             level.setBlockAndUpdate(CRAFTER, Blocks.CRAFTER.defaultBlockState()
                     .setValue(net.minecraft.world.level.block.state.properties.BlockStateProperties.ORIENTATION, net.minecraft.core.FrontAndTop.SOUTH_UP));
+            //?}
             level.setBlockAndUpdate(new BlockPos(11, -57, 10), Blocks.LANTERN.defaultBlockState());
             level.setBlockAndUpdate(CAMPFIRE, Blocks.CAMPFIRE.defaultBlockState());
             level.setBlockAndUpdate(SOUL_CAMPFIRE, Blocks.SOUL_CAMPFIRE.defaultBlockState());
@@ -431,11 +499,20 @@ public final class Showcase {
             ItemStack pickaxe = new ItemStack(Items.IRON_PICKAXE);
             pickaxe.setDamageValue(140);
             p.getInventory().setItem(17, pickaxe);
+            //? if >=1.21 {
             var enchantments = level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
             p.getInventory().setItem(19, EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantments.getOrThrow(Enchantments.EFFICIENCY), 3)));
+            //?} else if <1.21 {
+            /*p.getInventory().setItem(19, EnchantedBookItem.createForEnchantment(new EnchantmentInstance(Enchantments.BLOCK_EFFICIENCY, 3)));
+            *///?}
             ItemStack golden = new ItemStack(Items.GOLDEN_SWORD);
+            //? if >=1.21 {
             golden.enchant(enchantments.getOrThrow(Enchantments.SHARPNESS), 3);
             golden.enchant(enchantments.getOrThrow(Enchantments.LOOTING), 2);
+            //?} else if <1.21 {
+            /*golden.enchant(Enchantments.SHARPNESS, 3);
+            golden.enchant(Enchantments.MOB_LOOTING, 2);
+            *///?}
             p.getInventory().setItem(20, golden);
             // the chiseled bookshelves: books of every kind, with gaps
             net.minecraft.world.level.block.state.BlockState shelfState = Blocks.CHISELED_BOOKSHELF.defaultBlockState()
@@ -443,11 +520,19 @@ public final class Showcase {
             level.setBlockAndUpdate(SHELF, shelfState);
             level.setBlockAndUpdate(SHELF.above(), shelfState);
             if (level.getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf) {
+                //? if >=1.21 {
                 shelf.setItem(0, EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantments.getOrThrow(Enchantments.SHARPNESS), 4)));
+                //?} else if <1.21 {
+                /*shelf.setItem(0, EnchantedBookItem.createForEnchantment(new EnchantmentInstance(Enchantments.SHARPNESS, 4)));
+                *///?}
                 shelf.setItem(1, notesBook());
                 shelf.setItem(3, storyBook());
                 shelf.setItem(4, new ItemStack(Items.BOOK));
+                //? if >=1.21 {
                 shelf.setItem(5, EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantments.getOrThrow(Enchantments.MENDING), 1)));
+                //?} else if <1.21 {
+                /*shelf.setItem(5, EnchantedBookItem.createForEnchantment(new EnchantmentInstance(Enchantments.MENDING, 1)));
+                *///?}
             }
             if (level.getBlockEntity(SHELF.above()) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf) {
                 shelf.setItem(0, new ItemStack(Items.BOOK));
@@ -572,6 +657,1804 @@ public final class Showcase {
         step(50, () -> server(p -> check(name + ": no session after leaving", dev.dyslexic.cinematic.station.Sessions.get(p) == null, "session")));
     }
 
+    //? if fabric && >=1.21 {
+    /*// ---- the inventory opened while stepping away ---------------------------------------------------------
+
+    /^*
+     * The player steps away (E, as from the work) and presses E again almost at once: the inventory opens while the scene
+     * is still stepping away. Then the same station is used again: its scene must play again, not its own window, and a
+     * plain way in and out without the inventory must still work. Several pauses, on menu stations and on the table.
+     ^/
+    /^*
+     * A station used in the air: at every stage of a jump (rising, at the top, falling, the landing tick), standing and
+     * running at it. The use must end in the scene or in the block's own window, never in a scene that plays and lets go.
+     ^/
+    private static void jumpUseAct() {
+        step(2, () -> act = "jp");
+        record Case(String name, BlockPos pos, Vec3 feet, Vec3 local, Class<?> vanillaScreen) {}
+        List<Case> stations = List.of(
+                new Case("table", TABLE, new Vec3(TABLE.getX() + 0.5, -60, TABLE.getZ() + 3.4), new Vec3(0.5, 1.0, 0.7),
+                        net.minecraft.client.gui.screens.inventory.CraftingScreen.class),
+                new Case("smithing", SMITHING, new Vec3(SMITHING.getX() + 0.5, -60, SMITHING.getZ() + 3.4), new Vec3(0.5, 1.0, 0.5),
+                        net.minecraft.client.gui.screens.inventory.SmithingScreen.class),
+                new Case("anvil", ANVIL, new Vec3(ANVIL.getX() + 0.5, -60, ANVIL.getZ() + 3.4), new Vec3(0.5, 1.0, 0.5),
+                        net.minecraft.client.gui.screens.inventory.AnvilScreen.class));
+        // ticks from the jump to the use: rising (1-4), the top (5-6), falling (7-10), landing (11-12), just landed (13)
+        int[] delays = {1, 3, 5, 7, 9, 10, 11, 12, 13};
+        for (Case c : stations) {
+            for (boolean running : new boolean[]{false, true}) {
+                for (int delay : delays) {
+                    String label = c.name() + (running ? " running" : "") + " jump +" + delay;
+                    step(2, () -> standLooking(running ? c.feet().add(0, 0, 1.2) : c.feet(), Vec3.atCenterOf(c.pos())));
+                    step(20, () -> {
+                        LocalPlayer player = Minecraft.getInstance().player;
+                        player.jumpFromGround();
+                        if (running) player.setDeltaMovement(player.getDeltaMovement().add(0, 0, -0.28));
+                    });
+                    step(delay, () -> {
+                        LocalPlayer player = Minecraft.getInstance().player;
+                        REPORT.add(label + ": used with onGround=" + player.onGround() + " vy=" + String.format("%.3f", player.getDeltaMovement().y)
+                                + " fall=" + String.format("%.2f", player.fallDistance));
+                        useAt(c.pos(), c.local(), Direction.UP);
+                    });
+                    step(110, () -> {
+                        Minecraft mc = Minecraft.getInstance();
+                        boolean scene = Scene.phase == Scene.Phase.ACTIVE && Scene.station != null && Scene.station.pos.equals(c.pos());
+                        boolean window = c.vanillaScreen().isInstance(mc.screen);
+                        REPORT.add(label + ": phase=" + Scene.phase + " screen=" + screenName() + " why=" + Scene.refused);
+                        check(label + ": the scene or the block's window, not an empty scene", scene || window,
+                                "phase=" + Scene.phase + " screen=" + screenName());
+                        if (scene) server(p -> check(label + ": the server has the session", dev.dyslexic.cinematic.station.Sessions.get(p) != null
+                                && dev.dyslexic.cinematic.station.Sessions.get(p).pos().equals(c.pos()), "session"));
+                        if (delay == 7 && !running) shot("jp_" + c.name() + "_" + delay);
+                        if (scene) Scene.leave();
+                        else if (mc.player.containerMenu != mc.player.inventoryMenu) mc.player.closeContainer();
+                        else mc.setScreen(null);
+                    });
+                    step(40, () -> server(p -> check(label + ": nothing left open", dev.dyslexic.cinematic.station.Sessions.get(p) == null
+                            && p.containerMenu == p.inventoryMenu, "session")));
+                }
+            }
+        }
+        // kept in the air longer than the use waits for the ground (levitation): the block's own window instead
+        step(2, () -> standLooking(new Vec3(SMITHING.getX() + 0.5, -60, SMITHING.getZ() + 3.4), Vec3.atCenterOf(SMITHING)));
+        step(20, () -> server(p -> p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.LEVITATION, 60, 0))));
+        step(8, () -> useAt(SMITHING, new Vec3(0.5, 1.0, 0.5), Direction.UP));
+        step(45, () -> {
+            check("smithing in the air too long: the block's own window", Minecraft.getInstance().screen
+                    instanceof net.minecraft.client.gui.screens.inventory.SmithingScreen && Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase + " screen=" + screenName());
+            shot("jp_levitating_window");
+            Minecraft.getInstance().player.closeContainer();
+        });
+        step(80, () -> server(p -> p.removeAllEffects()));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static int onTableCount(ServerPlayer p, net.minecraft.world.item.Item item) {
+        TableStore.Table stored = TableStore.get(p.serverLevel()).get(TABLE);
+        int n = 0;
+        for (int i = 0; stored != null && i < TableGrid.CELLS; i++) if (stored.items.get(i).is(item)) n += stored.items.get(i).getCount();
+        return n;
+    }
+
+    private static void selectRecipe(String id) {
+        TableRecipeGuide guide = table().recipeBook.guide;
+        guide.tick();
+        guide.select(guide.entry(net.minecraft.resources.ResourceLocation.withDefaultNamespace(id)));
+        guide.tick();
+    }
+
+    /^*
+     * 2.1: another recipe laid out over what the last one left (by hand or from the book), with Shift and with no room
+     * in the inventory; 2.2: what lies on the table goes into the crafting window whenever that opens instead of the scene.
+     ^/
+    private static void tableKeepsAct() {
+        Vec3 feet = new Vec3(0.5, -60, 3.36);
+        step(4, () -> {
+            act = "tb";
+            closeWindow();
+            server(Showcase::wipeTable);
+            testInventory(new ItemStack(Items.LAPIS_LAZULI, 9));
+            standLooking(feet, Vec3.atCenterOf(TABLE));
+        });
+        step(30, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(80, () -> check("table: at the table", Scene.station instanceof TableStation && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase));
+        // 1. the last recipe left an iron ingot where the lapis block wants lapis
+        step(4, () -> server(p -> putOnTable(p, 1, 1, new ItemStack(Items.IRON_INGOT))));
+        step(10, () -> {
+            selectRecipe("lapis_block");
+            TableRecipeGuide guide = table().recipeBook.guide;
+            check("2.1 lapis over an iron ingot: something to lay out", guide.layableAfterTakingBack() == 9 && guide.takeBackMoves().size() == 1,
+                    "after=" + guide.layableAfterTakingBack() + " back=" + guide.takeBackMoves().size());
+            table().recipeBook.layOut(false);
+        });
+        step(8, () -> shot("tb1_taking_back"));
+        step(70, () -> {
+            server(p -> check("2.1 lapis: the ingot back in the inventory, nine lapis on the table", onTableCount(p, Items.LAPIS_LAZULI) == 9
+                    && onTableCount(p, Items.IRON_INGOT) == 0 && heldEverywhere(p, Items.IRON_INGOT) == 1 && heldEverywhere(p, Items.LAPIS_LAZULI) == 9,
+                    "lapis on table=" + onTableCount(p, Items.LAPIS_LAZULI) + " iron=" + heldEverywhere(p, Items.IRON_INGOT)));
+            check("2.1 lapis: the table shows the block", table().result.is(Items.LAPIS_BLOCK), "result=" + describe(table().result));
+            pointAside();
+            shot("tb2_lapis_laid");
+        });
+        // 2. a crafting table laid by hand, then a chest: the planks in place stay, the middle one comes back and goes out again
+        step(4, () -> {
+            testInventory(new ItemStack(Items.OAK_PLANKS, 4));
+            server(p -> {
+                wipeTable(p);
+                for (int[] at : new int[][]{{0, 0}, {0, 1}, {1, 0}, {1, 1}}) putOnTable(p, at[0], at[1], new ItemStack(Items.OAK_PLANKS));
+            });
+        });
+        step(10, () -> {
+            selectRecipe("chest");
+            table().recipeBook.layOut(false);
+        });
+        step(100, () -> {
+            server(p -> {
+                boolean ring = true;
+                for (int i = 0; i < 9; i++) ring &= i == 4 ? onTable(p, 1, 1).isEmpty() : onTable(p, i / 3, i % 3).is(Items.OAK_PLANKS);
+                check("2.1 chest after a crafting table: eight planks round the middle, none lost", ring
+                        && heldEverywhere(p, Items.OAK_PLANKS) == 8 && onTableCount(p, Items.OAK_PLANKS) == 8,
+                        "planks=" + heldEverywhere(p, Items.OAK_PLANKS) + " on table=" + onTableCount(p, Items.OAK_PLANKS));
+            });
+            check("2.1 chest: the table shows the chest", table().result.is(Items.CHEST), "result=" + describe(table().result));
+            shot("tb3_chest");
+        });
+        // 3. Shift: every set of sticks, a cobblestone in the way
+        step(4, () -> {
+            testInventory(new ItemStack(Items.OAK_PLANKS, 20));
+            server(p -> {
+                wipeTable(p);
+                putOnTable(p, 0, 0, new ItemStack(Items.COBBLESTONE));
+            });
+        });
+        step(10, () -> {
+            selectRecipe("stick");
+            table().recipeBook.layOut(true);
+        });
+        step(100, () -> {
+            server(p -> check("2.1 Shift sticks: the cobblestone back, all twenty planks laid in two cells", onTableCount(p, Items.COBBLESTONE) == 0
+                    && heldEverywhere(p, Items.COBBLESTONE) == 1 && onTableCount(p, Items.OAK_PLANKS) == 20 && heldEverywhere(p, Items.OAK_PLANKS) == 20,
+                    "planks on table=" + onTableCount(p, Items.OAK_PLANKS) + " cobble=" + heldEverywhere(p, Items.COBBLESTONE)));
+            check("2.1 Shift sticks: the table shows sticks", table().result.is(Items.STICK), "result=" + describe(table().result));
+        });
+        // 4. no room to take the ingot back: it stays where it is, nothing is lost, the rest is laid out
+        step(4, () -> {
+            ItemStack[] full = new ItemStack[36];
+            for (int i = 0; i < 35; i++) full[i] = new ItemStack(Items.DIRT, 64);
+            full[35] = new ItemStack(Items.LAPIS_LAZULI, 9);
+            testInventory(full);
+            server(p -> {
+                wipeTable(p);
+                putOnTable(p, 1, 1, new ItemStack(Items.IRON_INGOT));
+            });
+        });
+        step(10, () -> {
+            selectRecipe("lapis_block");
+            check("2.1 no room: the ingot cannot go back", table().recipeBook.guide.stuck() == 1 && table().recipeBook.guide.takeBackMoves().isEmpty(),
+                    "stuck=" + table().recipeBook.guide.stuck());
+            table().recipeBook.layOut(false);
+        });
+        step(90, () -> server(p -> check("2.1 no room: the ingot stays on the table, the lapis round it, nothing lost",
+                onTableCount(p, Items.IRON_INGOT) == 1 && onTableCount(p, Items.LAPIS_LAZULI) == 8 && heldEverywhere(p, Items.LAPIS_LAZULI) == 9,
+                "iron=" + onTableCount(p, Items.IRON_INGOT) + " lapis=" + onTableCount(p, Items.LAPIS_LAZULI))));
+        // 2.2: eight planks left on the table, then the scene turned off: the crafting window has them, the table gives them up
+        step(4, () -> {
+            testInventory();
+            server(p -> {
+                wipeTable(p);
+                for (int[] at : new int[][]{{0, 0}, {0, 1}, {1, 0}, {1, 1}}) putOnTable(p, at[0], at[1], new ItemStack(Items.OAK_PLANKS, 2));
+            });
+        });
+        step(10, Scene::leave);
+        step(40, () -> {
+            check("2.2 left the table with the planks on it", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+            server(p -> check("2.2 the planks stay on the table after leaving (as before)", onTableCount(p, Items.OAK_PLANKS) == 8,
+                    "on table=" + onTableCount(p, Items.OAK_PLANKS)));
+            Settings.SCENES.get(dev.dyslexic.cinematic.station.StationKind.TABLE).set(false);
+            useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP);
+        });
+        step(20, () -> {
+            check("2.2 scene off: the crafting window opens", Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.CraftingScreen,
+                    "screen=" + screenName());
+            server(p -> {
+                boolean inGrid = p.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu menu
+                        && menu.getSlot(1).getItem().is(Items.OAK_PLANKS) && menu.getSlot(2).getItem().is(Items.OAK_PLANKS)
+                        && menu.getSlot(4).getItem().is(Items.OAK_PLANKS) && menu.getSlot(5).getItem().is(Items.OAK_PLANKS)
+                        && menu.getSlot(0).getItem().is(Items.CRAFTING_TABLE);
+                check("2.2 the planks are in the window's grid as on the table, the result a crafting table", inGrid, "menu=" + p.containerMenu
+                        + " result=" + describe(p.containerMenu.getSlot(0).getItem()));
+                check("2.2 the table top is empty while the window has them", onTableCount(p, Items.OAK_PLANKS) == 0,
+                        "on table=" + onTableCount(p, Items.OAK_PLANKS));
+            });
+            shot("tb4_window");
+        });
+        step(4, () -> Minecraft.getInstance().player.closeContainer());
+        step(20, () -> server(p -> check("2.2 closing the window: all eight planks in the inventory, no copies", heldEverywhere(p, Items.OAK_PLANKS) == 8
+                && onTableCount(p, Items.OAK_PLANKS) == 0, "planks=" + heldEverywhere(p, Items.OAK_PLANKS))));
+        // any other way the window opens (a sneaking use, another mod): the same
+        step(4, () -> server(p -> {
+            TableStore store = TableStore.get(p.serverLevel());
+            store.getOrCreate(TABLE).items.set(southCell(0, 0), new ItemStack(Items.STICK, 3));
+            store.setDirty();
+            p.openMenu(p.serverLevel().getBlockState(TABLE).getMenuProvider(p.serverLevel(), TABLE));
+        }));
+        step(20, () -> server(p -> {
+            check("2.2 a window opened any other way takes the sticks", p.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu menu
+                    && menu.getSlot(1).getItem().is(Items.STICK) && menu.getSlot(1).getItem().getCount() == 3 && onTableCount(p, Items.STICK) == 0,
+                    "menu=" + p.containerMenu);
+            p.closeContainer();
+        }));
+        step(20, () -> {
+            server(p -> check("2.2 the sticks back in the inventory", heldEverywhere(p, Items.STICK) == 3 && onTableCount(p, Items.STICK) == 0,
+                    "sticks=" + heldEverywhere(p, Items.STICK)));
+            Settings.SCENES.get(dev.dyslexic.cinematic.station.StationKind.TABLE).set(true);
+            restoreInventory();
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static int southCell(int row, int col) {
+        return TableGrid.worldIndex(Direction.SOUTH, row, col);
+    }
+
+    /^* A data pack of recipes that compete with vanilla ones, for the Polymorph act (written into the test world). ^/
+    private static void conflictPack(ServerPlayer p) {
+        try {
+            java.nio.file.Path dir = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_conflicts");
+            java.nio.file.Path recipes = dir.resolve("data/cinematic_test/recipe");
+            java.nio.file.Files.createDirectories(recipes);
+            java.nio.file.Files.writeString(dir.resolve("pack.mcmeta"), "{\"pack\":{\"pack_format\":48,\"description\":\"Cinematic test conflicts\"}}");
+            java.nio.file.Files.writeString(recipes.resolve("planks_barrel.json"), "{\"type\":\"minecraft:crafting_shaped\",\"pattern\":[\"##\",\"##\"],"
+                    + "\"key\":{\"#\":{\"tag\":\"minecraft:planks\"}},\"result\":{\"id\":\"minecraft:barrel\",\"count\":1}}");
+            java.nio.file.Files.writeString(recipes.resolve("raw_iron_nugget.json"), "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},"
+                    + "\"result\":{\"id\":\"minecraft:gold_nugget\"},\"experience\":0.1,\"cookingtime\":40}");
+            java.nio.file.Files.writeString(recipes.resolve("sword_gold.json"), "{\"type\":\"minecraft:smithing_transform\","
+                    + "\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},\"base\":{\"item\":\"minecraft:diamond_sword\"},"
+                    + "\"addition\":{\"item\":\"minecraft:netherite_ingot\"},\"result\":{\"id\":\"minecraft:golden_sword\",\"count\":1}}");
+            p.server.getPackRepository().reload();
+            List<String> selected = new ArrayList<>(p.server.getPackRepository().getSelectedIds());
+            if (!selected.contains("file/cinematic_conflicts")) selected.add("file/cinematic_conflicts");
+            p.server.reloadResources(selected);
+        } catch (java.io.IOException e) {
+            check("polymorph: the conflict pack is written", false, e.toString());
+        }
+    }
+
+    /^*
+     * Polymorph: recipes competing for the table's cells, a furnace's input and the smithing table; the scene shows the
+     * results, the player picks one, the server makes exactly that one. Without Polymorph: no strip, vanilla's first.
+     ^/
+    private static void polymorphAct() {
+        boolean polymorph = dev.dyslexic.cinematic.station.RecipeChoices.available();
+        step(4, () -> {
+            act = "pm";
+            closeWindow();
+            server(Showcase::conflictPack);
+            REPORT.add("polymorph loaded=" + polymorph);
+        });
+        step(80, () -> check("polymorph: the conflicting recipes reached the client", Minecraft.getInstance().level.getRecipeManager()
+                .byKey(net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("cinematic_test", "planks_barrel")).isPresent(), ""));
+        // the table: four planks spell a crafting table and (the pack) a barrel
+        step(4, () -> {
+            server(Showcase::wipeTable);
+            testInventory(new ItemStack(Items.OAK_PLANKS, 8));
+            standLooking(new Vec3(0.5, -60, 3.36), Vec3.atCenterOf(TABLE));
+        });
+        step(30, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(80, () -> server(p -> {
+            for (int[] at : new int[][]{{0, 0}, {0, 1}, {1, 0}, {1, 1}}) putOnTable(p, at[0], at[1], new ItemStack(Items.OAK_PLANKS, 2));
+        }));
+        step(20, () -> {
+            RecipeChoiceStrip strip = table().choices();
+            if (!polymorph) {
+                check("no polymorph: no choice strip at the table", !strip.active(), "active=" + strip.active());
+                return;
+            }
+            check("polymorph table: two results offered, the first in use", strip.active() && strip.selected() == 0
+                    && table().result.is(Items.BARREL), "selected=" + strip.selected() + " result=" + describe(table().result));
+            pointAside();
+            shot("pm1_table_choices");
+        });
+        step(4, () -> table().craft(false));
+        step(20, () -> server(p -> {
+            ItemStack made = p.inventoryMenu.getCarried();
+            check(polymorph ? "polymorph table: the server made the barrel shown" : "no polymorph: the table still crafts",
+                    polymorph ? made.is(Items.BARREL) : !made.isEmpty(), "made=" + describe(made));
+            p.getInventory().placeItemBackInInventory(made.copy());
+            p.inventoryMenu.setCarried(ItemStack.EMPTY);
+            p.inventoryMenu.broadcastChanges();
+        }));
+        if (polymorph) {
+            step(4, () -> table().chose(1));
+            step(10, () -> {
+                check("polymorph table: picking the second shows the crafting table", table().choices().selected() == 1
+                        && table().result.is(Items.CRAFTING_TABLE), "result=" + describe(table().result));
+                shot("pm2_table_second");
+                table().craft(false);
+            });
+            step(20, () -> server(p -> check("polymorph table: the server made the crafting table picked", p.inventoryMenu.getCarried().is(Items.CRAFTING_TABLE),
+                    "made=" + describe(p.inventoryMenu.getCarried()))));
+            step(4, () -> server(p -> check("polymorph table: Polymorph keeps the player's choice", net.minecraft.resources.ResourceLocation
+                    .withDefaultNamespace("crafting_table").equals(dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)), "chosen=" + dev.dyslexic.cinematic.station.RecipeChoices.chosen(p))));
+        }
+        step(4, Scene::leave);
+        step(40, () -> {});
+        // the furnace: raw iron makes an ingot and (the pack) a gold nugget
+        step(4, () -> {
+            testInventory();
+            // no fuel yet: the choice is made before anything cooks
+            server(p -> setFurnace(p, FURNACE, new ItemStack(Items.RAW_IRON, 4), ItemStack.EMPTY));
+        });
+        enterAt(new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH).run();
+        step(90, () -> {
+            check("furnace: at the furnace", Scene.station instanceof FurnaceStation && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase);
+            RecipeChoiceStrip strip = Scene.station instanceof FurnaceStation f ? f.choices() : null;
+            check(polymorph ? "polymorph furnace: two results offered for raw iron" : "no polymorph: no choice strip at the furnace",
+                    strip != null && strip.active() == polymorph, "active=" + (strip != null && strip.active()));
+            if (polymorph) Scene.station.chose(0);
+        });
+        if (polymorph) {
+            step(10, () -> {
+                check("polymorph furnace: the server reports the nugget chosen", Scene.station.choices().selected() == 0, "selected=" + Scene.station.choices().selected());
+                pointAside();
+                shot("pm3_furnace_choices");
+                server(p -> {
+                    if (p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(1, new ItemStack(Items.COAL, 4));
+                });
+            });
+            step(60, () -> server(p -> check("polymorph furnace: the furnace made a gold nugget", furnaceItems(p, FURNACE).get(2).is(Items.GOLD_NUGGET),
+                    "out=" + describe(furnaceItems(p, FURNACE).get(2)))));
+            step(4, () -> server(p -> {
+                if (p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, ItemStack.EMPTY);
+            }));
+            step(4, () -> Scene.station.chose(1));
+            step(260, () -> server(p -> check("polymorph furnace: after picking the ingot the furnace makes an iron ingot",
+                    furnaceItems(p, FURNACE).get(2).is(Items.IRON_INGOT), "out=" + describe(furnaceItems(p, FURNACE).get(2)))));
+        }
+        step(4, Scene::leave);
+        step(40, () -> server(p -> setFurnace(p, FURNACE, ItemStack.EMPTY, ItemStack.EMPTY)));
+        // the smithing table: the upgrade template makes a netherite sword and (the pack) a golden one
+        step(4, () -> testInventory());
+        enterSmithy(SMITHING).run();
+        step(90, () -> server(p -> {
+            check("smithing: the menu is open", p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu, "menu=" + p.containerMenu);
+            if (p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu menu) {
+                menu.getSlot(0).set(new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+                menu.getSlot(1).set(new ItemStack(Items.DIAMOND_SWORD));
+                menu.getSlot(2).set(new ItemStack(Items.NETHERITE_INGOT));
+                menu.broadcastChanges();
+            }
+        }));
+        step(20, () -> {
+            RecipeChoiceStrip strip = Scene.station.choices();
+            check(polymorph ? "polymorph smithing: two results offered" : "no polymorph: no choice strip at the smithing table",
+                    strip != null && strip.active() == polymorph, "active=" + (strip != null && strip.active()) + " selected=" + (strip == null ? -9 : strip.selected()));
+            if (polymorph) Scene.station.chose(0);
+        });
+        if (polymorph) {
+            step(10, () -> {
+                server(p -> check("polymorph smithing: the server's result is the golden sword picked", p.containerMenu.getSlot(3).getItem().is(Items.GOLDEN_SWORD),
+                        "result=" + describe(p.containerMenu.getSlot(3).getItem())));
+                check("polymorph smithing: the strip shows the golden sword in use", Scene.station.choices().selected() == 0, "selected=" + Scene.station.choices().selected());
+                pointAside();
+                shot("pm4_smithing_choices");
+            });
+            step(4, () -> Scene.station.chose(1));
+            step(10, () -> server(p -> check("polymorph smithing: picking again gives the netherite sword", p.containerMenu.getSlot(3).getItem().is(Items.NETHERITE_SWORD),
+                    "result=" + describe(p.containerMenu.getSlot(3).getItem()))));
+            step(4, () -> server(p -> p.containerMenu.clicked(3, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, p)));
+            step(10, () -> server(p -> {
+                int swords = 0, diamond = 0;
+                for (int i = 0; i < 36; i++) {
+                    if (p.getInventory().getItem(i).is(Items.NETHERITE_SWORD)) swords++;
+                    if (p.getInventory().getItem(i).is(Items.DIAMOND_SWORD)) diamond++;
+                }
+                check("polymorph smithing: taking the result gives one netherite sword, the inputs are used", swords == 1 && diamond == 0
+                        && p.containerMenu.getSlot(1).getItem().isEmpty(), "swords=" + swords + " base=" + describe(p.containerMenu.getSlot(1).getItem()));
+            }));
+        }
+        step(4, Scene::leave);
+        step(40, Showcase::restoreInventory);
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    /^* A stand-in player, its skin chosen by the UUID (the default skins come wide and slim), with all or none of the skin layers. ^/
+    private static net.minecraft.client.player.RemotePlayer standIn(int id, byte seed, boolean layers) {
+        Minecraft mc = Minecraft.getInstance();
+        var stand = new net.minecraft.client.player.RemotePlayer(mc.level, new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes(new byte[]{seed}), "Stand" + seed));
+        stand.setId(id);
+        stand.getEntityData().set(net.minecraft.world.entity.player.Player.DATA_PLAYER_MODE_CUSTOMISATION, (byte) (layers ? 0x7F : 0));
+        mc.level.addEntity(stand);
+        return stand;
+    }
+
+    private static void placeStandIn(net.minecraft.client.player.RemotePlayer stand, Vec3 feet, float headYaw, float bodyYaw, StationKind kind, BlockPos pos) {
+        stand.moveTo(feet.x, feet.y, feet.z, headYaw, 30f);
+        stand.setYHeadRot(headYaw);
+        stand.yHeadRotO = headYaw;
+        stand.yBodyRot = bodyYaw;
+        stand.yBodyRotO = bodyYaw;
+        ClientPayloads.AT_STATION.put(stand.getId(), new ClientPayloads.AtStation(kind, pos));
+    }
+
+    private static float yawTo(Vec3 from, BlockPos to) {
+        return (float) Math.toDegrees(Math.atan2(to.getZ() + 0.5 - from.z, to.getX() + 0.5 - from.x)) - 90f;
+    }
+
+    /^* The shapes of the stonecutter's dial that lie inside a block next to it (what a wall would hide). ^/
+    private static int shapesInBlocks(StonecutterStation cutter) {
+        var level = Minecraft.getInstance().level;
+        int inside = 0;
+        for (int k = 0; k < cutter.shapes().size(); k++) {
+            Vec3 at = cutter.shapePoint(k);
+            BlockPos block = BlockPos.containing(at);
+            if (block.equals(cutter.pos)) continue;
+            for (net.minecraft.world.phys.AABB box : level.getBlockState(block).getShape(level, block).toAabbs()) {
+                if (box.move(block).contains(at)) inside++;
+            }
+        }
+        return inside;
+    }
+
+    /^*
+     * 1.1 the key on the campfire's hint, 1.2 the arms of someone at a station seen by others, 4.1/4.2 the knees of
+     * someone sitting at a campfire, 3.1 the stonecutter's shapes between two blocks. Each with a before shot (the
+     * fix switched off where it can be) and an after shot.
+     ^/
+    private static void lookAtFixesAct() {
+        step(4, () -> {
+            act = "vx";
+            closeWindow();
+        });
+        // 1.1: the bound key by its Latin letter (a Russian layout would name the H key "Р")
+        step(4, () -> {
+            var key = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT);
+            REPORT.add("1.1 the layout here names the H key " + org.lwjgl.glfw.GLFW.glfwGetKeyName(org.lwjgl.glfw.GLFW.GLFW_KEY_H, 0)
+                    + ", vanilla shows " + CampfireHint.SIT.getTranslatedKeyMessage().getString());
+            check("1.1 the hint names the H key H", KeyLabels.of(CampfireHint.SIT).getString().equals("H"), KeyLabels.of(CampfireHint.SIT).getString());
+            CampfireHint.SIT.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_J));
+            net.minecraft.client.KeyMapping.resetMapping();
+            check("1.1 rebound to J, the hint says J", KeyLabels.of(CampfireHint.SIT).getString().equals("J"), KeyLabels.of(CampfireHint.SIT).getString());
+            CampfireHint.SIT.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_LEFT_ALT));
+            net.minecraft.client.KeyMapping.resetMapping();
+            check("1.1 rebound to a key without a letter, its own name", KeyLabels.of(CampfireHint.SIT).getString()
+                    .equals(CampfireHint.SIT.getTranslatedKeyMessage().getString()), KeyLabels.of(CampfireHint.SIT).getString());
+            CampfireHint.SIT.setKey(key);
+            net.minecraft.client.KeyMapping.resetMapping();
+            standLooking(new Vec3(CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.6), new Vec3(CAMPFIRE.getX() + 0.5, -59.7, CAMPFIRE.getZ() + 0.5));
+        });
+        step(30, () -> shot("vx1_campfire_hint"));
+        // 1.2: three people at three stations, each having looked away before stepping up (the body 70 degrees off)
+        record At(StationKind kind, BlockPos pos, Vec3 feet, float off) {}
+        List<At> stations = List.of(
+                new At(StationKind.TABLE, TABLE, new Vec3(TABLE.getX() + 0.5, -60, TABLE.getZ() + 1.3), 70f),
+                new At(StationKind.ANVIL, ANVIL, new Vec3(ANVIL.getX() + 0.5, -60, ANVIL.getZ() + 1.36), -70f),
+                new At(StationKind.LOOM, LOOM, new Vec3(LOOM.getX() + 1.3, -60, LOOM.getZ() + 0.5), 65f));
+        for (boolean fixed : new boolean[]{false, true}) {
+            for (At at : stations) {
+                String name = "vx2_" + at.kind().name().toLowerCase() + (fixed ? "_after" : "_before");
+                step(4, () -> {
+                    ClientPayloads.facesStations = fixed;
+                    if (smith == null || smith.isRemoved()) smith = standIn(SMITH_ID, (byte) 7, true);
+                    float head = yawTo(at.feet(), at.pos());
+                    placeStandIn(smith, at.feet(), head, head + at.off(), at.kind(), at.pos());
+                    Vec3 side = at.feet().subtract(Vec3.atBottomCenterOf(at.pos())).normalize();
+                    Vec3 across = new Vec3(-side.z, 0, side.x);
+                    standLooking(at.feet().add(across.scale(2.4)).add(side.scale(1.2)), at.feet().add(0, 1.1, 0).add(side.scale(-0.4)));
+                });
+                step(30, () -> {
+                    float body = net.minecraft.util.Mth.wrapDegrees(smith.yBodyRot - yawTo(smith.position(), at.pos()));
+                    if (fixed) check("1.2 " + at.kind() + ": the body turns to the station whatever the player looked at", Math.abs(body) < 8,
+                            "body off by " + body);
+                    else REPORT.add("1.2 " + at.kind() + " before: the body stays off by " + body);
+                    shot(name);
+                });
+            }
+        }
+        step(2, () -> ClientPayloads.facesStations = true);
+        // 4.2: sitting at the campfire and the soul campfire, seen by others: a wide skin with every layer, a slim one with none
+        for (boolean bent : new boolean[]{false, true}) {
+            for (BlockPos fire : List.of(CAMPFIRE, SOUL_CAMPFIRE)) {
+                String name = "vx3_" + (fire == CAMPFIRE ? "campfire" : "soul") + (bent ? "_after" : "_before");
+                step(4, () -> {
+                    KneeLayer.bends = bent;
+                    if (smith == null || smith.isRemoved()) smith = standIn(SMITH_ID, (byte) 7, true);
+                    net.minecraft.client.player.RemotePlayer second = Minecraft.getInstance().level.getEntity(SMITH_ID + 1)
+                            instanceof net.minecraft.client.player.RemotePlayer p ? p : standIn(SMITH_ID + 1, (byte) 9, false);
+                    Vec3 a = new Vec3(fire.getX() + 0.5, -60, fire.getZ() + 2.1), b = new Vec3(fire.getX() + 2.1, -60, fire.getZ() + 0.5);
+                    placeStandIn(smith, a, yawTo(a, fire), yawTo(a, fire), StationKind.CAMPFIRE, fire);
+                    placeStandIn(second, b, yawTo(b, fire), yawTo(b, fire), StationKind.CAMPFIRE, fire);
+                    standLooking(new Vec3(fire.getX() + 3.4, -60, fire.getZ() + 3.6), new Vec3(fire.getX() + 1.3, -59.6, fire.getZ() + 1.3));
+                });
+                step(30, () -> {
+                    if (bent) check("4.2 " + name + ": the raised leg is drawn in two, the straight one hidden", KneeLayer.sitting(smith), "");
+                    shot(name);
+                });
+                // side on, at the sitters' height (raised a block on stone): the raised knee in profile
+                step(4, () -> {
+                    BlockPos a = new BlockPos(fire.getX(), -60, fire.getZ() + 2), b = new BlockPos(fire.getX() + 2, -60, fire.getZ());
+                    server(p -> {
+                        p.serverLevel().setBlockAndUpdate(a, Blocks.STONE.defaultBlockState());
+                        p.serverLevel().setBlockAndUpdate(b, Blocks.STONE.defaultBlockState());
+                    });
+                    Vec3 seatA = new Vec3(fire.getX() + 0.5, -59, fire.getZ() + 2.5), seatB = new Vec3(fire.getX() + 2.5, -59, fire.getZ() + 0.5);
+                    placeStandIn(smith, seatA, yawTo(seatA, fire), yawTo(seatA, fire), StationKind.CAMPFIRE, fire);
+                    var second = (net.minecraft.client.player.RemotePlayer) Minecraft.getInstance().level.getEntity(SMITH_ID + 1);
+                    placeStandIn(second, seatB, yawTo(seatB, fire), yawTo(seatB, fire), StationKind.CAMPFIRE, fire);
+                    standLooking(new Vec3(fire.getX() + 3.6, -60, fire.getZ() + 2.6), new Vec3(fire.getX() + 0.5, -58.6, fire.getZ() + 2.5));
+                });
+                step(20, () -> shot(name + "_side7"));
+                step(4, () -> standLooking(new Vec3(fire.getX() + 2.6, -60, fire.getZ() - 2.6), new Vec3(fire.getX() + 2.5, -58.6, fire.getZ() + 0.5)));
+                step(20, () -> {
+                    shot(name + "_side9");
+                    server(p -> {
+                        p.serverLevel().setBlockAndUpdate(new BlockPos(fire.getX(), -60, fire.getZ() + 2), Blocks.AIR.defaultBlockState());
+                        p.serverLevel().setBlockAndUpdate(new BlockPos(fire.getX() + 2, -60, fire.getZ()), Blocks.AIR.defaultBlockState());
+                    });
+                });
+            }
+        }
+        // Armor on the raised knee: both pieces must follow the split leg, including the outer boot shell.
+        step(4, () -> {
+            KneeLayer.bends = true;
+            Vec3 seat = new Vec3(CAMPFIRE.getX() + 0.5, -59, CAMPFIRE.getZ() + 2.5);
+            server(p -> p.serverLevel().setBlockAndUpdate(new BlockPos(CAMPFIRE.getX(), -60, CAMPFIRE.getZ() + 2), Blocks.STONE.defaultBlockState()));
+            placeStandIn(smith, seat, yawTo(seat, CAMPFIRE), yawTo(seat, CAMPFIRE), StationKind.CAMPFIRE, CAMPFIRE);
+            smith.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(Items.IRON_LEGGINGS));
+            smith.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(Items.IRON_BOOTS));
+            standLooking(new Vec3(CAMPFIRE.getX() + 3.6, -60, CAMPFIRE.getZ() + 2.6),
+                    new Vec3(CAMPFIRE.getX() + 0.5, -58.6, CAMPFIRE.getZ() + 2.5));
+        });
+        step(24, () -> {
+            check("4.2 armor: leggings and boots on the bent campfire leg", KneeLayer.sitting(smith)
+                    && smith.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).is(Items.IRON_LEGGINGS)
+                    && smith.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).is(Items.IRON_BOOTS), "");
+            shot("vx3_campfire_armor_side");
+            server(p -> p.serverLevel().setBlockAndUpdate(new BlockPos(CAMPFIRE.getX(), -60, CAMPFIRE.getZ() + 2), Blocks.AIR.defaultBlockState()));
+        });
+        step(4, () -> {
+            for (int id : new int[]{SMITH_ID, SMITH_ID + 1}) {
+                ClientPayloads.AT_STATION.remove(id);
+                if (Minecraft.getInstance().level.getEntity(id) != null) Minecraft.getInstance().level.removeEntity(id, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+            }
+        });
+        // 4.1: sitting at the campfire oneself, the knees from the eyes (and from behind, looking round)
+        step(4, () -> standLooking(new Vec3(CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.6), new Vec3(CAMPFIRE.getX() + 0.5, -59.7, CAMPFIRE.getZ() + 0.5)));
+        step(30, () -> {
+            REPORT.add("4.1 before H: onGround=" + Minecraft.getInstance().player.onGround() + " screen=" + screenName() + " hint target=" + CampfireHint.target());
+            net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT));
+        });
+        step(90, () -> {
+            check("4.1 sitting at the campfire", Scene.station instanceof CampfireStation && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase
+                    + " refused=" + Scene.refused);
+            pointAside();
+            shot("vx4_knees");
+        });
+        step(4, () -> server(p -> {
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(Items.IRON_LEGGINGS));
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(Items.IRON_BOOTS));
+        }));
+        step(20, () -> shot("vx4_armored_knees"));
+        step(4, () -> server(p -> {
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.item.ItemStack.EMPTY);
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.item.ItemStack.EMPTY);
+        }));
+        step(4, Scene::leave);
+        step(40, () -> {});
+        // 3.1: the stonecutter between two stone blocks, then turned to face east with the blocks beside it again
+        for (Direction facing : new Direction[]{Direction.SOUTH, Direction.EAST}) {
+            Direction across = facing.getClockWise();
+            Vec3 feet = Vec3.atBottomCenterOf(STONECUTTER).add(Vec3.atLowerCornerOf(facing.getNormal()).scale(2.9));
+            step(4, () -> server(p -> {
+                var level = p.serverLevel();
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.NORTH), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.SOUTH), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.EAST), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.WEST), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER, Blocks.STONECUTTER.defaultBlockState().setValue(StonecutterBlock.FACING, facing));
+                level.setBlockAndUpdate(STONECUTTER.relative(across), Blocks.STONE.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(across.getOpposite()), Blocks.STONE.defaultBlockState());
+                p.teleportTo(level, feet.x, -60, feet.z, facing.getOpposite().toYRot(), 30f);
+            }));
+            step(20, () -> useAt(STONECUTTER, new Vec3(0.5, 0.56, 0.5), Direction.UP));
+            step(90, () -> server(p -> {
+                check("3.1 " + facing + ": at the stonecutter", p.containerMenu instanceof net.minecraft.world.inventory.StonecutterMenu, "menu=" + p.containerMenu);
+                if (p.containerMenu instanceof net.minecraft.world.inventory.StonecutterMenu menu) {
+                    menu.getSlot(0).set(new ItemStack(Items.STONE, 16));
+                    menu.slotsChanged(menu.getSlot(0).container);
+                    menu.broadcastChanges();
+                }
+            }));
+            step(20, () -> {
+                StonecutterStation.fitsDial = false;
+            });
+            step(30, () -> {
+                StonecutterStation cutter = (StonecutterStation) Scene.station;
+                REPORT.add("3.1 " + facing + " before: " + shapesInBlocks(cutter) + " of " + cutter.shapes().size() + " shapes inside the blocks beside");
+                pointAside();
+                shot("vx5_cutter_" + facing.getName() + "_before");
+                StonecutterStation.fitsDial = true;
+            });
+            step(30, () -> {
+                StonecutterStation cutter = (StonecutterStation) Scene.station;
+                check("3.1 " + facing + ": no shape inside the blocks beside, the dial made room", shapesInBlocks(cutter) == 0 && cutter.dialFit() > 0,
+                        "inside=" + shapesInBlocks(cutter) + " fit=" + cutter.dialFit() + " shapes=" + cutter.shapes().size());
+                pointAside();
+                shot("vx5_cutter_" + facing.getName() + "_after");
+            });
+            // the first and the last shape on the dial, picked by the cursor
+            for (boolean last : new boolean[]{false, true}) {
+                // a pick starts the cut (about a second): the next pick waits for it
+                // the piece cut first is in the hand, and another shape would not stack with it: into the inventory first
+                if (last) step(46, () -> server(p -> {
+                    p.getInventory().placeItemBackInInventory(p.containerMenu.getCarried().copy());
+                    p.containerMenu.setCarried(ItemStack.EMPTY);
+                    p.containerMenu.broadcastChanges();
+                }));
+                step(last ? 8 : 4, () -> {
+                    StonecutterStation cutter = (StonecutterStation) Scene.station;
+                    int k = last ? Math.min(cutter.shapes().size(), StonecutterStation.DIAL_SLOTS) - 1 : 0;
+                    double[] at = Picking.toGui(cutter.shapePoint(k));
+                    pointGui(at[0], at[1]);
+                });
+                step(6, () -> screenClick(0));
+                step(10, () -> server(p -> check("3.1 " + facing + ": the " + (last ? "last" : "first") + " shape on the dial can be picked",
+                        p.containerMenu instanceof net.minecraft.world.inventory.StonecutterMenu menu && menu.getSelectedRecipeIndex() >= 0
+                                && menu.getSelectedRecipeIndex() == (last ? Math.min(menu.getNumRecipes(), StonecutterStation.DIAL_SLOTS) - 1 : 0), "selected=" + (p.containerMenu instanceof
+                                net.minecraft.world.inventory.StonecutterMenu menu ? menu.getSelectedRecipeIndex() : -9))));
+            }
+            step(4, Scene::leave);
+            step(40, () -> server(p -> {
+                p.getInventory().clearOrCountMatchingItems(s -> s.is(Items.STONE) || s.is(Items.STONE_BRICKS) || s.is(Items.STONE_SLAB), -1, p.inventoryMenu.getCraftSlots());
+                var level = p.serverLevel();
+                level.setBlockAndUpdate(STONECUTTER.relative(across), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(across.getOpposite()), Blocks.AIR.defaultBlockState());
+            }));
+        }
+        step(4, () -> server(p -> p.serverLevel().setBlockAndUpdate(STONECUTTER, Blocks.STONECUTTER.defaultBlockState().setValue(StonecutterBlock.FACING, Direction.SOUTH))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static int occlusionFlips;
+    private static boolean[] lastInTheWay;
+    private static double railJump;
+    private static double[][] lastRails;
+
+    /^*
+     * 2.3 the table's faded ingredients while the cursor wanders inside one cell, 4.4 the campfire's rails while the hand
+     * reaches over the food, 6.2 a hand and blocks in front of the beacon's icons. Numbers here; the frames are compared
+     * act by act (0, f, 6, n) against the last build.
+     ^/
+    private static void visualFixesAct() {
+        step(4, () -> {
+            act = "vy";
+            closeWindow();
+            server(Showcase::wipeTable);
+            standLooking(new Vec3(0.5, -60, 3.36), Vec3.atCenterOf(TABLE));
+        });
+        step(30, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(80, () -> server(p -> {
+            ItemStack[] items = {new ItemStack(Items.CHEST), new ItemStack(Items.RAW_IRON, 40), new ItemStack(Items.FURNACE),
+                    new ItemStack(Items.RAW_IRON, 20), new ItemStack(Items.STONE), new ItemStack(Items.RAW_IRON, 40),
+                    new ItemStack(Items.CHEST), new ItemStack(Items.RAW_IRON, 40), new ItemStack(Items.FURNACE)};
+            for (int i = 0; i < 9; i++) putOnTable(p, i / 3, i % 3, items[i]);
+        }));
+        // the far middle cell, under the cursor: the cursor wanders inside it for a second and a half
+        step(20, () -> {
+            occlusionFlips = 0;
+            lastInTheWay = null;
+        });
+        for (int k = 0; k < 30; k++) {
+            int n = k;
+            step(1, () -> {
+                double[] at = Picking.toGui(table().cellPoint(tableWorld(1)));
+                pointGui(at[0] + 3 * Math.sin(n * 0.9), at[1] + 2 * Math.cos(n * 1.3));
+                boolean[] now = table().inTheWayCopy();
+                if (lastInTheWay != null && n > 4) for (int i = 0; i < 9; i++) if (now[i] != lastInTheWay[i]) occlusionFlips++;
+                lastInTheWay = now;
+                if (n == 20) shot("vy1_table_hover");
+            });
+        }
+        step(2, () -> {
+            boolean any = false;
+            for (boolean b : lastInTheWay) any |= b;
+            check("2.3 the items in front of the hovered cell fade, and stay so while the cursor wanders in it", any && occlusionFlips == 0,
+                    "flips=" + occlusionFlips + " faded=" + java.util.Arrays.toString(lastInTheWay));
+            check("2.3 the hovered cell's own item stays solid", !lastInTheWay[tableWorld(1)], "");
+        });
+        step(4, () -> {
+            Scene.leave();
+            server(Showcase::wipeTable);
+        });
+        step(40, () -> {});
+        // the campfire: food on all four spots, the hand reaching from the near ones to the far ones
+        step(4, () -> standLooking(new Vec3(CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.6), new Vec3(CAMPFIRE.getX() + 0.5, -59.7, CAMPFIRE.getZ() + 0.5)));
+        step(30, () -> net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT)));
+        step(90, () -> server(p -> {
+            if (p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                for (int i = 0; i < 4; i++) {
+                    fire.getItems().set(i, new ItemStack(Items.BEEF));
+                    fire.cookingTime[i] = 600;
+                    fire.cookingProgress[i] = 100 * i;
+                }
+                fire.setChanged();
+                p.serverLevel().sendBlockUpdated(CAMPFIRE, p.serverLevel().getBlockState(CAMPFIRE), p.serverLevel().getBlockState(CAMPFIRE), 3);
+            }
+        }));
+        step(30, () -> {
+            railJump = 0;
+            lastRails = null;
+        });
+        int[] order = {0, 1, 2, 3, 2, 1, 0};
+        for (int k = 0; k < order.length * 12; k++) {
+            int n = k;
+            step(1, () -> {
+                if (!(Scene.station instanceof CampfireStation fire)) return;
+                if (n % 12 == 0) pointAt(fire.spot(order[n / 12]));
+                double[][] now = new double[4][];
+                for (int i = 0; i < 4; i++) now[i] = fire.railShown[i] == null ? null : fire.railShown[i].clone();
+                // where each rail is drawn against the point of its food this frame: any lift or snap shows as a gap
+                for (int i = 0; i < 4; i++) {
+                    if (now[i] != null) railJump = Math.max(railJump, Math.hypot(now[i][0] - now[i][2], now[i][1] - now[i][3]));
+                }
+                lastRails = now;
+                if (n == 3 * 12 + 8) shot("vy2_campfire_far");
+                if (n == 1 * 12 + 8) shot("vy2_campfire_near");
+            });
+        }
+        step(2, () -> check("4.4 the rails stay on their food while hovered and while the hand reaches round", railJump < 0.01,
+                "largest gap=" + String.format("%.2f", railJump)));
+        step(4, Scene::leave);
+        step(40, () -> server(p -> {
+            if (p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                for (int i = 0; i < 4; i++) fire.getItems().set(i, ItemStack.EMPTY);
+                fire.setChanged();
+            }
+        }));
+        // the beacon: a chest and a bell behind its powers, then the hand reaching to the first one
+        step(4, () -> server(p -> {
+            p.serverLevel().setBlockAndUpdate(BEACON.offset(0, 1, -2), Blocks.CHEST.defaultBlockState());
+            p.serverLevel().setBlockAndUpdate(BEACON.offset(-1, 1, -2), Blocks.BELL.defaultBlockState());
+            p.serverLevel().setBlockAndUpdate(BEACON.offset(1, 1, -2), Blocks.SHULKER_BOX.defaultBlockState());
+            p.teleportTo(p.serverLevel(), BEACON.getX() + 0.5, BEACON.getY(), BEACON.getZ() + 1.75, 180f, 20f);
+        }));
+        step(20, () -> useAt(BEACON, new Vec3(0.5, 0.9, 0.5), Direction.UP));
+        step(90, () -> {
+            check("6.2 at the beacon", beacon() != null && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase);
+            pointAside();
+            shot("vy3_beacon_behind");
+        });
+        // reaching up to the highest power, the arm passes in front of the lower ones
+        step(2, () -> {
+            railJump = 1;
+            pointAt(beacon().powerPos(4));
+        });
+        for (int k = 0; k < 14; k++) {
+            int n = k;
+            step(1, () -> {
+                railJump = Math.min(railJump, Math.min(beacon().iconSeen(0), beacon().iconSeen(2)));
+                if (n == 5) shot("vy3_beacon_hand");
+            });
+        }
+        step(2, () -> check("6.2 the arm reaching past the lower powers hides their icons as it passes", railJump < 0.9,
+                "least seen=" + String.format("%.2f", railJump)));
+        step(4, Scene::leave);
+        step(40, () -> server(p -> {
+            for (int dx = -1; dx <= 1; dx++) p.serverLevel().setBlockAndUpdate(BEACON.offset(dx, 1, -2), Blocks.AIR.defaultBlockState());
+        }));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void reopenAfterInventoryAct() {
+        step(2, () -> act = "ri");
+        record Case(String name, BlockPos pos, Class<?> vanillaScreen) {}
+        List<Case> stations = List.of(
+                new Case("smithing", SMITHING, net.minecraft.client.gui.screens.inventory.SmithingScreen.class),
+                new Case("loom", LOOM, net.minecraft.client.gui.screens.inventory.LoomScreen.class),
+                new Case("anvil", ANVIL, net.minecraft.client.gui.screens.inventory.AnvilScreen.class),
+                new Case("stonecutter", STONECUTTER, net.minecraft.client.gui.screens.inventory.StonecutterScreen.class));
+        // ticks between leaving and pressing E: once the work's screen has gone (0.22 s), early and late in the step away
+        int[] pauses = {6, 10, 16};
+        for (Case c : stations) {
+            // a plain way in and out first, no inventory
+            enterSmithy(c.pos()).run();
+            step(80, () -> check(c.name() + ": scene plays", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                    && Scene.station.pos.equals(c.pos()), "phase=" + Scene.phase + " screen=" + screenName()));
+            step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+            step(40, () -> check(c.name() + ": plain step away ends", Scene.phase == Scene.Phase.NONE && Minecraft.getInstance().screen == null,
+                    "phase=" + Scene.phase + " screen=" + screenName()));
+            for (int pause : pauses) {
+                String label = c.name() + " E after " + pause + " ticks";
+                enterSmithy(c.pos()).run();
+                step(80, () -> check(label + ": scene plays", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                        && Scene.station.pos.equals(c.pos()), "phase=" + Scene.phase + " screen=" + screenName()));
+                step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+                // the game's own key: the inventory opens on the next tick there is no screen
+                step(pause, () -> net.minecraft.client.KeyMapping.click(
+                        net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(Minecraft.getInstance().options.keyInventory)));
+                step(6, () -> {
+                    REPORT.add(label + ": after E phase=" + Scene.phase + " screen=" + screenName());
+                    check(label + ": the inventory opens", Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen,
+                            "phase=" + Scene.phase + " screen=" + screenName());
+                });
+                step(30, () -> {
+                    check(label + ": the step away is over", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+                    shot("ri_" + c.name() + "_" + pause + "_inventory");
+                    Minecraft.getInstance().setScreen(null);
+                });
+                step(10, () -> server(p -> check(label + ": no session left", dev.dyslexic.cinematic.station.Sessions.get(p) == null, "session")));
+                enterSmithy(c.pos()).run();
+                step(80, () -> {
+                    check(label + ": the scene plays again, not the window", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                            && Scene.station.pos.equals(c.pos()) && !c.vanillaScreen().isInstance(Minecraft.getInstance().screen),
+                            "phase=" + Scene.phase + " screen=" + screenName());
+                    server(p -> check(label + ": the server has the new session", dev.dyslexic.cinematic.station.Sessions.get(p) != null
+                            && dev.dyslexic.cinematic.station.Sessions.get(p).pos().equals(c.pos()), "session"));
+                    shot("ri_" + c.name() + "_" + pause + "_again");
+                });
+                step(2, () -> {
+                    if (Scene.phase == Scene.Phase.ACTIVE) pressInScene(GLFW.GLFW_KEY_E);
+                    else Minecraft.getInstance().setScreen(null);
+                });
+                step(40, () -> {});
+            }
+        }
+        // another menu while working (a server's chest, a command): the scene gives way, the station is not marked
+        enterSmithy(SMITHING).run();
+        step(80, () -> check("unrelated menu: scene plays", Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase));
+        step(2, () -> server(p -> p.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                (id, inventory, who) -> net.minecraft.world.inventory.ChestMenu.threeRows(id, inventory), Component.literal("Chest")))));
+        step(20, () -> check("unrelated menu: its window opens, the scene ends", Minecraft.getInstance().screen
+                instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen && Scene.phase == Scene.Phase.NONE,
+                "phase=" + Scene.phase + " screen=" + screenName()));
+        step(2, () -> Minecraft.getInstance().player.closeContainer());
+        enterSmithy(SMITHING).run();
+        step(80, () -> check("unrelated menu: the station still plays its scene", Scene.phase == Scene.Phase.ACTIVE
+                && Scene.station != null && Scene.station.pos.equals(SMITHING), "phase=" + Scene.phase + " screen=" + screenName()));
+        step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+        step(40, () -> {});
+        // a mod's own menu in answer to this very attempt (as Penchant's enchanting table on NeoForge): the block keeps
+        // its own window from then on. The answer is made here, as MenuScreens makes one, right after BEGIN goes out.
+        step(2, () -> server(p -> p.teleportTo(p.serverLevel(), ENCHANT.getX() + 0.5, -60, ENCHANT.getZ() + 3.6, 180f, 20f)));
+        step(20, () -> {
+            useAt(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP);
+            Minecraft mc = Minecraft.getInstance();
+            var foreign = net.minecraft.world.inventory.ChestMenu.threeRows(99, mc.player.getInventory());
+            mc.player.containerMenu = foreign;
+            mc.setScreen(new net.minecraft.client.gui.screens.inventory.ContainerScreen(foreign, mc.player.getInventory(), Component.literal("Foreign")));
+            check("foreign menu of this attempt: its window, not the scene", Scene.phase == Scene.Phase.NONE
+                    && mc.screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen, "phase=" + Scene.phase + " screen=" + screenName());
+        });
+        step(20, () -> Minecraft.getInstance().player.closeContainer());
+        step(10, () -> useAt(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(20, () -> check("foreign menu: the block keeps its own window", Scene.phase == Scene.Phase.NONE && Minecraft.getInstance().screen
+                instanceof net.minecraft.client.gui.screens.inventory.EnchantmentScreen, "phase=" + Scene.phase + " screen=" + screenName()));
+        step(4, () -> {
+            Minecraft.getInstance().player.closeContainer();
+            Scene.forgetOwnWindows();
+        });
+        step(10, () -> useAt(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(80, () -> check("foreign menu: on a new connection the scene plays again", Scene.phase == Scene.Phase.ACTIVE,
+                "phase=" + Scene.phase + " screen=" + screenName()));
+        step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+        step(40, () -> {});
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static String screenName() {
+        Screen screen = Minecraft.getInstance().screen;
+        return screen == null ? "none" : screen.getClass().getSimpleName();
+    }
+
+    /^* A key pressed over the work, as the player presses it (E and Esc step away). ^/
+    private static void pressInScene(int key) {
+        if (Minecraft.getInstance().screen instanceof SceneScreen screen) {
+            int scan = GLFW.glfwGetKeyScancode(key);
+            screen.keyPressed(key, scan, 0);
+            screen.keyReleased(key, scan, 0);
+        }
+    }
+
+    *///?} else if fabric && <1.21 {
+    /*// ---- the inventory opened while stepping away ---------------------------------------------------------
+
+    /^*
+     * The player steps away (E, as from the work) and presses E again almost at once: the inventory opens while the scene
+     * is still stepping away. Then the same station is used again: its scene must play again, not its own window, and a
+     * plain way in and out without the inventory must still work. Several pauses, on menu stations and on the table.
+     ^/
+    /^*
+     * A station used in the air: at every stage of a jump (rising, at the top, falling, the landing tick), standing and
+     * running at it. The use must end in the scene or in the block's own window, never in a scene that plays and lets go.
+     ^/
+    private static void jumpUseAct() {
+        step(2, () -> act = "jp");
+        record Case(String name, BlockPos pos, Vec3 feet, Vec3 local, Class<?> vanillaScreen) {}
+        List<Case> stations = List.of(
+                new Case("table", TABLE, new Vec3(TABLE.getX() + 0.5, -60, TABLE.getZ() + 3.4), new Vec3(0.5, 1.0, 0.7),
+                        net.minecraft.client.gui.screens.inventory.CraftingScreen.class),
+                new Case("smithing", SMITHING, new Vec3(SMITHING.getX() + 0.5, -60, SMITHING.getZ() + 3.4), new Vec3(0.5, 1.0, 0.5),
+                        net.minecraft.client.gui.screens.inventory.SmithingScreen.class),
+                new Case("anvil", ANVIL, new Vec3(ANVIL.getX() + 0.5, -60, ANVIL.getZ() + 3.4), new Vec3(0.5, 1.0, 0.5),
+                        net.minecraft.client.gui.screens.inventory.AnvilScreen.class));
+        // ticks from the jump to the use: rising (1-4), the top (5-6), falling (7-10), landing (11-12), just landed (13)
+        int[] delays = {1, 3, 5, 7, 9, 10, 11, 12, 13};
+        for (Case c : stations) {
+            for (boolean running : new boolean[]{false, true}) {
+                for (int delay : delays) {
+                    String label = c.name() + (running ? " running" : "") + " jump +" + delay;
+                    step(2, () -> standLooking(running ? c.feet().add(0, 0, 1.2) : c.feet(), Vec3.atCenterOf(c.pos())));
+                    step(20, () -> {
+                        LocalPlayer player = Minecraft.getInstance().player;
+                        player.jumpFromGround();
+                        if (running) player.setDeltaMovement(player.getDeltaMovement().add(0, 0, -0.28));
+                    });
+                    step(delay, () -> {
+                        LocalPlayer player = Minecraft.getInstance().player;
+                        REPORT.add(label + ": used with onGround=" + player.onGround() + " vy=" + String.format("%.3f", player.getDeltaMovement().y)
+                                + " fall=" + String.format("%.2f", player.fallDistance));
+                        useAt(c.pos(), c.local(), Direction.UP);
+                    });
+                    step(110, () -> {
+                        Minecraft mc = Minecraft.getInstance();
+                        boolean scene = Scene.phase == Scene.Phase.ACTIVE && Scene.station != null && Scene.station.pos.equals(c.pos());
+                        boolean window = c.vanillaScreen().isInstance(mc.screen);
+                        REPORT.add(label + ": phase=" + Scene.phase + " screen=" + screenName() + " why=" + Scene.refused);
+                        check(label + ": the scene or the block's window, not an empty scene", scene || window,
+                                "phase=" + Scene.phase + " screen=" + screenName());
+                        if (scene) server(p -> check(label + ": the server has the session", dev.dyslexic.cinematic.station.Sessions.get(p) != null
+                                && dev.dyslexic.cinematic.station.Sessions.get(p).pos().equals(c.pos()), "session"));
+                        if (delay == 7 && !running) shot("jp_" + c.name() + "_" + delay);
+                        if (scene) Scene.leave();
+                        else if (mc.player.containerMenu != mc.player.inventoryMenu) mc.player.closeContainer();
+                        else mc.setScreen(null);
+                    });
+                    step(40, () -> server(p -> check(label + ": nothing left open", dev.dyslexic.cinematic.station.Sessions.get(p) == null
+                            && p.containerMenu == p.inventoryMenu, "session")));
+                }
+            }
+        }
+        // kept in the air longer than the use waits for the ground (levitation): the block's own window instead
+        step(2, () -> standLooking(new Vec3(SMITHING.getX() + 0.5, -60, SMITHING.getZ() + 3.4), Vec3.atCenterOf(SMITHING)));
+        step(20, () -> server(p -> p.addEffect(new net.minecraft.world.effect.MobEffectInstance(net.minecraft.world.effect.MobEffects.LEVITATION, 60, 0))));
+        step(8, () -> useAt(SMITHING, new Vec3(0.5, 1.0, 0.5), Direction.UP));
+        step(45, () -> {
+            check("smithing in the air too long: the block's own window", Minecraft.getInstance().screen
+                    instanceof net.minecraft.client.gui.screens.inventory.SmithingScreen && Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase + " screen=" + screenName());
+            shot("jp_levitating_window");
+            Minecraft.getInstance().player.closeContainer();
+        });
+        step(80, () -> server(p -> p.removeAllEffects()));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static int onTableCount(ServerPlayer p, net.minecraft.world.item.Item item) {
+        TableStore.Table stored = TableStore.get(p.serverLevel()).get(TABLE);
+        int n = 0;
+        for (int i = 0; stored != null && i < TableGrid.CELLS; i++) if (stored.items.get(i).is(item)) n += stored.items.get(i).getCount();
+        return n;
+    }
+
+    private static void selectRecipe(String id) {
+        TableRecipeGuide guide = table().recipeBook.guide;
+        guide.tick();
+        guide.select(guide.entry(new net.minecraft.resources.ResourceLocation(id)));
+        guide.tick();
+    }
+
+    /^*
+     * 2.1: another recipe laid out over what the last one left (by hand or from the book), with Shift and with no room
+     * in the inventory; 2.2: what lies on the table goes into the crafting window whenever that opens instead of the scene.
+     ^/
+    private static void tableKeepsAct() {
+        Vec3 feet = new Vec3(0.5, -60, 3.36);
+        step(4, () -> {
+            act = "tb";
+            closeWindow();
+            server(Showcase::wipeTable);
+            testInventory(new ItemStack(Items.LAPIS_LAZULI, 9));
+            standLooking(feet, Vec3.atCenterOf(TABLE));
+        });
+        step(30, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(80, () -> check("table: at the table", Scene.station instanceof TableStation && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase));
+        // 1. the last recipe left an iron ingot where the lapis block wants lapis
+        step(4, () -> server(p -> putOnTable(p, 1, 1, new ItemStack(Items.IRON_INGOT))));
+        step(10, () -> {
+            selectRecipe("lapis_block");
+            TableRecipeGuide guide = table().recipeBook.guide;
+            check("2.1 lapis over an iron ingot: something to lay out", guide.layableAfterTakingBack() == 9 && guide.takeBackMoves().size() == 1,
+                    "after=" + guide.layableAfterTakingBack() + " back=" + guide.takeBackMoves().size());
+            table().recipeBook.layOut(false);
+        });
+        step(8, () -> shot("tb1_taking_back"));
+        step(70, () -> {
+            server(p -> check("2.1 lapis: the ingot back in the inventory, nine lapis on the table", onTableCount(p, Items.LAPIS_LAZULI) == 9
+                    && onTableCount(p, Items.IRON_INGOT) == 0 && heldEverywhere(p, Items.IRON_INGOT) == 1 && heldEverywhere(p, Items.LAPIS_LAZULI) == 9,
+                    "lapis on table=" + onTableCount(p, Items.LAPIS_LAZULI) + " iron=" + heldEverywhere(p, Items.IRON_INGOT)));
+            check("2.1 lapis: the table shows the block", table().result.is(Items.LAPIS_BLOCK), "result=" + describe(table().result));
+            pointAside();
+            shot("tb2_lapis_laid");
+        });
+        // 2. a crafting table laid by hand, then a chest: the planks in place stay, the middle one comes back and goes out again
+        step(4, () -> {
+            testInventory(new ItemStack(Items.OAK_PLANKS, 4));
+            server(p -> {
+                wipeTable(p);
+                for (int[] at : new int[][]{{0, 0}, {0, 1}, {1, 0}, {1, 1}}) putOnTable(p, at[0], at[1], new ItemStack(Items.OAK_PLANKS));
+            });
+        });
+        step(10, () -> {
+            selectRecipe("chest");
+            table().recipeBook.layOut(false);
+        });
+        step(100, () -> {
+            server(p -> {
+                boolean ring = true;
+                for (int i = 0; i < 9; i++) ring &= i == 4 ? onTable(p, 1, 1).isEmpty() : onTable(p, i / 3, i % 3).is(Items.OAK_PLANKS);
+                check("2.1 chest after a crafting table: eight planks round the middle, none lost", ring
+                        && heldEverywhere(p, Items.OAK_PLANKS) == 8 && onTableCount(p, Items.OAK_PLANKS) == 8,
+                        "planks=" + heldEverywhere(p, Items.OAK_PLANKS) + " on table=" + onTableCount(p, Items.OAK_PLANKS));
+            });
+            check("2.1 chest: the table shows the chest", table().result.is(Items.CHEST), "result=" + describe(table().result));
+            shot("tb3_chest");
+        });
+        // 3. Shift: every set of sticks, a cobblestone in the way
+        step(4, () -> {
+            testInventory(new ItemStack(Items.OAK_PLANKS, 20));
+            server(p -> {
+                wipeTable(p);
+                putOnTable(p, 0, 0, new ItemStack(Items.COBBLESTONE));
+            });
+        });
+        step(10, () -> {
+            selectRecipe("stick");
+            table().recipeBook.layOut(true);
+        });
+        step(100, () -> {
+            server(p -> check("2.1 Shift sticks: the cobblestone back, all twenty planks laid in two cells", onTableCount(p, Items.COBBLESTONE) == 0
+                    && heldEverywhere(p, Items.COBBLESTONE) == 1 && onTableCount(p, Items.OAK_PLANKS) == 20 && heldEverywhere(p, Items.OAK_PLANKS) == 20,
+                    "planks on table=" + onTableCount(p, Items.OAK_PLANKS) + " cobble=" + heldEverywhere(p, Items.COBBLESTONE)));
+            check("2.1 Shift sticks: the table shows sticks", table().result.is(Items.STICK), "result=" + describe(table().result));
+        });
+        // 4. no room to take the ingot back: it stays where it is, nothing is lost, the rest is laid out
+        step(4, () -> {
+            ItemStack[] full = new ItemStack[36];
+            for (int i = 0; i < 35; i++) full[i] = new ItemStack(Items.DIRT, 64);
+            full[35] = new ItemStack(Items.LAPIS_LAZULI, 9);
+            testInventory(full);
+            server(p -> {
+                wipeTable(p);
+                putOnTable(p, 1, 1, new ItemStack(Items.IRON_INGOT));
+            });
+        });
+        step(10, () -> {
+            selectRecipe("lapis_block");
+            check("2.1 no room: the ingot cannot go back", table().recipeBook.guide.stuck() == 1 && table().recipeBook.guide.takeBackMoves().isEmpty(),
+                    "stuck=" + table().recipeBook.guide.stuck());
+            table().recipeBook.layOut(false);
+        });
+        step(90, () -> server(p -> check("2.1 no room: the ingot stays on the table, the lapis round it, nothing lost",
+                onTableCount(p, Items.IRON_INGOT) == 1 && onTableCount(p, Items.LAPIS_LAZULI) == 8 && heldEverywhere(p, Items.LAPIS_LAZULI) == 9,
+                "iron=" + onTableCount(p, Items.IRON_INGOT) + " lapis=" + onTableCount(p, Items.LAPIS_LAZULI))));
+        // 2.2: eight planks left on the table, then the scene turned off: the crafting window has them, the table gives them up
+        step(4, () -> {
+            testInventory();
+            server(p -> {
+                wipeTable(p);
+                for (int[] at : new int[][]{{0, 0}, {0, 1}, {1, 0}, {1, 1}}) putOnTable(p, at[0], at[1], new ItemStack(Items.OAK_PLANKS, 2));
+            });
+        });
+        step(10, Scene::leave);
+        step(40, () -> {
+            check("2.2 left the table with the planks on it", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+            server(p -> check("2.2 the planks stay on the table after leaving (as before)", onTableCount(p, Items.OAK_PLANKS) == 8,
+                    "on table=" + onTableCount(p, Items.OAK_PLANKS)));
+            Settings.SCENES.get(dev.dyslexic.cinematic.station.StationKind.TABLE).set(false);
+            useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP);
+        });
+        step(20, () -> {
+            check("2.2 scene off: the crafting window opens", Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.CraftingScreen,
+                    "screen=" + screenName());
+            server(p -> {
+                boolean inGrid = p.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu menu
+                        && menu.getSlot(1).getItem().is(Items.OAK_PLANKS) && menu.getSlot(2).getItem().is(Items.OAK_PLANKS)
+                        && menu.getSlot(4).getItem().is(Items.OAK_PLANKS) && menu.getSlot(5).getItem().is(Items.OAK_PLANKS)
+                        && menu.getSlot(0).getItem().is(Items.CRAFTING_TABLE);
+                check("2.2 the planks are in the window's grid as on the table, the result a crafting table", inGrid, "menu=" + p.containerMenu
+                        + " result=" + describe(p.containerMenu.getSlot(0).getItem()));
+                check("2.2 the table top is empty while the window has them", onTableCount(p, Items.OAK_PLANKS) == 0,
+                        "on table=" + onTableCount(p, Items.OAK_PLANKS));
+            });
+            shot("tb4_window");
+        });
+        step(4, () -> Minecraft.getInstance().player.closeContainer());
+        step(20, () -> server(p -> check("2.2 closing the window: all eight planks in the inventory, no copies", heldEverywhere(p, Items.OAK_PLANKS) == 8
+                && onTableCount(p, Items.OAK_PLANKS) == 0, "planks=" + heldEverywhere(p, Items.OAK_PLANKS))));
+        // any other way the window opens (a sneaking use, another mod): the same
+        step(4, () -> server(p -> {
+            TableStore store = TableStore.get(p.serverLevel());
+            store.getOrCreate(TABLE).items.set(southCell(0, 0), new ItemStack(Items.STICK, 3));
+            store.setDirty();
+            p.openMenu(p.serverLevel().getBlockState(TABLE).getMenuProvider(p.serverLevel(), TABLE));
+        }));
+        step(20, () -> server(p -> {
+            check("2.2 a window opened any other way takes the sticks", p.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu menu
+                    && menu.getSlot(1).getItem().is(Items.STICK) && menu.getSlot(1).getItem().getCount() == 3 && onTableCount(p, Items.STICK) == 0,
+                    "menu=" + p.containerMenu);
+            p.closeContainer();
+        }));
+        step(20, () -> {
+            server(p -> check("2.2 the sticks back in the inventory", heldEverywhere(p, Items.STICK) == 3 && onTableCount(p, Items.STICK) == 0,
+                    "sticks=" + heldEverywhere(p, Items.STICK)));
+            Settings.SCENES.get(dev.dyslexic.cinematic.station.StationKind.TABLE).set(true);
+            restoreInventory();
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static int southCell(int row, int col) {
+        return TableGrid.worldIndex(Direction.SOUTH, row, col);
+    }
+
+    /^* A data pack of recipes that compete with vanilla ones, for the Polymorph act (written into the test world). ^/
+    private static void conflictPack(ServerPlayer p) {
+        try {
+            java.nio.file.Path dir = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_conflicts");
+            java.nio.file.Path recipes = dir.resolve("data/cinematic_test/recipe");
+            java.nio.file.Files.createDirectories(recipes);
+            java.nio.file.Files.writeString(dir.resolve("pack.mcmeta"), "{\"pack\":{\"pack_format\":48,\"description\":\"Cinematic test conflicts\"}}");
+            java.nio.file.Files.writeString(recipes.resolve("planks_barrel.json"), "{\"type\":\"minecraft:crafting_shaped\",\"pattern\":[\"##\",\"##\"],"
+                    + "\"key\":{\"#\":{\"tag\":\"minecraft:planks\"}},\"result\":{\"id\":\"minecraft:barrel\",\"count\":1}}");
+            java.nio.file.Files.writeString(recipes.resolve("raw_iron_nugget.json"), "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},"
+                    + "\"result\":{\"id\":\"minecraft:gold_nugget\"},\"experience\":0.1,\"cookingtime\":40}");
+            java.nio.file.Files.writeString(recipes.resolve("sword_gold.json"), "{\"type\":\"minecraft:smithing_transform\","
+                    + "\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},\"base\":{\"item\":\"minecraft:diamond_sword\"},"
+                    + "\"addition\":{\"item\":\"minecraft:netherite_ingot\"},\"result\":{\"id\":\"minecraft:golden_sword\",\"count\":1}}");
+            p.server.getPackRepository().reload();
+            List<String> selected = new ArrayList<>(p.server.getPackRepository().getSelectedIds());
+            if (!selected.contains("file/cinematic_conflicts")) selected.add("file/cinematic_conflicts");
+            p.server.reloadResources(selected);
+        } catch (java.io.IOException e) {
+            check("polymorph: the conflict pack is written", false, e.toString());
+        }
+    }
+
+    /^*
+     * Polymorph: recipes competing for the table's cells, a furnace's input and the smithing table; the scene shows the
+     * results, the player picks one, the server makes exactly that one. Without Polymorph: no strip, vanilla's first.
+     ^/
+    private static void polymorphAct() {
+        boolean polymorph = dev.dyslexic.cinematic.station.RecipeChoices.available();
+        step(4, () -> {
+            act = "pm";
+            closeWindow();
+            server(Showcase::conflictPack);
+            REPORT.add("polymorph loaded=" + polymorph);
+        });
+        step(80, () -> check("polymorph: the conflicting recipes reached the client", Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new net.minecraft.resources.ResourceLocation("cinematic_test", "planks_barrel")).isPresent(), ""));
+        // the table: four planks spell a crafting table and (the pack) a barrel
+        step(4, () -> {
+            server(Showcase::wipeTable);
+            testInventory(new ItemStack(Items.OAK_PLANKS, 8));
+            standLooking(new Vec3(0.5, -60, 3.36), Vec3.atCenterOf(TABLE));
+        });
+        step(30, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(80, () -> server(p -> {
+            for (int[] at : new int[][]{{0, 0}, {0, 1}, {1, 0}, {1, 1}}) putOnTable(p, at[0], at[1], new ItemStack(Items.OAK_PLANKS, 2));
+        }));
+        step(20, () -> {
+            RecipeChoiceStrip strip = table().choices();
+            if (!polymorph) {
+                check("no polymorph: no choice strip at the table", !strip.active(), "active=" + strip.active());
+                return;
+            }
+            check("polymorph table: two results offered, the first in use", strip.active() && strip.selected() == 0
+                    && table().result.is(Items.BARREL), "selected=" + strip.selected() + " result=" + describe(table().result));
+            pointAside();
+            shot("pm1_table_choices");
+        });
+        step(4, () -> table().craft(false));
+        step(20, () -> server(p -> {
+            ItemStack made = p.inventoryMenu.getCarried();
+            check(polymorph ? "polymorph table: the server made the barrel shown" : "no polymorph: the table still crafts",
+                    polymorph ? made.is(Items.BARREL) : !made.isEmpty(), "made=" + describe(made));
+            p.getInventory().placeItemBackInInventory(made.copy());
+            p.inventoryMenu.setCarried(ItemStack.EMPTY);
+            p.inventoryMenu.broadcastChanges();
+        }));
+        if (polymorph) {
+            step(4, () -> table().chose(1));
+            step(10, () -> {
+                check("polymorph table: picking the second shows the crafting table", table().choices().selected() == 1
+                        && table().result.is(Items.CRAFTING_TABLE), "result=" + describe(table().result));
+                shot("pm2_table_second");
+                table().craft(false);
+            });
+            step(20, () -> server(p -> check("polymorph table: the server made the crafting table picked", p.inventoryMenu.getCarried().is(Items.CRAFTING_TABLE),
+                    "made=" + describe(p.inventoryMenu.getCarried()))));
+            step(4, () -> server(p -> check("polymorph table: Polymorph keeps the player's choice", new net.minecraft.resources.ResourceLocation("crafting_table").equals(dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)), "chosen=" + dev.dyslexic.cinematic.station.RecipeChoices.chosen(p))));
+        }
+        step(4, Scene::leave);
+        step(40, () -> {});
+        // the furnace: raw iron makes an ingot and (the pack) a gold nugget
+        step(4, () -> {
+            testInventory();
+            // no fuel yet: the choice is made before anything cooks
+            server(p -> setFurnace(p, FURNACE, new ItemStack(Items.RAW_IRON, 4), ItemStack.EMPTY));
+        });
+        enterAt(new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1), Direction.SOUTH).run();
+        step(90, () -> {
+            check("furnace: at the furnace", Scene.station instanceof FurnaceStation && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase);
+            RecipeChoiceStrip strip = Scene.station instanceof FurnaceStation f ? f.choices() : null;
+            check(polymorph ? "polymorph furnace: two results offered for raw iron" : "no polymorph: no choice strip at the furnace",
+                    strip != null && strip.active() == polymorph, "active=" + (strip != null && strip.active()));
+            if (polymorph) Scene.station.chose(0);
+        });
+        if (polymorph) {
+            step(10, () -> {
+                check("polymorph furnace: the server reports the nugget chosen", Scene.station.choices().selected() == 0, "selected=" + Scene.station.choices().selected());
+                pointAside();
+                shot("pm3_furnace_choices");
+                server(p -> {
+                    if (p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(1, new ItemStack(Items.COAL, 4));
+                });
+            });
+            step(60, () -> server(p -> check("polymorph furnace: the furnace made a gold nugget", furnaceItems(p, FURNACE).get(2).is(Items.GOLD_NUGGET),
+                    "out=" + describe(furnaceItems(p, FURNACE).get(2)))));
+            step(4, () -> server(p -> {
+                if (p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity f) f.setItem(2, ItemStack.EMPTY);
+            }));
+            step(4, () -> Scene.station.chose(1));
+            step(260, () -> server(p -> check("polymorph furnace: after picking the ingot the furnace makes an iron ingot",
+                    furnaceItems(p, FURNACE).get(2).is(Items.IRON_INGOT), "out=" + describe(furnaceItems(p, FURNACE).get(2)))));
+        }
+        step(4, Scene::leave);
+        step(40, () -> server(p -> setFurnace(p, FURNACE, ItemStack.EMPTY, ItemStack.EMPTY)));
+        // the smithing table: the upgrade template makes a netherite sword and (the pack) a golden one
+        step(4, () -> testInventory());
+        enterSmithy(SMITHING).run();
+        step(90, () -> server(p -> {
+            check("smithing: the menu is open", p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu, "menu=" + p.containerMenu);
+            if (p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu menu) {
+                menu.getSlot(0).set(new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+                menu.getSlot(1).set(new ItemStack(Items.DIAMOND_SWORD));
+                menu.getSlot(2).set(new ItemStack(Items.NETHERITE_INGOT));
+                menu.broadcastChanges();
+            }
+        }));
+        step(20, () -> {
+            RecipeChoiceStrip strip = Scene.station.choices();
+            check(polymorph ? "polymorph smithing: two results offered" : "no polymorph: no choice strip at the smithing table",
+                    strip != null && strip.active() == polymorph, "active=" + (strip != null && strip.active()) + " selected=" + (strip == null ? -9 : strip.selected()));
+            if (polymorph) Scene.station.chose(0);
+        });
+        if (polymorph) {
+            step(10, () -> {
+                server(p -> check("polymorph smithing: the server's result is the golden sword picked", p.containerMenu.getSlot(3).getItem().is(Items.GOLDEN_SWORD),
+                        "result=" + describe(p.containerMenu.getSlot(3).getItem())));
+                check("polymorph smithing: the strip shows the golden sword in use", Scene.station.choices().selected() == 0, "selected=" + Scene.station.choices().selected());
+                pointAside();
+                shot("pm4_smithing_choices");
+            });
+            step(4, () -> Scene.station.chose(1));
+            step(10, () -> server(p -> check("polymorph smithing: picking again gives the netherite sword", p.containerMenu.getSlot(3).getItem().is(Items.NETHERITE_SWORD),
+                    "result=" + describe(p.containerMenu.getSlot(3).getItem()))));
+            step(4, () -> server(p -> p.containerMenu.clicked(3, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, p)));
+            step(10, () -> server(p -> {
+                int swords = 0, diamond = 0;
+                for (int i = 0; i < 36; i++) {
+                    if (p.getInventory().getItem(i).is(Items.NETHERITE_SWORD)) swords++;
+                    if (p.getInventory().getItem(i).is(Items.DIAMOND_SWORD)) diamond++;
+                }
+                check("polymorph smithing: taking the result gives one netherite sword, the inputs are used", swords == 1 && diamond == 0
+                        && p.containerMenu.getSlot(1).getItem().isEmpty(), "swords=" + swords + " base=" + describe(p.containerMenu.getSlot(1).getItem()));
+            }));
+        }
+        step(4, Scene::leave);
+        step(40, Showcase::restoreInventory);
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    /^* A stand-in player, its skin chosen by the UUID (the default skins come wide and slim), with all or none of the skin layers. ^/
+    private static net.minecraft.client.player.RemotePlayer standIn(int id, byte seed, boolean layers) {
+        Minecraft mc = Minecraft.getInstance();
+        var stand = new net.minecraft.client.player.RemotePlayer(mc.level, new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes(new byte[]{seed}), "Stand" + seed));
+        stand.setId(id);
+        stand.getEntityData().set(net.minecraft.world.entity.player.Player.DATA_PLAYER_MODE_CUSTOMISATION, (byte) (layers ? 0x7F : 0));
+        mc.level.putNonPlayerEntity(stand.getId(), stand);
+        return stand;
+    }
+
+    private static void placeStandIn(net.minecraft.client.player.RemotePlayer stand, Vec3 feet, float headYaw, float bodyYaw, StationKind kind, BlockPos pos) {
+        stand.moveTo(feet.x, feet.y, feet.z, headYaw, 30f);
+        stand.setYHeadRot(headYaw);
+        stand.yHeadRotO = headYaw;
+        stand.yBodyRot = bodyYaw;
+        stand.yBodyRotO = bodyYaw;
+        ClientPayloads.AT_STATION.put(stand.getId(), new ClientPayloads.AtStation(kind, pos));
+    }
+
+    private static float yawTo(Vec3 from, BlockPos to) {
+        return (float) Math.toDegrees(Math.atan2(to.getZ() + 0.5 - from.z, to.getX() + 0.5 - from.x)) - 90f;
+    }
+
+    /^* The shapes of the stonecutter's dial that lie inside a block next to it (what a wall would hide). ^/
+    private static int shapesInBlocks(StonecutterStation cutter) {
+        var level = Minecraft.getInstance().level;
+        int inside = 0;
+        for (int k = 0; k < cutter.shapes().size(); k++) {
+            Vec3 at = cutter.shapePoint(k);
+            BlockPos block = BlockPos.containing(at);
+            if (block.equals(cutter.pos)) continue;
+            for (net.minecraft.world.phys.AABB box : level.getBlockState(block).getShape(level, block).toAabbs()) {
+                if (box.move(block).contains(at)) inside++;
+            }
+        }
+        return inside;
+    }
+
+    /^*
+     * 1.1 the key on the campfire's hint, 1.2 the arms of someone at a station seen by others, 4.1/4.2 the knees of
+     * someone sitting at a campfire, 3.1 the stonecutter's shapes between two blocks. Each with a before shot (the
+     * fix switched off where it can be) and an after shot.
+     ^/
+    private static void lookAtFixesAct() {
+        step(4, () -> {
+            act = "vx";
+            closeWindow();
+        });
+        // 1.1: the bound key by its Latin letter (a Russian layout would name the H key "Р")
+        step(4, () -> {
+            var key = net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT);
+            REPORT.add("1.1 the layout here names the H key " + org.lwjgl.glfw.GLFW.glfwGetKeyName(org.lwjgl.glfw.GLFW.GLFW_KEY_H, 0)
+                    + ", vanilla shows " + CampfireHint.SIT.getTranslatedKeyMessage().getString());
+            check("1.1 the hint names the H key H", KeyLabels.of(CampfireHint.SIT).getString().equals("H"), KeyLabels.of(CampfireHint.SIT).getString());
+            CampfireHint.SIT.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_J));
+            net.minecraft.client.KeyMapping.resetMapping();
+            check("1.1 rebound to J, the hint says J", KeyLabels.of(CampfireHint.SIT).getString().equals("J"), KeyLabels.of(CampfireHint.SIT).getString());
+            CampfireHint.SIT.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_LEFT_ALT));
+            net.minecraft.client.KeyMapping.resetMapping();
+            check("1.1 rebound to a key without a letter, its own name", KeyLabels.of(CampfireHint.SIT).getString()
+                    .equals(CampfireHint.SIT.getTranslatedKeyMessage().getString()), KeyLabels.of(CampfireHint.SIT).getString());
+            CampfireHint.SIT.setKey(key);
+            net.minecraft.client.KeyMapping.resetMapping();
+            standLooking(new Vec3(CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.6), new Vec3(CAMPFIRE.getX() + 0.5, -59.7, CAMPFIRE.getZ() + 0.5));
+        });
+        step(30, () -> shot("vx1_campfire_hint"));
+        // 1.2: three people at three stations, each having looked away before stepping up (the body 70 degrees off)
+        record At(StationKind kind, BlockPos pos, Vec3 feet, float off) {}
+        List<At> stations = List.of(
+                new At(StationKind.TABLE, TABLE, new Vec3(TABLE.getX() + 0.5, -60, TABLE.getZ() + 1.3), 70f),
+                new At(StationKind.ANVIL, ANVIL, new Vec3(ANVIL.getX() + 0.5, -60, ANVIL.getZ() + 1.36), -70f),
+                new At(StationKind.LOOM, LOOM, new Vec3(LOOM.getX() + 1.3, -60, LOOM.getZ() + 0.5), 65f));
+        for (boolean fixed : new boolean[]{false, true}) {
+            for (At at : stations) {
+                String name = "vx2_" + at.kind().name().toLowerCase() + (fixed ? "_after" : "_before");
+                step(4, () -> {
+                    ClientPayloads.facesStations = fixed;
+                    if (smith == null || smith.isRemoved()) smith = standIn(SMITH_ID, (byte) 7, true);
+                    float head = yawTo(at.feet(), at.pos());
+                    placeStandIn(smith, at.feet(), head, head + at.off(), at.kind(), at.pos());
+                    Vec3 side = at.feet().subtract(Vec3.atBottomCenterOf(at.pos())).normalize();
+                    Vec3 across = new Vec3(-side.z, 0, side.x);
+                    standLooking(at.feet().add(across.scale(2.4)).add(side.scale(1.2)), at.feet().add(0, 1.1, 0).add(side.scale(-0.4)));
+                });
+                step(30, () -> {
+                    float body = net.minecraft.util.Mth.wrapDegrees(smith.yBodyRot - yawTo(smith.position(), at.pos()));
+                    if (fixed) check("1.2 " + at.kind() + ": the body turns to the station whatever the player looked at", Math.abs(body) < 8,
+                            "body off by " + body);
+                    else REPORT.add("1.2 " + at.kind() + " before: the body stays off by " + body);
+                    shot(name);
+                });
+            }
+        }
+        step(2, () -> ClientPayloads.facesStations = true);
+        // 4.2: sitting at the campfire and the soul campfire, seen by others: a wide skin with every layer, a slim one with none
+        for (boolean bent : new boolean[]{false, true}) {
+            for (BlockPos fire : List.of(CAMPFIRE, SOUL_CAMPFIRE)) {
+                String name = "vx3_" + (fire == CAMPFIRE ? "campfire" : "soul") + (bent ? "_after" : "_before");
+                step(4, () -> {
+                    KneeLayer.bends = bent;
+                    if (smith == null || smith.isRemoved()) smith = standIn(SMITH_ID, (byte) 7, true);
+                    net.minecraft.client.player.RemotePlayer second = Minecraft.getInstance().level.getEntity(SMITH_ID + 1)
+                            instanceof net.minecraft.client.player.RemotePlayer p ? p : standIn(SMITH_ID + 1, (byte) 9, false);
+                    Vec3 a = new Vec3(fire.getX() + 0.5, -60, fire.getZ() + 2.1), b = new Vec3(fire.getX() + 2.1, -60, fire.getZ() + 0.5);
+                    placeStandIn(smith, a, yawTo(a, fire), yawTo(a, fire), StationKind.CAMPFIRE, fire);
+                    placeStandIn(second, b, yawTo(b, fire), yawTo(b, fire), StationKind.CAMPFIRE, fire);
+                    standLooking(new Vec3(fire.getX() + 3.4, -60, fire.getZ() + 3.6), new Vec3(fire.getX() + 1.3, -59.6, fire.getZ() + 1.3));
+                });
+                step(30, () -> {
+                    if (bent) check("4.2 " + name + ": the raised leg is drawn in two, the straight one hidden", KneeLayer.sitting(smith), "");
+                    shot(name);
+                });
+                // side on, at the sitters' height (raised a block on stone): the raised knee in profile
+                step(4, () -> {
+                    BlockPos a = new BlockPos(fire.getX(), -60, fire.getZ() + 2), b = new BlockPos(fire.getX() + 2, -60, fire.getZ());
+                    server(p -> {
+                        p.serverLevel().setBlockAndUpdate(a, Blocks.STONE.defaultBlockState());
+                        p.serverLevel().setBlockAndUpdate(b, Blocks.STONE.defaultBlockState());
+                    });
+                    Vec3 seatA = new Vec3(fire.getX() + 0.5, -59, fire.getZ() + 2.5), seatB = new Vec3(fire.getX() + 2.5, -59, fire.getZ() + 0.5);
+                    placeStandIn(smith, seatA, yawTo(seatA, fire), yawTo(seatA, fire), StationKind.CAMPFIRE, fire);
+                    var second = (net.minecraft.client.player.RemotePlayer) Minecraft.getInstance().level.getEntity(SMITH_ID + 1);
+                    placeStandIn(second, seatB, yawTo(seatB, fire), yawTo(seatB, fire), StationKind.CAMPFIRE, fire);
+                    standLooking(new Vec3(fire.getX() + 3.6, -60, fire.getZ() + 2.6), new Vec3(fire.getX() + 0.5, -58.6, fire.getZ() + 2.5));
+                });
+                step(20, () -> shot(name + "_side7"));
+                step(4, () -> standLooking(new Vec3(fire.getX() + 2.6, -60, fire.getZ() - 2.6), new Vec3(fire.getX() + 2.5, -58.6, fire.getZ() + 0.5)));
+                step(20, () -> {
+                    shot(name + "_side9");
+                    server(p -> {
+                        p.serverLevel().setBlockAndUpdate(new BlockPos(fire.getX(), -60, fire.getZ() + 2), Blocks.AIR.defaultBlockState());
+                        p.serverLevel().setBlockAndUpdate(new BlockPos(fire.getX() + 2, -60, fire.getZ()), Blocks.AIR.defaultBlockState());
+                    });
+                });
+            }
+        }
+        // Armor on the raised knee: both pieces must follow the split leg, including the outer boot shell.
+        step(4, () -> {
+            KneeLayer.bends = true;
+            Vec3 seat = new Vec3(CAMPFIRE.getX() + 0.5, -59, CAMPFIRE.getZ() + 2.5);
+            server(p -> p.serverLevel().setBlockAndUpdate(new BlockPos(CAMPFIRE.getX(), -60, CAMPFIRE.getZ() + 2), Blocks.STONE.defaultBlockState()));
+            placeStandIn(smith, seat, yawTo(seat, CAMPFIRE), yawTo(seat, CAMPFIRE), StationKind.CAMPFIRE, CAMPFIRE);
+            smith.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(Items.IRON_LEGGINGS));
+            smith.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(Items.IRON_BOOTS));
+            standLooking(new Vec3(CAMPFIRE.getX() + 3.6, -60, CAMPFIRE.getZ() + 2.6),
+                    new Vec3(CAMPFIRE.getX() + 0.5, -58.6, CAMPFIRE.getZ() + 2.5));
+        });
+        step(24, () -> {
+            check("4.2 armor: leggings and boots on the bent campfire leg", KneeLayer.sitting(smith)
+                    && smith.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.LEGS).is(Items.IRON_LEGGINGS)
+                    && smith.getItemBySlot(net.minecraft.world.entity.EquipmentSlot.FEET).is(Items.IRON_BOOTS), "");
+            shot("vx3_campfire_armor_side");
+            server(p -> p.serverLevel().setBlockAndUpdate(new BlockPos(CAMPFIRE.getX(), -60, CAMPFIRE.getZ() + 2), Blocks.AIR.defaultBlockState()));
+        });
+        step(4, () -> {
+            for (int id : new int[]{SMITH_ID, SMITH_ID + 1}) {
+                ClientPayloads.AT_STATION.remove(id);
+                if (Minecraft.getInstance().level.getEntity(id) != null) Minecraft.getInstance().level.removeEntity(id, net.minecraft.world.entity.Entity.RemovalReason.DISCARDED);
+            }
+        });
+        // 4.1: sitting at the campfire oneself, the knees from the eyes (and from behind, looking round)
+        step(4, () -> standLooking(new Vec3(CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.6), new Vec3(CAMPFIRE.getX() + 0.5, -59.7, CAMPFIRE.getZ() + 0.5)));
+        step(30, () -> {
+            REPORT.add("4.1 before H: onGround=" + Minecraft.getInstance().player.onGround() + " screen=" + screenName() + " hint target=" + CampfireHint.target());
+            net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT));
+        });
+        step(90, () -> {
+            check("4.1 sitting at the campfire", Scene.station instanceof CampfireStation && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase
+                    + " refused=" + Scene.refused);
+            pointAside();
+            shot("vx4_knees");
+        });
+        step(4, () -> server(p -> {
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new net.minecraft.world.item.ItemStack(Items.IRON_LEGGINGS));
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new net.minecraft.world.item.ItemStack(Items.IRON_BOOTS));
+        }));
+        step(20, () -> shot("vx4_armored_knees"));
+        step(4, () -> server(p -> {
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, net.minecraft.world.item.ItemStack.EMPTY);
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, net.minecraft.world.item.ItemStack.EMPTY);
+        }));
+        step(4, Scene::leave);
+        step(40, () -> {});
+        // 3.1: the stonecutter between two stone blocks, then turned to face east with the blocks beside it again
+        for (Direction facing : new Direction[]{Direction.SOUTH, Direction.EAST}) {
+            Direction across = facing.getClockWise();
+            Vec3 feet = Vec3.atBottomCenterOf(STONECUTTER).add(Vec3.atLowerCornerOf(facing.getNormal()).scale(2.9));
+            step(4, () -> server(p -> {
+                var level = p.serverLevel();
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.NORTH), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.SOUTH), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.EAST), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(Direction.WEST), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER, Blocks.STONECUTTER.defaultBlockState().setValue(StonecutterBlock.FACING, facing));
+                level.setBlockAndUpdate(STONECUTTER.relative(across), Blocks.STONE.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(across.getOpposite()), Blocks.STONE.defaultBlockState());
+                p.teleportTo(level, feet.x, -60, feet.z, facing.getOpposite().toYRot(), 30f);
+            }));
+            step(20, () -> useAt(STONECUTTER, new Vec3(0.5, 0.56, 0.5), Direction.UP));
+            step(90, () -> server(p -> {
+                check("3.1 " + facing + ": at the stonecutter", p.containerMenu instanceof net.minecraft.world.inventory.StonecutterMenu, "menu=" + p.containerMenu);
+                if (p.containerMenu instanceof net.minecraft.world.inventory.StonecutterMenu menu) {
+                    menu.getSlot(0).set(new ItemStack(Items.STONE, 16));
+                    menu.slotsChanged(menu.getSlot(0).container);
+                    menu.broadcastChanges();
+                }
+            }));
+            step(20, () -> {
+                StonecutterStation.fitsDial = false;
+            });
+            step(30, () -> {
+                StonecutterStation cutter = (StonecutterStation) Scene.station;
+                REPORT.add("3.1 " + facing + " before: " + shapesInBlocks(cutter) + " of " + cutter.shapes().size() + " shapes inside the blocks beside");
+                pointAside();
+                shot("vx5_cutter_" + facing.getName() + "_before");
+                StonecutterStation.fitsDial = true;
+            });
+            step(30, () -> {
+                StonecutterStation cutter = (StonecutterStation) Scene.station;
+                check("3.1 " + facing + ": no shape inside the blocks beside, the dial made room", shapesInBlocks(cutter) == 0 && cutter.dialFit() > 0,
+                        "inside=" + shapesInBlocks(cutter) + " fit=" + cutter.dialFit() + " shapes=" + cutter.shapes().size());
+                pointAside();
+                shot("vx5_cutter_" + facing.getName() + "_after");
+            });
+            // the first and the last shape on the dial, picked by the cursor
+            for (boolean last : new boolean[]{false, true}) {
+                // a pick starts the cut (about a second): the next pick waits for it
+                // the piece cut first is in the hand, and another shape would not stack with it: into the inventory first
+                if (last) step(46, () -> server(p -> {
+                    p.getInventory().placeItemBackInInventory(p.containerMenu.getCarried().copy());
+                    p.containerMenu.setCarried(ItemStack.EMPTY);
+                    p.containerMenu.broadcastChanges();
+                }));
+                step(last ? 8 : 4, () -> {
+                    StonecutterStation cutter = (StonecutterStation) Scene.station;
+                    int k = last ? Math.min(cutter.shapes().size(), StonecutterStation.DIAL_SLOTS) - 1 : 0;
+                    double[] at = Picking.toGui(cutter.shapePoint(k));
+                    pointGui(at[0], at[1]);
+                });
+                step(6, () -> screenClick(0));
+                step(10, () -> server(p -> check("3.1 " + facing + ": the " + (last ? "last" : "first") + " shape on the dial can be picked",
+                        p.containerMenu instanceof net.minecraft.world.inventory.StonecutterMenu menu && menu.getSelectedRecipeIndex() >= 0
+                                && menu.getSelectedRecipeIndex() == (last ? Math.min(menu.getNumRecipes(), StonecutterStation.DIAL_SLOTS) - 1 : 0), "selected=" + (p.containerMenu instanceof
+                                net.minecraft.world.inventory.StonecutterMenu menu ? menu.getSelectedRecipeIndex() : -9))));
+            }
+            step(4, Scene::leave);
+            step(40, () -> server(p -> {
+                p.getInventory().clearOrCountMatchingItems(s -> s.is(Items.STONE) || s.is(Items.STONE_BRICKS) || s.is(Items.STONE_SLAB), -1, p.inventoryMenu.getCraftSlots());
+                var level = p.serverLevel();
+                level.setBlockAndUpdate(STONECUTTER.relative(across), Blocks.AIR.defaultBlockState());
+                level.setBlockAndUpdate(STONECUTTER.relative(across.getOpposite()), Blocks.AIR.defaultBlockState());
+            }));
+        }
+        step(4, () -> server(p -> p.serverLevel().setBlockAndUpdate(STONECUTTER, Blocks.STONECUTTER.defaultBlockState().setValue(StonecutterBlock.FACING, Direction.SOUTH))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static int occlusionFlips;
+    private static boolean[] lastInTheWay;
+    private static double railJump;
+    private static double[][] lastRails;
+
+    /^*
+     * 2.3 the table's faded ingredients while the cursor wanders inside one cell, 4.4 the campfire's rails while the hand
+     * reaches over the food, 6.2 a hand and blocks in front of the beacon's icons. Numbers here; the frames are compared
+     * act by act (0, f, 6, n) against the last build.
+     ^/
+    private static void visualFixesAct() {
+        step(4, () -> {
+            act = "vy";
+            closeWindow();
+            server(Showcase::wipeTable);
+            standLooking(new Vec3(0.5, -60, 3.36), Vec3.atCenterOf(TABLE));
+        });
+        step(30, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(80, () -> server(p -> {
+            ItemStack[] items = {new ItemStack(Items.CHEST), new ItemStack(Items.RAW_IRON, 40), new ItemStack(Items.FURNACE),
+                    new ItemStack(Items.RAW_IRON, 20), new ItemStack(Items.STONE), new ItemStack(Items.RAW_IRON, 40),
+                    new ItemStack(Items.CHEST), new ItemStack(Items.RAW_IRON, 40), new ItemStack(Items.FURNACE)};
+            for (int i = 0; i < 9; i++) putOnTable(p, i / 3, i % 3, items[i]);
+        }));
+        // the far middle cell, under the cursor: the cursor wanders inside it for a second and a half
+        step(20, () -> {
+            occlusionFlips = 0;
+            lastInTheWay = null;
+        });
+        for (int k = 0; k < 30; k++) {
+            int n = k;
+            step(1, () -> {
+                double[] at = Picking.toGui(table().cellPoint(tableWorld(1)));
+                pointGui(at[0] + 3 * Math.sin(n * 0.9), at[1] + 2 * Math.cos(n * 1.3));
+                boolean[] now = table().inTheWayCopy();
+                if (lastInTheWay != null && n > 4) for (int i = 0; i < 9; i++) if (now[i] != lastInTheWay[i]) occlusionFlips++;
+                lastInTheWay = now;
+                if (n == 20) shot("vy1_table_hover");
+            });
+        }
+        step(2, () -> {
+            boolean any = false;
+            for (boolean b : lastInTheWay) any |= b;
+            check("2.3 the items in front of the hovered cell fade, and stay so while the cursor wanders in it", any && occlusionFlips == 0,
+                    "flips=" + occlusionFlips + " faded=" + java.util.Arrays.toString(lastInTheWay));
+            check("2.3 the hovered cell's own item stays solid", !lastInTheWay[tableWorld(1)], "");
+        });
+        step(4, () -> {
+            Scene.leave();
+            server(Showcase::wipeTable);
+        });
+        step(40, () -> {});
+        // the campfire: food on all four spots, the hand reaching from the near ones to the far ones
+        step(4, () -> standLooking(new Vec3(CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.6), new Vec3(CAMPFIRE.getX() + 0.5, -59.7, CAMPFIRE.getZ() + 0.5)));
+        step(30, () -> net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT)));
+        step(90, () -> server(p -> {
+            if (p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                for (int i = 0; i < 4; i++) {
+                    fire.getItems().set(i, new ItemStack(Items.BEEF));
+                    fire.cookingTime[i] = 600;
+                    fire.cookingProgress[i] = 100 * i;
+                }
+                fire.setChanged();
+                p.serverLevel().sendBlockUpdated(CAMPFIRE, p.serverLevel().getBlockState(CAMPFIRE), p.serverLevel().getBlockState(CAMPFIRE), 3);
+            }
+        }));
+        step(30, () -> {
+            railJump = 0;
+            lastRails = null;
+        });
+        int[] order = {0, 1, 2, 3, 2, 1, 0};
+        for (int k = 0; k < order.length * 12; k++) {
+            int n = k;
+            step(1, () -> {
+                if (!(Scene.station instanceof CampfireStation fire)) return;
+                if (n % 12 == 0) pointAt(fire.spot(order[n / 12]));
+                double[][] now = new double[4][];
+                for (int i = 0; i < 4; i++) now[i] = fire.railShown[i] == null ? null : fire.railShown[i].clone();
+                // where each rail is drawn against the point of its food this frame: any lift or snap shows as a gap
+                for (int i = 0; i < 4; i++) {
+                    if (now[i] != null) railJump = Math.max(railJump, Math.hypot(now[i][0] - now[i][2], now[i][1] - now[i][3]));
+                }
+                lastRails = now;
+                if (n == 3 * 12 + 8) shot("vy2_campfire_far");
+                if (n == 1 * 12 + 8) shot("vy2_campfire_near");
+            });
+        }
+        step(2, () -> check("4.4 the rails stay on their food while hovered and while the hand reaches round", railJump < 0.01,
+                "largest gap=" + String.format("%.2f", railJump)));
+        step(4, Scene::leave);
+        step(40, () -> server(p -> {
+            if (p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire) {
+                for (int i = 0; i < 4; i++) fire.getItems().set(i, ItemStack.EMPTY);
+                fire.setChanged();
+            }
+        }));
+        // the beacon: a chest and a bell behind its powers, then the hand reaching to the first one
+        step(4, () -> server(p -> {
+            p.serverLevel().setBlockAndUpdate(BEACON.offset(0, 1, -2), Blocks.CHEST.defaultBlockState());
+            p.serverLevel().setBlockAndUpdate(BEACON.offset(-1, 1, -2), Blocks.BELL.defaultBlockState());
+            p.serverLevel().setBlockAndUpdate(BEACON.offset(1, 1, -2), Blocks.SHULKER_BOX.defaultBlockState());
+            p.teleportTo(p.serverLevel(), BEACON.getX() + 0.5, BEACON.getY(), BEACON.getZ() + 1.75, 180f, 20f);
+        }));
+        step(20, () -> useAt(BEACON, new Vec3(0.5, 0.9, 0.5), Direction.UP));
+        step(90, () -> {
+            check("6.2 at the beacon", beacon() != null && Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase);
+            pointAside();
+            shot("vy3_beacon_behind");
+        });
+        // reaching up to the highest power, the arm passes in front of the lower ones
+        step(2, () -> {
+            railJump = 1;
+            pointAt(beacon().powerPos(4));
+        });
+        for (int k = 0; k < 14; k++) {
+            int n = k;
+            step(1, () -> {
+                railJump = Math.min(railJump, Math.min(beacon().iconSeen(0), beacon().iconSeen(2)));
+                if (n == 5) shot("vy3_beacon_hand");
+            });
+        }
+        step(2, () -> check("6.2 the arm reaching past the lower powers hides their icons as it passes", railJump < 0.9,
+                "least seen=" + String.format("%.2f", railJump)));
+        step(4, Scene::leave);
+        step(40, () -> server(p -> {
+            for (int dx = -1; dx <= 1; dx++) p.serverLevel().setBlockAndUpdate(BEACON.offset(dx, 1, -2), Blocks.AIR.defaultBlockState());
+        }));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void reopenAfterInventoryAct() {
+        step(2, () -> act = "ri");
+        record Case(String name, BlockPos pos, Class<?> vanillaScreen) {}
+        List<Case> stations = List.of(
+                new Case("smithing", SMITHING, net.minecraft.client.gui.screens.inventory.SmithingScreen.class),
+                new Case("loom", LOOM, net.minecraft.client.gui.screens.inventory.LoomScreen.class),
+                new Case("anvil", ANVIL, net.minecraft.client.gui.screens.inventory.AnvilScreen.class),
+                new Case("stonecutter", STONECUTTER, net.minecraft.client.gui.screens.inventory.StonecutterScreen.class));
+        // ticks between leaving and pressing E: once the work's screen has gone (0.22 s), early and late in the step away
+        int[] pauses = {6, 10, 16};
+        for (Case c : stations) {
+            // a plain way in and out first, no inventory
+            enterSmithy(c.pos()).run();
+            step(80, () -> check(c.name() + ": scene plays", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                    && Scene.station.pos.equals(c.pos()), "phase=" + Scene.phase + " screen=" + screenName()));
+            step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+            step(40, () -> check(c.name() + ": plain step away ends", Scene.phase == Scene.Phase.NONE && Minecraft.getInstance().screen == null,
+                    "phase=" + Scene.phase + " screen=" + screenName()));
+            for (int pause : pauses) {
+                String label = c.name() + " E after " + pause + " ticks";
+                enterSmithy(c.pos()).run();
+                step(80, () -> check(label + ": scene plays", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                        && Scene.station.pos.equals(c.pos()), "phase=" + Scene.phase + " screen=" + screenName()));
+                step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+                // the game's own key: the inventory opens on the next tick there is no screen
+                step(pause, () -> net.minecraft.client.KeyMapping.click(
+                        net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(Minecraft.getInstance().options.keyInventory)));
+                step(6, () -> {
+                    REPORT.add(label + ": after E phase=" + Scene.phase + " screen=" + screenName());
+                    check(label + ": the inventory opens", Minecraft.getInstance().screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen,
+                            "phase=" + Scene.phase + " screen=" + screenName());
+                });
+                step(30, () -> {
+                    check(label + ": the step away is over", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+                    shot("ri_" + c.name() + "_" + pause + "_inventory");
+                    Minecraft.getInstance().setScreen(null);
+                });
+                step(10, () -> server(p -> check(label + ": no session left", dev.dyslexic.cinematic.station.Sessions.get(p) == null, "session")));
+                enterSmithy(c.pos()).run();
+                step(80, () -> {
+                    check(label + ": the scene plays again, not the window", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                            && Scene.station.pos.equals(c.pos()) && !c.vanillaScreen().isInstance(Minecraft.getInstance().screen),
+                            "phase=" + Scene.phase + " screen=" + screenName());
+                    server(p -> check(label + ": the server has the new session", dev.dyslexic.cinematic.station.Sessions.get(p) != null
+                            && dev.dyslexic.cinematic.station.Sessions.get(p).pos().equals(c.pos()), "session"));
+                    shot("ri_" + c.name() + "_" + pause + "_again");
+                });
+                step(2, () -> {
+                    if (Scene.phase == Scene.Phase.ACTIVE) pressInScene(GLFW.GLFW_KEY_E);
+                    else Minecraft.getInstance().setScreen(null);
+                });
+                step(40, () -> {});
+            }
+        }
+        // another menu while working (a server's chest, a command): the scene gives way, the station is not marked
+        enterSmithy(SMITHING).run();
+        step(80, () -> check("unrelated menu: scene plays", Scene.phase == Scene.Phase.ACTIVE, "phase=" + Scene.phase));
+        step(2, () -> server(p -> p.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                (id, inventory, who) -> net.minecraft.world.inventory.ChestMenu.threeRows(id, inventory), Component.literal("Chest")))));
+        step(20, () -> check("unrelated menu: its window opens, the scene ends", Minecraft.getInstance().screen
+                instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen && Scene.phase == Scene.Phase.NONE,
+                "phase=" + Scene.phase + " screen=" + screenName()));
+        step(2, () -> Minecraft.getInstance().player.closeContainer());
+        enterSmithy(SMITHING).run();
+        step(80, () -> check("unrelated menu: the station still plays its scene", Scene.phase == Scene.Phase.ACTIVE
+                && Scene.station != null && Scene.station.pos.equals(SMITHING), "phase=" + Scene.phase + " screen=" + screenName()));
+        step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+        step(40, () -> {});
+        // a mod's own menu in answer to this very attempt (as Penchant's enchanting table on NeoForge): the block keeps
+        // its own window from then on. The answer is made here, as MenuScreens makes one, right after BEGIN goes out.
+        step(2, () -> server(p -> p.teleportTo(p.serverLevel(), ENCHANT.getX() + 0.5, -60, ENCHANT.getZ() + 3.6, 180f, 20f)));
+        step(20, () -> {
+            useAt(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP);
+            Minecraft mc = Minecraft.getInstance();
+            var foreign = net.minecraft.world.inventory.ChestMenu.threeRows(99, mc.player.getInventory());
+            mc.player.containerMenu = foreign;
+            mc.setScreen(new net.minecraft.client.gui.screens.inventory.ContainerScreen(foreign, mc.player.getInventory(), Component.literal("Foreign")));
+            check("foreign menu of this attempt: its window, not the scene", Scene.phase == Scene.Phase.NONE
+                    && mc.screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen, "phase=" + Scene.phase + " screen=" + screenName());
+        });
+        step(20, () -> Minecraft.getInstance().player.closeContainer());
+        step(10, () -> useAt(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(20, () -> check("foreign menu: the block keeps its own window", Scene.phase == Scene.Phase.NONE && Minecraft.getInstance().screen
+                instanceof net.minecraft.client.gui.screens.inventory.EnchantmentScreen, "phase=" + Scene.phase + " screen=" + screenName()));
+        step(4, () -> {
+            Minecraft.getInstance().player.closeContainer();
+            Scene.forgetOwnWindows();
+        });
+        step(10, () -> useAt(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(80, () -> check("foreign menu: on a new connection the scene plays again", Scene.phase == Scene.Phase.ACTIVE,
+                "phase=" + Scene.phase + " screen=" + screenName()));
+        step(2, () -> pressInScene(GLFW.GLFW_KEY_E));
+        step(40, () -> {});
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static String screenName() {
+        Screen screen = Minecraft.getInstance().screen;
+        return screen == null ? "none" : screen.getClass().getSimpleName();
+    }
+
+    /^* A key pressed over the work, as the player presses it (E and Esc step away). ^/
+    private static void pressInScene(int key) {
+        if (Minecraft.getInstance().screen instanceof SceneScreen screen) {
+            int scan = GLFW.glfwGetKeyScancode(key);
+            screen.keyPressed(key, scan, 0);
+            screen.keyReleased(key, scan, 0);
+        }
+    }
+
+    *///?}
     private static Runnable enterAt(Vec3 feet, float yaw, BlockPos station, Vec3 local, Direction face) {
         // run while the act is being scheduled: these steps go in their place in the queue
         return () -> {
@@ -630,6 +2513,567 @@ public final class Showcase {
                         p -> holds(inv(p, 15), food.getItem(), 3) && furnaceItems(p, pos).get(0).is(Items.GOLD_ORE), 0)));
     }
 
+    //? if fabric && <1.21 {
+    /*// ---- recipes from a data pack: the table and the furnace work with what the server loaded ----------------
+
+    /^* Only the disputed crafting recipe: avoids rerunning the full station walkthrough. ^/
+    private static void polymorphAct(String which) {
+        step(2, () -> server(p -> {
+            try {
+                java.nio.file.Path pack = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_polymorph_test");
+                java.nio.file.Path recipes = pack.resolve("data/cinematic_polymorph_test/recipes");
+                java.nio.file.Files.createDirectories(recipes);
+                java.nio.file.Files.writeString(pack.resolve("pack.mcmeta"),
+                        "{\"pack\": {\"pack_format\": 15, \"description\": \"Cinematic Polymorph test\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("a_barrel.json"),
+                        "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:cobblestone\"}],\"result\":{\"item\":\"minecraft:barrel\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("b_crafting_table.json"),
+                        "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:cobblestone\"}],\"result\":{\"item\":\"minecraft:crafting_table\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("c_nugget.json"),
+                        "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},\"result\":\"minecraft:gold_nugget\",\"experience\":0,\"cookingtime\":100}");
+                java.nio.file.Files.writeString(recipes.resolve("d_ingot.json"),
+                        "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},\"result\":\"minecraft:iron_ingot\",\"experience\":0,\"cookingtime\":100}");
+                java.nio.file.Files.writeString(recipes.resolve("e_gold_sword.json"),
+                        "{\"type\":\"minecraft:smithing_transform\",\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},"
+                        + "\"base\":{\"item\":\"minecraft:diamond_sword\"},\"addition\":{\"item\":\"minecraft:netherite_ingot\"},"
+                        + "\"result\":{\"item\":\"minecraft:golden_sword\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("f_iron_sword.json"),
+                        "{\"type\":\"minecraft:smithing_transform\",\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},"
+                        + "\"base\":{\"item\":\"minecraft:diamond_sword\"},\"addition\":{\"item\":\"minecraft:netherite_ingot\"},"
+                        + "\"result\":{\"item\":\"minecraft:iron_sword\"}}");
+            } catch (java.io.IOException e) {
+                check("polymorph: conflict pack written", false, e.toString());
+            }
+        }));
+        step(4, () -> cmd("datapack enable \"file/cinematic_polymorph_test\""));
+        step(4, () -> cmd("reload"));
+        step(60, () -> check("polymorph: both recipes loaded", Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new ResourceLocation("cinematic_polymorph_test", "a_barrel")).isPresent()
+                && Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new ResourceLocation("cinematic_polymorph_test", "b_crafting_table")).isPresent(), "recipe reload"));
+        if (which.equals("pf")) nextAct("pf", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+        else if (which.equals("ps")) smithyAct("ps", SMITHING);
+        else nextAct("pm", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+    }
+
+    private static void polymorphScript() {
+        step(3, () -> server(p -> {
+            var store = TableStore.get(p.serverLevel());
+            var table = store.getOrCreate(TABLE);
+            for (int i = 0; i < 9; i++) table.items.set(i, ItemStack.EMPTY);
+            table.items.set(4, new ItemStack(Items.COBBLESTONE));
+            store.setDirty();
+            dev.dyslexic.cinematic.table.TableActions.sync(p.serverLevel(), TABLE);
+        }));
+        step(15, () -> {
+            boolean loaded = dev.dyslexic.cinematic.station.RecipeChoices.available();
+            check("polymorph: expected test mod loaded", loaded, "loaded=" + loaded);
+            check("polymorph: two results offered", table().choices().active(),
+                    "selected=" + table().choices().selected());
+            table().chose(1);
+        });
+        step(12, () -> {
+            check("polymorph: second result preview", table().result.is(Items.CRAFTING_TABLE),
+                    "result=" + describe(table().result));
+            server(p -> check("polymorph: server records selection",
+                    new ResourceLocation("cinematic_polymorph_test", "b_crafting_table")
+                            .equals(dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)),
+                    "selected=" + dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)));
+        });
+        step(2, () -> dev.dyslexic.cinematic.net.PacketDistributor.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(TABLE,
+                StationKind.TABLE, dev.dyslexic.cinematic.net.StationActionPayload.Action.CRAFT, 0, 0, false, 0)));
+        step(20, () -> server(p -> check("polymorph: selected recipe crafted",
+                p.inventoryMenu.getCarried().is(Items.CRAFTING_TABLE),
+                "carried=" + describe(p.inventoryMenu.getCarried()))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void polymorphFurnaceScript() {
+        step(3, () -> server(p -> setFurnace(p, FURNACE, new ItemStack(Items.RAW_IRON, 2), new ItemStack(Items.COAL))));
+        step(18, () -> {
+            var strip = Scene.station.choices();
+            check("polymorph furnace: competing results offered", strip != null && strip.active(),
+                    "active=" + (strip != null && strip.active()));
+            Scene.station.chose(0);
+        });
+        step(14, () -> {
+            check("polymorph furnace: server choice reaches scene", Scene.station.choices().selected() == 0,
+                    "selected=" + Scene.station.choices().selected());
+            server(p -> check("polymorph furnace: block stores chosen recipe",
+                    p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace
+                            && "cinematic_polymorph_test:c_nugget".equals(dev.dyslexic.cinematic.station.RecipeChoices.furnaceChoice(furnace, StationKind.FURNACE)),
+                    "furnace selection"));
+        });
+        step(230, () -> server(p -> check("polymorph furnace: selected output smelted",
+                furnaceItems(p, FURNACE).get(2).is(Items.GOLD_NUGGET),
+                "output=" + describe(furnaceItems(p, FURNACE).get(2)))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void polymorphSmithingScript() {
+        step(3, () -> server(p -> {
+            if (p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu menu) {
+                menu.getSlot(0).set(new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+                menu.getSlot(1).set(new ItemStack(Items.DIAMOND_SWORD));
+                menu.getSlot(2).set(new ItemStack(Items.NETHERITE_INGOT));
+                menu.slotsChanged(menu.getSlot(0).container);
+                menu.broadcastChanges();
+            }
+        }));
+        step(18, () -> {
+            var strip = Scene.station.choices();
+            check("polymorph smithing: competing results offered", strip != null && strip.active(),
+                    "active=" + (strip != null && strip.active()));
+            Scene.station.chose(0);
+        });
+        step(14, () -> {
+            server(p -> check("polymorph smithing: selected result is in the real menu",
+                    p.containerMenu.getSlot(3).getItem().is(Items.GOLDEN_SWORD),
+                    "result=" + describe(p.containerMenu.getSlot(3).getItem())));
+            check("polymorph smithing: scene shows selected result", Scene.station.choices().selected() == 0,
+                    "selected=" + Scene.station.choices().selected());
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    /^* The world's own data pack: a shaped recipe whose result carries a name (NBT), and a smelting recipe of its own. ^/
+    private static void customRecipesAct() {
+        step(2, () -> server(p -> {
+            try {
+                java.nio.file.Path pack = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_test");
+                java.nio.file.Path recipes = pack.resolve("data/cinematic_test/recipes");
+                java.nio.file.Files.createDirectories(recipes);
+                java.nio.file.Files.writeString(pack.resolve("pack.mcmeta"),
+                        "{\"pack\": {\"pack_format\": 15, \"description\": \"Cinematic Interactions test recipes\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("named_emeralds.json"), """
+                        {"type": "minecraft:crafting_shaped", "pattern": ["C", "S"],
+                         "key": {"C": {"item": "minecraft:cobblestone"}, "S": {"item": "minecraft:stick"}},
+                         "result": {"item": "minecraft:emerald", "count": 2, "nbt": "{display:{Name:'{\\"text\\":\\"Изумруд из датапака\\"}'}}"}}
+                        """);
+                java.nio.file.Files.writeString(recipes.resolve("golden_apple.json"), """
+                        {"type": "minecraft:smelting", "ingredient": {"item": "minecraft:apple"},
+                         "result": "minecraft:golden_apple", "experience": 0.5, "cookingtime": 40}
+                        """);
+            } catch (java.io.IOException e) {
+                check("custom recipe pack written", false, e.toString());
+            }
+        }));
+        step(4, () -> cmd("datapack enable \"file/cinematic_test\""));
+        step(4, () -> cmd("reload"));
+        step(60, () -> {
+            var recipes = Minecraft.getInstance().level.getRecipeManager();
+            check("custom recipes reach the client", recipes.byKey(new ResourceLocation("cinematic_test", "named_emeralds")).isPresent()
+                    && recipes.byKey(new ResourceLocation("cinematic_test", "golden_apple")).isPresent(), "client recipe book after /reload");
+        });
+        nextAct("cr", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+    }
+
+    private static void customRecipesScript() {
+        if (Scene.station != null && Scene.station.kind() == StationKind.FURNACE) {
+            customSmeltingScript();
+            return;
+        }
+        shot("cr5_table");
+        step(4, () -> invClickItem(Items.COBBLESTONE));
+        step(3, () -> point(0, 1));
+        step(8, () -> clickCell(0, 1, 1));
+        step(4, Showcase::stash);
+        step(4, () -> invClickItem(Items.STICK));
+        step(3, () -> point(1, 1));
+        step(8, () -> clickCell(1, 1, 1));
+        step(4, Showcase::stash);
+        step(4, Showcase::pointAside);
+        step(12, () -> shot("cr6_custom_recipe"));
+        step(2, () -> pointAt(table().resultPosition()));
+        step(8, () -> shot("cr7_custom_result"));
+        step(2, Showcase::clickResult);
+        step(30, () -> {
+            ItemStack hand = carried();
+            check("data pack recipe crafted on the table", hand.is(Items.EMERALD) && hand.getCount() == 2
+                    && hand.getHoverName().getString().equals("Изумруд из датапака"), "carried=" + hand + " name=" + hand.getHoverName().getString());
+        });
+        step(2, () -> server(p -> {
+            ItemStack hand = p.inventoryMenu.getCarried();
+            check("server holds the named result", hand.is(Items.EMERALD) && hand.hasCustomHoverName(), "server carried=" + hand + " tag=" + hand.getTag());
+        }));
+        step(4, Showcase::stash);
+        step(4, Scene::leave);
+        step(45, () -> {});
+        nextAct("cr", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+    }
+
+    private static void customSmeltingScript() {
+        shot("cr8_furnace");
+        step(2, () -> server(p -> p.getInventory().add(new ItemStack(Items.APPLE, 2))));
+        step(6, () -> invClickItem(Items.APPLE));
+        step(3, () -> pointZone(FURNACE, FurnaceZones.INPUT));
+        step(8, () -> shot("cr8_apple_over_input"));
+        step(2, () -> clickZone(FurnaceZones.INPUT, 1));
+        step(4, Showcase::stash);
+        step(4, () -> invClickItem(Items.COAL));
+        step(3, () -> pointZone(FURNACE, FurnaceZones.FUEL));
+        step(8, () -> clickZone(FurnaceZones.FUEL, 1));
+        step(4, Showcase::stash);
+        step(4, Showcase::pointAside);
+        step(70, () -> shot("cr9_smelted"));
+        step(2, () -> server(p -> {
+            ItemStack result = p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace
+                    ? furnace.getItem(FurnaceZones.RESULT) : ItemStack.EMPTY;
+            check("data pack smelting in the furnace scene", result.is(Items.GOLDEN_APPLE), "result=" + describe(result));
+        }));
+        step(2, () -> check("watchers see the custom result in the furnace", ClientFurnaces.item(FURNACE, FurnaceZones.RESULT).is(Items.GOLDEN_APPLE),
+                "client=" + describe(ClientFurnaces.item(FURNACE, FurnaceZones.RESULT))));
+        step(4, Scene::leave);
+        step(40, () -> finish(Minecraft.getInstance()));
+    }
+
+    // ---- a menu of another class where the station's own was expected ------------------------------------------
+
+    /^*
+     * What a mod that replaces a station's menu does (Penchant's enchanting table in NeoForge; no such mod is at hand for
+     * 1.20.1): while the enchanting scene works, the server puts a menu of another class in front of the player. The scene
+     * must step aside for that window at once (the client must not keep it half-made), the server must end the session,
+     * and the same block must then open its own window directly, without the scene first, for the rest of the connection.
+     ^/
+    private static void foreignMenuAct() {
+        step(2, () -> server(p -> {
+            p.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            p.teleportTo(p.serverLevel(), -4.5, -60, 11.6, 180f, 20f);
+        }));
+        step(30, () -> use(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(80, () -> {
+            check("the enchanting scene plays", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                    && Scene.station.kind() == StationKind.ENCHANTING, "phase=" + Scene.phase);
+            shot("fm1_scene");
+            server(p -> p.openMenu(new net.minecraft.world.SimpleMenuProvider((id, inventory, player) ->
+                    net.minecraft.world.inventory.ChestMenu.threeRows(id, inventory), Component.literal("Foreign menu"))));
+        });
+        step(30, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            check("the scene steps aside for the other menu", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+            check("the other menu's own window is open", mc.screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen
+                    && mc.player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu, "screen=" + mc.screen);
+            server(p -> check("no session is left on the server", dev.dyslexic.cinematic.station.Sessions.get(p) == null,
+                    "menu=" + p.containerMenu.getClass().getSimpleName()));
+            shot("fm2_window");
+        });
+        // the slot change that used to reach a window that never opened
+        step(4, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player.containerMenu;
+            for (int i = 0; i < menu.slots.size(); i++) {
+                if (menu.slots.get(i).container == mc.player.getInventory() && menu.slots.get(i).getItem().is(Items.IRON_SWORD)) {
+                    mc.gameMode.handleInventoryMouseClick(menu.containerId, i, 0, ClickType.QUICK_MOVE, mc.player);
+                    break;
+                }
+            }
+        });
+        step(20, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player.containerMenu;
+            boolean placed = false;
+            for (var slot : menu.slots) placed |= slot.container != mc.player.getInventory() && slot.getItem().is(Items.IRON_SWORD);
+            check("the window works on (an item went in)", placed && mc.screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen,
+                    "screen=" + mc.screen);
+            mc.screen.onClose();
+        });
+        step(10, () -> server(p -> {
+            p.getInventory().clearOrCountMatchingItems(st -> st.is(Items.IRON_SWORD), -1, p.inventoryMenu.getCraftSlots());
+            check("the server closed it", p.containerMenu == p.inventoryMenu, "menu=" + p.containerMenu.getClass().getSimpleName());
+        }));
+        // used again: this kind of block keeps its own window for the rest of the connection
+        step(10, () -> use(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(30, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            check("used again: its own window, no scene first", Scene.phase == Scene.Phase.NONE
+                    && mc.screen instanceof net.minecraft.client.gui.screens.inventory.EnchantmentScreen, "screen=" + mc.screen + " phase=" + Scene.phase);
+            shot("fm3_own_window");
+            closeWindow();
+        });
+        step(10, () -> finish(Minecraft.getInstance()));
+    }
+
+    *///?} else if forge {
+    /*// ---- recipes from a data pack: the table and the furnace work with what the server loaded ----------------
+
+    /^* Only the disputed crafting recipe: avoids rerunning the full station walkthrough. ^/
+    private static void polymorphAct(String which) {
+        step(2, () -> server(p -> {
+            try {
+                java.nio.file.Path pack = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_polymorph_test");
+                java.nio.file.Path recipes = pack.resolve("data/cinematic_polymorph_test/recipes");
+                java.nio.file.Files.createDirectories(recipes);
+                java.nio.file.Files.writeString(pack.resolve("pack.mcmeta"),
+                        "{\"pack\": {\"pack_format\": 15, \"description\": \"Cinematic Polymorph test\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("a_barrel.json"),
+                        "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:cobblestone\"}],\"result\":{\"item\":\"minecraft:barrel\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("b_crafting_table.json"),
+                        "{\"type\":\"minecraft:crafting_shapeless\",\"ingredients\":[{\"item\":\"minecraft:cobblestone\"}],\"result\":{\"item\":\"minecraft:crafting_table\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("c_nugget.json"),
+                        "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},\"result\":\"minecraft:gold_nugget\",\"experience\":0,\"cookingtime\":100}");
+                java.nio.file.Files.writeString(recipes.resolve("d_ingot.json"),
+                        "{\"type\":\"minecraft:smelting\",\"ingredient\":{\"item\":\"minecraft:raw_iron\"},\"result\":\"minecraft:iron_ingot\",\"experience\":0,\"cookingtime\":100}");
+                java.nio.file.Files.writeString(recipes.resolve("e_gold_sword.json"),
+                        "{\"type\":\"minecraft:smithing_transform\",\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},"
+                        + "\"base\":{\"item\":\"minecraft:diamond_sword\"},\"addition\":{\"item\":\"minecraft:netherite_ingot\"},"
+                        + "\"result\":{\"item\":\"minecraft:golden_sword\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("f_iron_sword.json"),
+                        "{\"type\":\"minecraft:smithing_transform\",\"template\":{\"item\":\"minecraft:netherite_upgrade_smithing_template\"},"
+                        + "\"base\":{\"item\":\"minecraft:diamond_sword\"},\"addition\":{\"item\":\"minecraft:netherite_ingot\"},"
+                        + "\"result\":{\"item\":\"minecraft:iron_sword\"}}");
+            } catch (java.io.IOException e) {
+                check("polymorph: conflict pack written", false, e.toString());
+            }
+        }));
+        step(4, () -> cmd("datapack enable \"file/cinematic_polymorph_test\""));
+        step(4, () -> cmd("reload"));
+        step(60, () -> check("polymorph: both recipes loaded", Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new ResourceLocation("cinematic_polymorph_test", "a_barrel")).isPresent()
+                && Minecraft.getInstance().level.getRecipeManager()
+                .byKey(new ResourceLocation("cinematic_polymorph_test", "b_crafting_table")).isPresent(), "recipe reload"));
+        if (which.equals("pf")) nextAct("pf", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+        else if (which.equals("ps")) smithyAct("ps", SMITHING);
+        else nextAct("pm", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+    }
+
+    private static void polymorphScript() {
+        step(3, () -> server(p -> {
+            var store = TableStore.get(p.serverLevel());
+            var table = store.getOrCreate(TABLE);
+            for (int i = 0; i < 9; i++) table.items.set(i, ItemStack.EMPTY);
+            table.items.set(4, new ItemStack(Items.COBBLESTONE));
+            store.setDirty();
+            dev.dyslexic.cinematic.table.TableActions.sync(p.serverLevel(), TABLE);
+        }));
+        step(15, () -> {
+            boolean loaded = dev.dyslexic.cinematic.station.RecipeChoices.available();
+            check("polymorph: expected test mod loaded", loaded, "loaded=" + loaded);
+            check("polymorph: two results offered", table().choices().active(),
+                    "selected=" + table().choices().selected());
+            table().chose(1);
+        });
+        step(12, () -> {
+            check("polymorph: second result preview", table().result.is(Items.CRAFTING_TABLE),
+                    "result=" + describe(table().result));
+            server(p -> check("polymorph: server records selection",
+                    new ResourceLocation("cinematic_polymorph_test", "b_crafting_table")
+                            .equals(dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)),
+                    "selected=" + dev.dyslexic.cinematic.station.RecipeChoices.chosen(p)));
+        });
+        step(2, () -> ClientNet.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(TABLE,
+                StationKind.TABLE, dev.dyslexic.cinematic.net.StationActionPayload.Action.CRAFT, 0, 0, false, 0)));
+        step(20, () -> server(p -> check("polymorph: selected recipe crafted",
+                p.inventoryMenu.getCarried().is(Items.CRAFTING_TABLE),
+                "carried=" + describe(p.inventoryMenu.getCarried()))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void polymorphFurnaceScript() {
+        step(3, () -> server(p -> setFurnace(p, FURNACE, new ItemStack(Items.RAW_IRON, 2), new ItemStack(Items.COAL))));
+        step(18, () -> {
+            var strip = Scene.station.choices();
+            check("polymorph furnace: competing results offered", strip != null && strip.active(),
+                    "active=" + (strip != null && strip.active()));
+            Scene.station.chose(0);
+        });
+        step(14, () -> {
+            check("polymorph furnace: server choice reaches scene", Scene.station.choices().selected() == 0,
+                    "selected=" + Scene.station.choices().selected());
+            server(p -> check("polymorph furnace: block stores chosen recipe",
+                    p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace
+                            && "cinematic_polymorph_test:c_nugget".equals(dev.dyslexic.cinematic.station.RecipeChoices.furnaceChoice(furnace, StationKind.FURNACE)),
+                    "furnace selection"));
+        });
+        step(230, () -> server(p -> check("polymorph furnace: selected output smelted",
+                furnaceItems(p, FURNACE).get(2).is(Items.GOLD_NUGGET),
+                "output=" + describe(furnaceItems(p, FURNACE).get(2)))));
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    private static void polymorphSmithingScript() {
+        step(3, () -> server(p -> {
+            if (p.containerMenu instanceof net.minecraft.world.inventory.SmithingMenu menu) {
+                menu.getSlot(0).set(new ItemStack(Items.NETHERITE_UPGRADE_SMITHING_TEMPLATE));
+                menu.getSlot(1).set(new ItemStack(Items.DIAMOND_SWORD));
+                menu.getSlot(2).set(new ItemStack(Items.NETHERITE_INGOT));
+                menu.slotsChanged(menu.getSlot(0).container);
+                menu.broadcastChanges();
+            }
+        }));
+        step(18, () -> {
+            var strip = Scene.station.choices();
+            check("polymorph smithing: competing results offered", strip != null && strip.active(),
+                    "active=" + (strip != null && strip.active()));
+            Scene.station.chose(0);
+        });
+        step(14, () -> {
+            server(p -> check("polymorph smithing: selected result is in the real menu",
+                    p.containerMenu.getSlot(3).getItem().is(Items.GOLDEN_SWORD),
+                    "result=" + describe(p.containerMenu.getSlot(3).getItem())));
+            check("polymorph smithing: scene shows selected result", Scene.station.choices().selected() == 0,
+                    "selected=" + Scene.station.choices().selected());
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    /^* The world's own data pack: a shaped recipe whose result carries a name (NBT), and a smelting recipe of its own. ^/
+    private static void customRecipesAct() {
+        step(2, () -> server(p -> {
+            try {
+                java.nio.file.Path pack = p.server.getWorldPath(net.minecraft.world.level.storage.LevelResource.DATAPACK_DIR).resolve("cinematic_test");
+                java.nio.file.Path recipes = pack.resolve("data/cinematic_test/recipes");
+                java.nio.file.Files.createDirectories(recipes);
+                java.nio.file.Files.writeString(pack.resolve("pack.mcmeta"),
+                        "{\"pack\": {\"pack_format\": 15, \"description\": \"Cinematic Interactions test recipes\"}}");
+                java.nio.file.Files.writeString(recipes.resolve("named_emeralds.json"), """
+                        {"type": "minecraft:crafting_shaped", "pattern": ["C", "S"],
+                         "key": {"C": {"item": "minecraft:cobblestone"}, "S": {"item": "minecraft:stick"}},
+                         "result": {"item": "minecraft:emerald", "count": 2, "nbt": "{display:{Name:'{\\"text\\":\\"Изумруд из датапака\\"}'}}"}}
+                        """);
+                java.nio.file.Files.writeString(recipes.resolve("golden_apple.json"), """
+                        {"type": "minecraft:smelting", "ingredient": {"item": "minecraft:apple"},
+                         "result": "minecraft:golden_apple", "experience": 0.5, "cookingtime": 40}
+                        """);
+            } catch (java.io.IOException e) {
+                check("custom recipe pack written", false, e.toString());
+            }
+        }));
+        step(4, () -> cmd("datapack enable \"file/cinematic_test\""));
+        step(4, () -> cmd("reload"));
+        step(60, () -> {
+            var recipes = Minecraft.getInstance().level.getRecipeManager();
+            check("custom recipes reach the client", recipes.byKey(new ResourceLocation("cinematic_test", "named_emeralds")).isPresent()
+                    && recipes.byKey(new ResourceLocation("cinematic_test", "golden_apple")).isPresent(), "client recipe book after /reload");
+        });
+        nextAct("cr", new Vec3(0.7, -60, 5.6), 172f, TABLE, new Vec3(0.5, 1, 0.8), Direction.UP);
+    }
+
+    private static void customRecipesScript() {
+        if (Scene.station != null && Scene.station.kind() == StationKind.FURNACE) {
+            customSmeltingScript();
+            return;
+        }
+        shot("cr5_table");
+        step(4, () -> invClickItem(Items.COBBLESTONE));
+        step(3, () -> point(0, 1));
+        step(8, () -> clickCell(0, 1, 1));
+        step(4, Showcase::stash);
+        step(4, () -> invClickItem(Items.STICK));
+        step(3, () -> point(1, 1));
+        step(8, () -> clickCell(1, 1, 1));
+        step(4, Showcase::stash);
+        step(4, Showcase::pointAside);
+        step(12, () -> shot("cr6_custom_recipe"));
+        step(2, () -> pointAt(table().resultPosition()));
+        step(8, () -> shot("cr7_custom_result"));
+        step(2, Showcase::clickResult);
+        step(30, () -> {
+            ItemStack hand = carried();
+            check("data pack recipe crafted on the table", hand.is(Items.EMERALD) && hand.getCount() == 2
+                    && hand.getHoverName().getString().equals("Изумруд из датапака"), "carried=" + hand + " name=" + hand.getHoverName().getString());
+        });
+        step(2, () -> server(p -> {
+            ItemStack hand = p.inventoryMenu.getCarried();
+            check("server holds the named result", hand.is(Items.EMERALD) && hand.hasCustomHoverName(), "server carried=" + hand + " tag=" + hand.getTag());
+        }));
+        step(4, Showcase::stash);
+        step(4, Scene::leave);
+        step(45, () -> {});
+        nextAct("cr", new Vec3(-3.2, -60, 4.6), 200f, FURNACE, new Vec3(0.5, 0.6, 1.0), Direction.SOUTH);
+    }
+
+    private static void customSmeltingScript() {
+        shot("cr8_furnace");
+        step(2, () -> server(p -> p.getInventory().add(new ItemStack(Items.APPLE, 2))));
+        step(6, () -> invClickItem(Items.APPLE));
+        step(3, () -> pointZone(FURNACE, FurnaceZones.INPUT));
+        step(8, () -> shot("cr8_apple_over_input"));
+        step(2, () -> clickZone(FurnaceZones.INPUT, 1));
+        step(4, Showcase::stash);
+        step(4, () -> invClickItem(Items.COAL));
+        step(3, () -> pointZone(FURNACE, FurnaceZones.FUEL));
+        step(8, () -> clickZone(FurnaceZones.FUEL, 1));
+        step(4, Showcase::stash);
+        step(4, Showcase::pointAside);
+        step(70, () -> shot("cr9_smelted"));
+        step(2, () -> server(p -> {
+            ItemStack result = p.serverLevel().getBlockEntity(FURNACE) instanceof net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity furnace
+                    ? furnace.getItem(FurnaceZones.RESULT) : ItemStack.EMPTY;
+            check("data pack smelting in the furnace scene", result.is(Items.GOLDEN_APPLE), "result=" + describe(result));
+        }));
+        step(2, () -> check("watchers see the custom result in the furnace", ClientFurnaces.item(FURNACE, FurnaceZones.RESULT).is(Items.GOLDEN_APPLE),
+                "client=" + describe(ClientFurnaces.item(FURNACE, FurnaceZones.RESULT))));
+        step(4, Scene::leave);
+        step(40, () -> finish(Minecraft.getInstance()));
+    }
+
+    // ---- a menu of another class where the station's own was expected ------------------------------------------
+
+    /^*
+     * What a mod that replaces a station's menu does (Penchant's enchanting table in NeoForge; no such mod is at hand for
+     * 1.20.1): while the enchanting scene works, the server puts a menu of another class in front of the player. The scene
+     * must step aside for that window at once (the client must not keep it half-made), the server must end the session,
+     * and the same block must then open its own window directly, without the scene first, for the rest of the connection.
+     ^/
+    private static void foreignMenuAct() {
+        step(2, () -> server(p -> {
+            p.getInventory().add(new ItemStack(Items.IRON_SWORD));
+            p.teleportTo(p.serverLevel(), -4.5, -60, 11.6, 180f, 20f);
+        }));
+        step(30, () -> use(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(80, () -> {
+            check("the enchanting scene plays", Scene.phase == Scene.Phase.ACTIVE && Scene.station != null
+                    && Scene.station.kind() == StationKind.ENCHANTING, "phase=" + Scene.phase);
+            shot("fm1_scene");
+            server(p -> p.openMenu(new net.minecraft.world.SimpleMenuProvider((id, inventory, player) ->
+                    net.minecraft.world.inventory.ChestMenu.threeRows(id, inventory), Component.literal("Foreign menu"))));
+        });
+        step(30, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            check("the scene steps aside for the other menu", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
+            check("the other menu's own window is open", mc.screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen
+                    && mc.player.containerMenu instanceof net.minecraft.world.inventory.ChestMenu, "screen=" + mc.screen);
+            server(p -> check("no session is left on the server", dev.dyslexic.cinematic.station.Sessions.get(p) == null,
+                    "menu=" + p.containerMenu.getClass().getSimpleName()));
+            shot("fm2_window");
+        });
+        // the slot change that used to reach a window that never opened
+        step(4, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player.containerMenu;
+            for (int i = 0; i < menu.slots.size(); i++) {
+                if (menu.slots.get(i).container == mc.player.getInventory() && menu.slots.get(i).getItem().is(Items.IRON_SWORD)) {
+                    mc.gameMode.handleInventoryMouseClick(menu.containerId, i, 0, ClickType.QUICK_MOVE, mc.player);
+                    break;
+                }
+            }
+        });
+        step(20, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player.containerMenu;
+            boolean placed = false;
+            for (var slot : menu.slots) placed |= slot.container != mc.player.getInventory() && slot.getItem().is(Items.IRON_SWORD);
+            check("the window works on (an item went in)", placed && mc.screen instanceof net.minecraft.client.gui.screens.inventory.ContainerScreen,
+                    "screen=" + mc.screen);
+            mc.screen.onClose();
+        });
+        step(10, () -> server(p -> {
+            p.getInventory().clearOrCountMatchingItems(st -> st.is(Items.IRON_SWORD), -1, p.inventoryMenu.getCraftSlots());
+            check("the server closed it", p.containerMenu == p.inventoryMenu, "menu=" + p.containerMenu.getClass().getSimpleName());
+        }));
+        // used again: this kind of block keeps its own window for the rest of the connection
+        step(10, () -> use(ENCHANT, new Vec3(0.5, 0.75, 0.6), Direction.UP));
+        step(30, () -> {
+            Minecraft mc = Minecraft.getInstance();
+            check("used again: its own window, no scene first", Scene.phase == Scene.Phase.NONE
+                    && mc.screen instanceof net.minecraft.client.gui.screens.inventory.EnchantmentScreen, "screen=" + mc.screen + " phase=" + Scene.phase);
+            shot("fm3_own_window");
+            closeWindow();
+        });
+        step(10, () -> finish(Minecraft.getInstance()));
+    }
+
+    *///?}
     private static void quickMoveAct() {
         // the table: the recipe's own cell, then a cell with the same item, then the first free one, as the player reads the grid
         quickStation("table", p -> {
@@ -746,7 +3190,11 @@ public final class Showcase {
         quickStation("brewing stand", p -> {
             if (p.serverLevel().getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand)
                 for (int i = 0; i < 5; i++) stand.setItem(i, ItemStack.EMPTY);
+            //? if >=1.21 {
             ItemStack water = net.minecraft.world.item.alchemy.PotionContents.createItemStack(Items.POTION, net.minecraft.world.item.alchemy.Potions.WATER);
+            //?} else if <1.21 {
+            /*ItemStack water = net.minecraft.world.item.alchemy.PotionUtils.setPotion(new ItemStack(Items.POTION), net.minecraft.world.item.alchemy.Potions.WATER);
+            *///?}
             p.getInventory().setItem(0, new ItemStack(Items.BLAZE_POWDER, 3));
             p.getInventory().setItem(9, new ItemStack(Items.NETHER_WART, 2));
             p.getInventory().setItem(10, water);
@@ -759,12 +3207,14 @@ public final class Showcase {
                 new QuickCase("a bottle onto a foot", 10, p -> inv(p, 10).isEmpty() && menuItems(p).get(0).is(Items.POTION)),
                 new QuickCase("dirt stays put", 11, p -> holds(inv(p, 11), Items.DIRT, 4))));
 
+        //? if >=1.21 {
         quickStation("crafter", p -> {
             p.getInventory().setItem(9, new ItemStack(Items.OAK_PLANKS, 7));
         }, enterSmithy(CRAFTER), 90, p -> describeAll(menuItems(p)), List.of(
                 new QuickCase("planks into the crafter's grid", 9, p -> inv(p, 9).isEmpty()
                         && menuItems(p).stream().anyMatch(st -> st.is(Items.OAK_PLANKS)))));
 
+        //?}
         quickStation("beacon", p -> {
             p.getInventory().setItem(0, new ItemStack(Items.IRON_INGOT, 5));
             p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
@@ -781,7 +3231,12 @@ public final class Showcase {
 
         quickStation("chiseled bookshelf", p -> {
             if (p.serverLevel().getBlockEntity(SHELF) instanceof net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity shelf) {
+                //? if >=1.21 {
                 for (int i = 0; i < 6; i++) shelf.setItem(i, i == 1 ? new ItemStack(Items.BOOK) : ItemStack.EMPTY);
+                //?} else if <1.21 {
+                /*// 1.20.1's setItem ignores anything but a book, an empty stack too: empty the places by taking the books out
+                for (int i = 0; i < 6; i++) if (i == 1) shelf.setItem(i, new ItemStack(Items.BOOK)); else shelf.removeItem(i, 1);
+                *///?}
             }
             p.getInventory().setItem(9, new ItemStack(Items.BOOK, 3));
             p.getInventory().setItem(10, new ItemStack(Items.DIRT, 4));
@@ -817,7 +3272,13 @@ public final class Showcase {
             p.getInventory().setItem(9, new ItemStack(Items.DIRT, 4));
         }, () -> {
             step(2, () -> server(p -> p.teleportTo(p.serverLevel(), CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.9, 180f, 24f)));
+            //? if neoforge {
             step(30, () -> net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey()));
+            //?} else if fabric {
+            /*step(30, () -> net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT)));
+            *///?} else if forge {
+            /*step(30, () -> net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey()));
+            *///?}
         }, 120, p -> p.serverLevel().getBlockEntity(CAMPFIRE) instanceof net.minecraft.world.level.block.entity.CampfireBlockEntity fire
                 ? describeAll(fire.getItems()) : "-", List.of(
                 new QuickCase("dirt does not cook: it stays", 9, p -> holds(inv(p, 9), Items.DIRT, 4)),
@@ -826,20 +3287,37 @@ public final class Showcase {
                         && fire.getItems().stream().filter(st -> st.is(Items.BEEF)).count() == 3 && fire.getItems().get(0).is(Items.CHICKEN))));
 
         quickStation("jukebox", p -> {
+            //? if >=1.21 {
             if (p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box) box.popOutTheItem();
+            //?} else if <1.21 {
+            /*if (p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box) box.popOutRecord();
+            *///?}
             p.getInventory().setItem(9, new ItemStack(Items.MUSIC_DISC_CAT));
             p.getInventory().setItem(10, new ItemStack(Items.DIRT, 4));
         }, () -> {
             step(2, () -> standLooking(new Vec3(JUKEBOX.getX() - 1.6, -60, JUKEBOX.getZ() + 0.5), Vec3.atCenterOf(JUKEBOX)));
             step(20, () -> useAt(JUKEBOX, new Vec3(0.5, 1, 0.5), Direction.UP));
+        //? if >=1.21 {
         }, 90, p -> p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box
                 ? describe(box.getTheItem()) : "-", List.of(
+        //?} else if <1.21 {
+        /*}, 90, p -> p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box
+                ? describe(box.getFirstItem()) : "-", List.of(
+        *///?}
                 new QuickCase("dirt is no record: it stays", 10, p -> holds(inv(p, 10), Items.DIRT, 4)),
                 new QuickCase("a record from the pack slides in and plays", p -> {}, 9, p -> inv(p, 9).isEmpty()
                         && p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box
+                        //? if >=1.21 {
                         && box.getTheItem().is(Items.MUSIC_DISC_CAT), 50)));
+                        //?} else if <1.21 {
+                        /*&& box.getFirstItem().is(Items.MUSIC_DISC_CAT), 50)));
+                        *///?}
         step(2, () -> server(p -> {
+            //? if >=1.21 {
             if (p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box) box.popOutTheItem();
+            //?} else if <1.21 {
+            /*if (p.serverLevel().getBlockEntity(JUKEBOX) instanceof net.minecraft.world.level.block.entity.JukeboxBlockEntity box) box.popOutRecord();
+            *///?}
         }));
         step(10, () -> finish(Minecraft.getInstance()));
     }
@@ -849,21 +3327,33 @@ public final class Showcase {
     private static final Map<String, String> ANVIL_RESULTS = new java.util.LinkedHashMap<>();
 
     private static boolean hasThorns(ItemStack stack) {
+        //? if >=1.21 {
         var thorns = Minecraft.getInstance().level.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
                 .getOrThrow(net.minecraft.world.item.enchantment.Enchantments.THORNS);
+        //?} else if <1.21 {
+        /*var thorns = net.minecraft.world.item.enchantment.Enchantments.THORNS;
+        *///?}
         return net.minecraft.world.item.enchantment.EnchantmentHelper.getItemEnchantmentLevel(thorns, stack) > 0;
     }
 
     private static void anvilRound(boolean creative, boolean scene) {
         String tag = (creative ? "creative" : "survival") + (scene ? " scene" : " window");
         step(4, () -> {
+            //? if >=1.21 {
             Settings.SCENES.get(StationKind.ANVIL).set(scene);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.SCENES.get(StationKind.ANVIL), scene);
+            *///?}
             server(p -> {
                 p.setGameMode(creative ? net.minecraft.world.level.GameType.CREATIVE : net.minecraft.world.level.GameType.SURVIVAL);
                 p.setExperienceLevels(30);
                 p.getInventory().clearOrCountMatchingItems(st -> st.is(Items.IRON_SWORD) || st.is(Items.ENCHANTED_BOOK), -1, p.inventoryMenu.getCraftSlots());
+                //? if >=1.21 {
                 var thorns = p.serverLevel().registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
                         .getOrThrow(net.minecraft.world.item.enchantment.Enchantments.THORNS);
+                //?} else if <1.21 {
+                /*var thorns = net.minecraft.world.item.enchantment.Enchantments.THORNS;
+                *///?}
                 p.getInventory().add(new ItemStack(Items.IRON_SWORD));
                 p.getInventory().add(net.minecraft.world.item.EnchantedBookItem.createForEnchantment(
                         new net.minecraft.world.item.enchantment.EnchantmentInstance(thorns, 3)));
@@ -914,7 +3404,13 @@ public final class Showcase {
     private static String loadedEnchantMods() {
         List<String> found = new ArrayList<>();
         for (String id : List.of("penchant", "apotheosis", "apothic_enchanting", "enchdesc", "easymagic", "enchantmentlevelcapindicator"))
+            //? if neoforge {
             if (net.neoforged.fml.ModList.get().isLoaded(id)) found.add(id);
+            //?} else if fabric {
+            /*if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded(id)) found.add(id);
+            *///?} else if forge {
+            /*if (net.minecraftforge.fml.ModList.get().isLoaded(id)) found.add(id);
+            *///?}
         return found.isEmpty() ? "none" : String.join(",", found);
     }
 
@@ -929,7 +3425,11 @@ public final class Showcase {
                 check("anvil, " + mode + ": the scene gives what the plain window gives", inScene != null && inScene.equals(inWindow),
                         "scene=" + inScene + " | window=" + inWindow);
             }
+            //? if >=1.21 {
             Settings.SCENES.get(StationKind.ANVIL).set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.SCENES.get(StationKind.ANVIL), true);
+            *///?}
             server(p -> p.setGameMode(net.minecraft.world.level.GameType.SURVIVAL));
         });
         step(4, () -> finish(Minecraft.getInstance()));
@@ -943,7 +3443,13 @@ public final class Showcase {
     }
 
     private static void penchantAct() {
+        //? if neoforge {
         boolean penchant = net.neoforged.fml.ModList.get().isLoaded("penchant");
+        //?} else if fabric {
+        /*boolean penchant = net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("penchant");
+        *///?} else if forge {
+        /*boolean penchant = net.minecraftforge.fml.ModList.get().isLoaded("penchant");
+        *///?}
         step(2, () -> server(p -> {
             p.getInventory().add(new ItemStack(Items.IRON_SWORD));
             p.teleportTo(p.serverLevel(), -4.5, -60, 11.6, 180f, 20f);
@@ -1067,7 +3573,11 @@ public final class Showcase {
         if (Scene.station instanceof TableStation) {
             // developer mode puts the layout editor's gear on the guide's spot: the spine moves above it, and back
             boolean originalDev = Settings.developerMode();
+            //? if >=1.21 {
             step(10, () -> { Settings.DEVELOPER_MODE.set(true); pointAside(); });
+            //?} else if <1.21 {
+            /*step(10, () -> { Settings.set(Settings.DEVELOPER_MODE, true); pointAside(); });
+            *///?}
             step(6, () -> {
                 double[] spine = guide().togglePoint(), gear = table().gridEditor.togglePoint();
                 check("developer mode: the guide sits above the gear", gear[1] - spine[1] >= 20 && Math.abs(gear[0] - spine[0]) < 2,
@@ -1083,7 +3593,11 @@ public final class Showcase {
             });
             step(3, () -> screenClick(0));
             step(16, () -> {
+                //? if >=1.21 {
                 Settings.DEVELOPER_MODE.set(originalDev);
+                //?} else if <1.21 {
+                /*Settings.set(Settings.DEVELOPER_MODE, originalDev);
+                *///?}
                 pointAside();
             });
             step(4, () -> {
@@ -1141,7 +3655,13 @@ public final class Showcase {
             });
             step(10, () -> check("one close brings the work back", Minecraft.getInstance().screen instanceof SceneScreen
                     && Scene.phase == Scene.Phase.ACTIVE, "screen=" + Minecraft.getInstance().screen));
+            //? if neoforge {
             if (net.neoforged.fml.ModList.get().isLoaded("jeresources")) {
+            //?} else if fabric {
+            /*if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("jeresources")) {
+            *///?} else if forge {
+            /*if (net.minecraftforge.fml.ModList.get().isLoaded("jeresources")) {
+            *///?}
                 guideFind("rotten", Items.ROTTEN_FLESH);
                 step(8, () -> {
                     check("JER knows where rotten flesh comes from", guide().sourceCount() >= 1, "sources=" + guide().sourceCount());
@@ -1199,7 +3719,13 @@ public final class Showcase {
             step(16, () -> check("the smoker's villager: butcher", guide().profession() != null
                     && guide().profession().getString().equals(Component.translatable("entity.minecraft.villager.butcher").getString()),
                     "profession=" + guide().profession()));
+            //? if neoforge {
             if (net.neoforged.fml.ModList.get().isLoaded("justenoughprofessions")) {
+            //?} else if fabric {
+            /*if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("justenoughprofessions")) {
+            *///?} else if forge {
+            /*if (net.minecraftforge.fml.ModList.get().isLoaded("justenoughprofessions")) {
+            *///?}
                 step(4, () -> {
                     check("JEP has the profession's page", guide().professionPageReady(), "page");
                     double[] at = guide().tabPoint("profession");
@@ -1270,7 +3796,12 @@ public final class Showcase {
             step(7, () -> {
                 double[] at = Picking.toGui(table().cellPoint(4));
                 check("inventory effects placement uses projected cell", InventoryEffectsProbe.particles() > 0 && at != null && InventoryEffectsProbe.near(at[0], at[1]),
+                        //? if >=1.21 {
                         "particles=" + InventoryEffectsProbe.particles());
+                        //?} else if <1.21 {
+                        /*"particles=" + InventoryEffectsProbe.particles() + InventoryEffectsProbe.positions()
+                                + (at == null ? " cell off screen" : String.format(java.util.Locale.ROOT, " cell (%.0f, %.0f)", at[0], at[1])));
+                        *///?}
                 server(p -> check("inventory effects real table placement", TableStore.get(p.serverLevel()).get(TABLE) != null
                         && TableStore.get(p.serverLevel()).get(TABLE).items.get(4).is(Items.REDSTONE), "server table"));
                 shot("ip3_placed");
@@ -1298,13 +3829,21 @@ public final class Showcase {
                 shot("ip4_scale3");
                 Minecraft.getInstance().options.guiScale().set(scale[0]); Minecraft.getInstance().resizeDisplay();
             });
+            //? if >=1.21 {
             step(10, () -> { Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+            //?} else if <1.21 {
+            /*step(10, () -> { Settings.set(Settings.DEVELOPER_MODE, true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+            *///?}
             step(15, () -> {
                 check("inventory effects editor hides carried effects", table().gridEditor.visible() && InventoryEffectsProbe.cursor() == Items.AIR
                         && InventoryEffectsProbe.particles() == 0, "editor remains usable");
                 shot("ip5_editor");
                 Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
+                //? if >=1.21 {
                 Settings.DEVELOPER_MODE.set(false);
+                //?} else if <1.21 {
+                /*Settings.set(Settings.DEVELOPER_MODE, false);
+                *///?}
             });
             step(8, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_LEFT_ALT, 0, 0));
             step(16, () -> {
@@ -1382,6 +3921,34 @@ public final class Showcase {
         pointGui(mc.screen.width / 2.0 + (inventorySlot - 4) * 18 * scale, 6 + 14 * scale);
     }
 
+    //? if <1.21 {
+    /*/^* Targeted regression: opening a normal crafting menu must take ownership of items left on the table. ^/
+    private static void tableWindowScript() {
+        step(2, Scene::leave);
+        step(40, () -> server(player -> {
+            var level = player.serverLevel();
+            var store = TableStore.get(level);
+            var table = store.getOrCreate(TABLE);
+            table.items.set(4, new ItemStack(Items.DIAMOND, 3));
+            store.setDirty();
+            check("table window: scene ended", dev.dyslexic.cinematic.station.Sessions.get(player) == null,
+                    "session=" + dev.dyslexic.cinematic.station.Sessions.get(player));
+            player.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                    (id, inventory, owner) -> new net.minecraft.world.inventory.CraftingMenu(id, inventory,
+                            net.minecraft.world.inventory.ContainerLevelAccess.create(level, TABLE)),
+                    Component.translatable("container.crafting")));
+            check("table window: real crafting menu opened", player.containerMenu instanceof net.minecraft.world.inventory.CraftingMenu,
+                    "menu=" + player.containerMenu.getClass().getName());
+            check("table window: stack moved into center cell", player.containerMenu.slots.get(5).getItem().is(Items.DIAMOND)
+                            && player.containerMenu.slots.get(5).getItem().getCount() == 3,
+                    "center=" + player.containerMenu.slots.get(5).getItem());
+            check("table window: physical table cleared", store.get(TABLE) == null, "stored=" + store.get(TABLE));
+            player.closeContainer();
+        }));
+        step(8, () -> finish(Minecraft.getInstance()));
+    }
+
+    *///?}
     private static void tableScript() {
         shot("05_active");
         tableGridAlignmentScript();
@@ -1458,12 +4025,20 @@ public final class Showcase {
         int[] previousGuiScale = new int[1];
         boolean originalDev = Settings.developerMode();
         step(2, () -> {
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             double[] at = table().gridEditor.togglePoint();
             check("table editor hidden with developer mode off", !table().gridEditor.editing()
                     && !table().gridEditor.over(at[0], at[1]), "G and icon unavailable");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
         });
         step(2, () -> {
             TableLayout turned = new TableLayout(1, -1, 90, 1, 1, 1, 1);
@@ -1606,7 +4181,11 @@ public final class Showcase {
                     || ClientTables.get(TABLE).list().stream().allMatch(ItemStack::isEmpty), "table emptied");
             check("editor restore original profiles", TableLayouts.save(original, active), "original profiles restored");
         });
+        //? if >=1.21 {
         step(25, () -> { Settings.DEVELOPER_MODE.set(originalDev); pointAside(); });
+        //?} else if <1.21 {
+        /*step(25, () -> { Settings.set(Settings.DEVELOPER_MODE, originalDev); pointAside(); });
+        *///?}
     }
 
     private static void editorSliderStep(int field, double value) {
@@ -1698,7 +4277,11 @@ public final class Showcase {
         });
         step(4, () -> shot("0r2_missing_diamonds"));
         step(2, () -> recipeControl(12, 52)); // only craftable recipes
+        //? if >=1.21 {
         step(4, () -> check("recipe availability filter", table().recipeBook.recipePoint(ResourceLocation.withDefaultNamespace("diamond_pickaxe")) == null,
+        //?} else if <1.21 {
+        /*step(4, () -> check("recipe availability filter", table().recipeBook.recipePoint(new ResourceLocation("diamond_pickaxe")) == null,
+        *///?}
                 "diamond pickaxe hidden"));
         step(2, () -> recipeSearch("wooden_pickaxe"));
         step(4, () -> pointRecipe("wooden_pickaxe"));
@@ -1816,7 +4399,11 @@ public final class Showcase {
         step(6, () -> inventoryClick(37, 0));
         step(4, () -> {
             BlockPos testPos = TABLE.offset(100, 0, 0);
+            //? if >=1.21 {
             var entry = table().recipeBook.guide.entries.stream().filter(e -> e.holder.id().equals(ResourceLocation.withDefaultNamespace("wooden_pickaxe"))).findFirst().orElseThrow();
+            //?} else if <1.21 {
+            /*var entry = table().recipeBook.guide.entries.stream().filter(e -> e.holder.id().equals(new ResourceLocation("wooden_pickaxe"))).findFirst().orElseThrow();
+            *///?}
             Direction[] sides = {Direction.SOUTH, Direction.NORTH, Direction.EAST, Direction.WEST};
             int[] firstCells = {0, 8, 6, 2};
             try {
@@ -1862,7 +4449,11 @@ public final class Showcase {
     }
 
     private static void pointRecipe(String id) {
+        //? if >=1.21 {
         var at = table().recipeBook.recipePoint(ResourceLocation.withDefaultNamespace(id));
+        //?} else if <1.21 {
+        /*var at = table().recipeBook.recipePoint(new ResourceLocation(id));
+        *///?}
         check("recipe found " + id, at != null, "reference lookup");
         if (at != null) pointGui(at[0], at[1]);
     }
@@ -1944,7 +4535,11 @@ public final class Showcase {
     /** Glint requests two render buffers together, so exercise it while the cube is translucent. */
     private static void tableGlintVisibilityScript() {
         step(4, () -> server(p -> {
+            //? if >=1.21 {
             p.getInventory().getItem(2).set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true);
+            //?} else if <1.21 {
+            /*p.getInventory().getItem(2).enchant(net.minecraft.world.item.enchantment.Enchantments.UNBREAKING, 1);
+            *///?}
             p.containerMenu.broadcastChanges();
         }));
         step(8, () -> inventoryClick(38, 0));
@@ -1972,7 +4567,11 @@ public final class Showcase {
         step(6, () -> inventoryClick(38, 0));
         step(6, () -> server(p -> {
             ItemStack cobblestone = p.getInventory().getItem(2);
+            //? if >=1.21 {
             cobblestone.remove(DataComponents.ENCHANTMENT_GLINT_OVERRIDE);
+            //?} else if <1.21 {
+            /*cobblestone.removeTagKey("Enchantments");
+            *///?}
             p.containerMenu.broadcastChanges();
             TableStore.Table stored = TableStore.get(p.serverLevel()).get(TABLE);
             boolean empty = stored == null || stored.items.stream().allMatch(ItemStack::isEmpty);
@@ -2033,7 +4632,11 @@ public final class Showcase {
                 .filter(k -> k != kind).toArray(StationKind[]::new);
         FurnaceAppearance[][] otherProfiles = {FurnaceLayouts.profiles(otherKinds[0]), FurnaceLayouts.profiles(otherKinds[1])};
         step(2, () -> {
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             double[] at = station.gridEditor.togglePoint();
             check(prefix + " developer mode off", !station.gridEditor.editing() && !station.gridEditor.over(at[0], at[1]), "no G or icon");
@@ -2045,7 +4648,11 @@ public final class Showcase {
                     "one texture pixel on the original face");
             FurnaceAppearance.Region malformed = new FurnaceAppearance.Region(Double.NaN, 999, 999, -999, Double.POSITIVE_INFINITY, 999, -999, 999, -999, 999);
             check(prefix + " malformed values bounded", malformed.u() == 0 && malformed.v() == 6 && malformed.itemScale() == 1.5 && malformed.out() == 0, "finite clamped values");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
         });
         // Pick a real coal stack, then make sure editor clicks cannot insert it.
         step(3, () -> inventoryClick(16, 0));
@@ -2163,7 +4770,11 @@ public final class Showcase {
             check(prefix + " warm light bounded", boundedGlow, "light remains on the configured face");
             check(prefix + " furnace types independent", java.util.Arrays.equals(otherProfiles[0], FurnaceLayouts.profiles(otherKinds[0]))
                     && java.util.Arrays.equals(otherProfiles[1], FurnaceLayouts.profiles(otherKinds[1])), "other furnaces unchanged");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             check(prefix + " saved layout with dev off", !station.gridEditor.editing() && station.geometry().input().u() > 0.7, "geometry applies, editor unavailable");
         });
@@ -2190,17 +4801,29 @@ public final class Showcase {
         step(5, () -> clickZone(1, 0));
         step(8, () -> inventoryClick(16, 0));
         step(3, () -> {
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
         });
         step(20, () -> furnaceEditorSliderNow(0, -0.5));
+        //? if >=1.21 {
         step(18, () -> Settings.DEVELOPER_MODE.set(false));
+        //?} else if <1.21 {
+        /*step(18, () -> Settings.set(Settings.DEVELOPER_MODE, false));
+        *///?}
         step(25, () -> {
             check(prefix + " disabling dev cancels draft", !station.gridEditor.editing() && station.geometry().equals(FurnaceLayouts.profiles(kind)[selected]), "saved geometry restored");
             check(prefix + " inventory restored", Hands.carried().isEmpty() && Minecraft.getInstance().player.getInventory().getItem(16).getCount() == 16
                     && ClientFurnaces.item(station.pos, 1).isEmpty(), "coal returned");
             check(prefix + " restore profiles", FurnaceLayouts.save(kind, original, selected), "original settings restored");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(originalDev); pointAside();
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, originalDev); pointAside();
+            *///?}
         });
         step(25, () -> {});
     }
@@ -2215,7 +4838,11 @@ public final class Showcase {
         boolean dev = Settings.developerMode();
         int[] stackCount = {0}, guiScale = {0};
         step(2, () -> {
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             double[] at = station.gridEditor.togglePoint(); pointGui(at[0], at[1]); screenClick(0);
             check(prefix + " developer gate", !station.gridEditor.editing() && !station.gridEditor.over(at[0], at[1]), "G and icon unavailable");
@@ -2227,7 +4854,11 @@ public final class Showcase {
             var malformed = new SurfaceAppearance.Region(100, -100, Double.NaN, 100, 100, Double.POSITIVE_INFINITY, Double.NaN);
             check(prefix + " malformed values bounded", malformed.x() == 6 && malformed.z() == -6 && malformed.rotation() == 0
                     && malformed.width() == 1.5 && malformed.height() == 0 && malformed.itemScale() == 1, "finite values");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
             stackCount[0] = Minecraft.getInstance().player.getInventory().getItem(0).getCount();
             invClick(0, 0);
         });
@@ -2298,7 +4929,11 @@ public final class Showcase {
             check(prefix + " saved JSON", !station.gridEditor.editing() && java.nio.file.Files.exists(SurfaceLayouts.path())
                     && SurfaceLayouts.profiles(kind)[selected].first().rotation() == 12, "local profiles written");
             check(prefix + " station types independent", java.util.Arrays.equals(untouched, SurfaceLayouts.profiles(other)), "other station untouched");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             check(prefix + " saved geometry with dev off", !station.gridEditor.editing() && station.geometry().first().rotation() > 11.9, "saved layout remains active");
         });
@@ -2307,9 +4942,17 @@ public final class Showcase {
             step(3, () -> pointAt(station.restPoint(spot)));
             step(4, () -> check(prefix + " edited picking " + spot, station.surfaceSlot(false) == spot, "raised rotated contact plane"));
         }
+        //? if >=1.21 {
         step(3, () -> { Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+        //?} else if <1.21 {
+        /*step(3, () -> { Settings.set(Settings.DEVELOPER_MODE, true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+        *///?}
         step(18, () -> surfaceControl(90, 314));
+        //? if >=1.21 {
         step(25, () -> { check(prefix + " reset preview", station.geometry().equals(SurfaceAppearance.VANILLA), "vanilla draft"); Settings.DEVELOPER_MODE.set(false); });
+        //?} else if <1.21 {
+        /*step(25, () -> { check(prefix + " reset preview", station.geometry().equals(SurfaceAppearance.VANILLA), "vanilla draft"); Settings.set(Settings.DEVELOPER_MODE, false); });
+        *///?}
         step(25, () -> {
             check(prefix + " disabling cancels draft", !station.gridEditor.editing() && station.geometry().first().rotation() > 11.9, "saved layout restored");
             check(prefix + " inventory restored", carried().isEmpty() && Minecraft.getInstance().player.getInventory().getItem(0).getCount() == stackCount[0], "no items created or lost");
@@ -2317,7 +4960,11 @@ public final class Showcase {
         });
         return () -> {
             check(prefix + " restore profiles", SurfaceLayouts.save(kind, original, selected), "original profiles restored");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(dev);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, dev);
+            *///?}
         };
     }
 
@@ -2329,21 +4976,32 @@ public final class Showcase {
         SpatialEditor editor = target.layoutEditor();
         String prefix = "x" + act;
         SpatialAppearance[] original = SpatialLayouts.profiles(kind);
+        //? if >=1.21 {
         StationKind otherKind = kind == StationKind.BREWING ? StationKind.CRAFTER : StationKind.BREWING;
+        //?} else if <1.21 {
+        /*StationKind otherKind = kind == StationKind.BREWING ? StationKind.CHISELED_BOOKSHELF : StationKind.BREWING;
+        *///?}
         SpatialAppearance[] otherProfiles = SpatialLayouts.profiles(otherKind);
         int selected = SpatialLayouts.selected(kind);
         boolean dev = Settings.developerMode();
         ItemStack hand = carried().copy();
         int[] guiScale = {0};
         step(2, () -> {
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             double[] at = editor.togglePoint(); pointGui(at[0], at[1]); screenClick(0);
             check(prefix + " developer gate", !editor.editing() && !editor.over(at[0], at[1]), "G and gear unavailable");
+            // (the crafter's flat and upright grid references are checked in later versions; 1.20.1 has no crafter)
+            //? if >=1.21 {
             var flat = SpatialAppearance.Frame.of(StationKind.CRAFTER, BlockPos.ZERO, Direction.SOUTH, Direction.UP);
             var front = SpatialAppearance.Frame.of(StationKind.CRAFTER, BlockPos.ZERO, Direction.SOUTH, Direction.SOUTH);
             check(prefix + " independent flat geometry", SpatialAppearance.VANILLA.point(flat, 0).distanceTo(new Vec3(5 / 16.0, 1, 5 / 16.0)) < 1e-9, "texture reference");
             check(prefix + " independent upright geometry", SpatialAppearance.VANILLA.point(front, 0).distanceTo(new Vec3(5 / 16.0, 11 / 16.0, 1)) < 1e-9, "texture reference");
+            //?}
             var invalid = new SpatialAppearance(null, java.util.Arrays.asList((SurfaceAppearance.Region) null));
             check(prefix + " malformed profile normalized", invalid.equals(SpatialAppearance.VANILLA), "missing slots restored");
             if (kind == StationKind.LOOM) {
@@ -2358,10 +5016,24 @@ public final class Showcase {
                         && SpatialAppearance.VANILLA.point(enchantFrame, 1).distanceTo(new Vec3(0.94, 1.02, 0.68)) < 1e-9
                         && SpatialAppearance.VANILLA.point(enchantFrame, 3).distanceTo(new Vec3(0.5, 1.67, 0.38)) < 1e-9, "original item, socket and crown");
             }
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
         });
         step(5, () -> { pointAside(); shot(prefix + "0_gear"); });
+        //? if >=1.21 {
         step(2, () -> { double[] gear = editor.togglePoint(); pointGui(gear[0], gear[1]); screenClick(0); });
+        //?} else if <1.21 {
+        /*step(2, () -> {
+            double[] gear = editor.togglePoint();
+            pointGui(gear[0], gear[1]);
+            check(prefix + " gear offered", editor.over(gear[0], gear[1]) && !editor.visible(),
+                    "visible=" + editor.visible() + " developer=" + Settings.developerMode() + " busy=" + station.busy() + " at=" + gear[0] + "," + gear[1]);
+            screenClick(0);
+        });
+        *///?}
         step(22, () -> {
             check(prefix + " editor opens", editor.editing() && !station.showsInventory(), "same scene");
             pointAside(); shot(prefix + "0_editor_open");
@@ -2442,16 +5114,34 @@ public final class Showcase {
                 var mc = Minecraft.getInstance();
                 var state = mc.level.getBlockState(station.pos);
                 var model = mc.getBlockRenderer().getBlockModel(state);
+                //? if neoforge {
                 var data = model.getModelData(mc.level, station.pos, state, net.neoforged.neoforge.client.model.data.ModelData.EMPTY);
                 boolean occupiedPicture = false;
+                //?} else if fabric {
+                /*// what the shelf's wrapped model hands the Fabric renderer for this block (NeoForge: its model data)
+                boolean occupiedPicture = !(model instanceof StationModels);
+                *///?} else if forge {
+                /*var data = model.getModelData(mc.level, station.pos, state, net.minecraftforge.client.model.data.ModelData.EMPTY);
+                boolean occupiedPicture = false;
+                *///?}
                 for (Direction face : new Direction[]{null, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP, Direction.DOWN})
+                    //? if neoforge {
                     occupiedPicture |= model.getQuads(state, face, RandomSource.create(1), data, null).stream()
+                    //?} else if fabric {
+                    /*occupiedPicture |= model instanceof StationModels wrapped && wrapped.quadsAt(state, station.pos, face, RandomSource.create(1)).stream()
+                    *///?} else if forge {
+                    /*occupiedPicture |= model.getQuads(state, face, RandomSource.create(1), data, null).stream()
+                    *///?}
                             .anyMatch(q -> q.getSprite().contents().name().getPath().contains("chiseled_bookshelf_occupied"));
                 check(prefix + " original spines hidden", !occupiedPicture, "real block state untouched");
                 var slotted = ShelfBooks.inSlot(station.pos, station.sideDirection(), 0, 0);
                 check(prefix + " book and hand contact agree", slotted.at(0, 0, OpenBook.STACK / 2).distanceTo(target.layoutPoint(0)) < 1e-8, "shared spine");
             }
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             check(prefix + " saved with developer off", !editor.editing() && target.geometry().region(0).rotation() < -7.9, "geometry still active");
         });
@@ -2472,11 +5162,19 @@ public final class Showcase {
                             "initial use and vanilla fallback follow layout");
             });
         }
+        //? if >=1.21 {
         step(3, () -> { Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+        //?} else if <1.21 {
+        /*step(3, () -> { Settings.set(Settings.DEVELOPER_MODE, true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0); });
+        *///?}
         step(20, () -> spatialControl(90, 314));
         step(25, () -> {
             check(prefix + " reset preview", target.geometry().equals(SpatialAppearance.VANILLA), "vanilla draft");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
         });
         step(25, () -> {
             check(prefix + " disabling cancels draft", !editor.editing() && target.geometry().region(0).rotation() < -7.9, "saved profile restored");
@@ -2484,7 +5182,11 @@ public final class Showcase {
         });
         return () -> {
             check(prefix + " restore profiles", SpatialLayouts.save(kind, original, selected), "original profiles restored");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(dev);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, dev);
+            *///?}
         };
     }
     private static void spatialControl(double x, double y) {
@@ -2526,11 +5228,22 @@ public final class Showcase {
     private static void developerOptionsScript() {
         step(8, () -> {
             Minecraft mc = Minecraft.getInstance();
+            //? if neoforge {
             var mod = net.neoforged.fml.ModList.get().getModContainerById(Cinematic.MODID).orElseThrow();
             mc.setScreen(mod.getCustomExtension(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class).orElseThrow().createScreen(mod, null));
+            //?} else if fabric {
+            /*mc.setScreen(CinematicClient.settingsScreen(null));
+            *///?} else if forge {
+            /*var mod = net.minecraftforge.fml.ModList.get().getModContainerById(Cinematic.MODID).orElseThrow();
+            mc.setScreen(mod.getCustomExtension(net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class).orElseThrow()
+                    .screenFunction().apply(mc, null));
+            *///?}
         });
-        step(15, () -> check("developer settings section opens", clickSettingsSection(Minecraft.getInstance().screen,
-                Component.translatable("cinematic.configuration.developer").getString()), "Cloth tab or NeoForge section"));
+        step(15, () -> {
+            check("advanced settings tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                    Component.translatable("cinematic.settings.tab.advanced").getString()), "tab button");
+            if (Minecraft.getInstance().screen instanceof SettingsScreen settings) settings.showDeveloper();
+        });
         step(18, () -> {
             verifyProfileControls();
             shot("pz_developer_settings");
@@ -2547,14 +5260,24 @@ public final class Showcase {
     }
     private static void verifyProfileControls() {
         List<Object> selectors = new ArrayList<>(); profileWidgets(Minecraft.getInstance().screen, selectors);
+        //? if >=1.21 {
         check("settings have a profile for every built-in station", selectors.size() == StationKind.values().length - 1, "selectors=" + selectors.size());
         if (selectors.size() != StationKind.values().length - 1) return;
+        //?} else if <1.21 {
+        /*check("settings have a profile for every built-in station", selectors.size() == LayoutProfiles.supportedCount(), "selectors=" + selectors.size());
+        if (selectors.size() != LayoutProfiles.supportedCount()) return;
+        *///?}
         int selected = LayoutProfiles.selected(StationKind.TABLE), next = (selected + 1) % 3;
+        //? if >=1.21 {
         Object first = selectors.getFirst();
+        //?} else if <1.21 {
+        /*Object first = selectors.get(0);
+        *///?}
         try {
             if (first instanceof net.minecraft.client.gui.components.CycleButton<?> cycle) {
                 cycle.onPress();
-                check("NeoForge profile button saves", LayoutProfiles.selected(StationKind.TABLE) == next, "shared JSON selection");
+                check("profile choice waits for Done", LayoutProfiles.selected(StationKind.TABLE) == selected && cycle.getValue().equals(next),
+                        "cancel does not write a profile");
                 while (!cycle.getValue().equals(selected)) cycle.onPress();
             } else {
                 first.getClass().getMethod("setValue", int.class).invoke(first, next + 1);
@@ -2588,6 +5311,23 @@ public final class Showcase {
         return true;
     }
 
+    //? if <1.21 {
+    /*/^* Simulates another player's break packet reaching the server during the furnace scene. ^/
+    private static void furnaceBreakScript() {
+        step(10, () -> check("furnace break starts in the scene", Scene.phase == Scene.Phase.ACTIVE,
+                "phase=" + Scene.phase));
+        step(2, () -> server(p -> p.serverLevel().setBlockAndUpdate(FURNACE, Blocks.AIR.defaultBlockState())));
+        step(30, () -> {
+            check("removed furnace closes the scene", Scene.phase == Scene.Phase.NONE,
+                    "phase=" + Scene.phase);
+            server(p -> check("removed furnace ends the server session", dev.dyslexic.cinematic.station.Sessions.get(p) == null,
+                    "session=" + dev.dyslexic.cinematic.station.Sessions.get(p)));
+            shot("fb_removed");
+        });
+        step(2, () -> finish(Minecraft.getInstance()));
+    }
+
+    *///?}
     private static void furnaceScript() {
         furnaceEditorScript();
         shot("35_active");
@@ -2753,10 +5493,18 @@ public final class Showcase {
         step(2, () -> report("enchanting before the rite"));
         step(2, () -> clickEnchant(EnchantStation.Target.OFFER, 0));      // the third, strongest offer
         step(2, () -> {
+            //? if >=1.21 {
             boolean dev = Settings.developerMode(); Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*boolean dev = Settings.developerMode(); Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
             check("enchant editor blocked during rite", !enchant().gridEditor.editing() && enchant().busy(), "ritual continues");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(dev); shot("72_rite_010");
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, dev); shot("72_rite_010");
+            *///?}
         });
         step(3, () -> shot("72_rite_025"));
         step(3, () -> shot("72_rite_040"));
@@ -2840,7 +5588,13 @@ public final class Showcase {
     private static void anvilScript() {
         Runnable restoreLayout = spatialEditorScript();
         var model = HammerModel.model();
+        //? if neoforge {
         var quads = model.getQuads(null, null, RandomSource.create(42), ModelData.EMPTY, null);
+        //?} else if fabric {
+        /*var quads = model.getQuads(null, null, RandomSource.create(42));
+        *///?} else if forge {
+        /*var quads = model.getQuads(null, null, RandomSource.create(42), ModelData.EMPTY, null);
+        *///?}
         var textures = new HashSet<ResourceLocation>();
         for (var quad : quads) {
             textures.add(quad.getSprite().contents().name());
@@ -2990,7 +5744,11 @@ public final class Showcase {
         step(2, () -> clickSmithing(SmithingStation.Target.ITEM, 0));
         moveShots("sc_trim", 0.5, 0.95, 1.2, 1.4, 1.9);
         step(16, () -> shot("sd_trimmed"));
+        //? if >=1.21 {
         step(2, () -> check("edited smithing applies trim", carried().has(DataComponents.TRIM), "real trim=" + carried()));
+        //?} else if <1.21 {
+        /*step(2, () -> check("edited smithing applies trim", net.minecraft.world.item.armortrim.ArmorTrim.getTrim(Minecraft.getInstance().level.registryAccess(), carried()).isPresent(), "real trim=" + carried()));
+        *///?}
         step(2, () -> invClick(31, 0));
         step(6, () -> report("smithing after the trim"));
         step(2, restoreLayout);
@@ -3017,7 +5775,11 @@ public final class Showcase {
         Minecraft mc = Minecraft.getInstance();
         var menu = stonecutter().menu();
         for (int i = 0; menu != null && i < menu.getRecipes().size(); i++) {
+            //? if >=1.21 {
             if (menu.getRecipes().get(i).value().getResultItem(mc.level.registryAccess()).is(item)) {
+            //?} else if <1.21 {
+            /*if (menu.getRecipes().get(i).getResultItem(mc.level.registryAccess()).is(item)) {
+            *///?}
                 return i;
             }
         }
@@ -3091,8 +5853,12 @@ public final class Showcase {
             for (int pass = 0; pass < 8 && data != null; pass++) {
                 ((net.minecraft.world.item.MapItem) Items.FILLED_MAP).update(level, p, data);
             }
+            //? if >=1.21 {
             ItemStack water = net.minecraft.world.item.alchemy.PotionContents.createItemStack(Items.POTION,
                     net.minecraft.world.item.alchemy.Potions.WATER);
+            //?} else if <1.21 {
+            /*ItemStack water = net.minecraft.world.item.alchemy.PotionUtils.setPotion(new ItemStack(Items.POTION), net.minecraft.world.item.alchemy.Potions.WATER);
+            *///?}
             ItemStack[] stock = {new ItemStack(Items.WHITE_BANNER, 2), new ItemStack(Items.RED_DYE, 4), map, new ItemStack(Items.PAPER, 2),
                     new ItemStack(Items.GLASS_PANE), water.copy(), water.copy(), water.copy(), new ItemStack(Items.NETHER_WART, 2),
                     new ItemStack(Items.BLAZE_POWDER, 2), new ItemStack(Items.CHICKEN, 3), new ItemStack(Items.MUTTON, 2),
@@ -3156,7 +5922,11 @@ public final class Showcase {
         step(1, () -> clickLoom(LoomStation.Target.PLACE, 0));
         step(4, Showcase::pointAside);
         step(16, () -> {
+            //? if >=1.21 {
             shot("l7_board"); Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*shot("l7_board"); Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
             double[] gear = loom().gridEditor.togglePoint(); pointGui(gear[0], gear[1]); screenClick(0);
         });
         step(22, () -> {
@@ -3165,7 +5935,11 @@ public final class Showcase {
             check("loom live inputs preserved", loom().slot(0).is(Items.WHITE_BANNER) && loom().slot(1).is(Items.RED_DYE), "banner and dye intact");
             pointAside(); shot("xl4_editor_with_cloth"); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0);
         });
+        //? if >=1.21 {
         step(25, () -> { Settings.DEVELOPER_MODE.set(false); check("loom patterns return after editor", loom().boardCell(0) != null, "board visible"); });
+        //?} else if <1.21 {
+        /*step(25, () -> { Settings.set(Settings.DEVELOPER_MODE, false); check("loom patterns return after editor", loom().boardCell(0) != null, "board visible"); });
+        *///?}
         step(3, () -> server(p -> p.getInventory().add(new ItemStack(Items.FLOWER_BANNER_PATTERN))));
         step(5, () -> invClickItem(Items.FLOWER_BANNER_PATTERN));
         step(3, () -> pointAt(loom().restPoint(2)));
@@ -3191,17 +5965,34 @@ public final class Showcase {
                 "target=" + (loom() == null ? "-" : loom().target)));
         step(1, () -> clickLoom(LoomStation.Target.PATTERN, 0));
         step(1, () -> {
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, true); Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_G, 0, 0);
+            *///?}
             check("loom editor blocked during weaving", !loom().gridEditor.editing() && loom().moving(), "shuttle continues");
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, false);
+            *///?}
         });
         moveShots("l9_weave", 0.15, 0.4, 0.7, 1.0, 1.3, 1.6, 1.9, 2.1, 2.3);
         step(12, () -> shot("la_woven"));
         step(2, () -> {
+            //? if >=1.21 {
             var layers = carried().getOrDefault(net.minecraft.core.component.DataComponents.BANNER_PATTERNS,
                     net.minecraft.world.level.block.entity.BannerPatternLayers.EMPTY).layers();
+            //?} else if <1.21 {
+            /*var layers = LoomStation.layersOf(carried());
+            *///?}
             check("woven banner in hand", carried().is(Items.WHITE_BANNER) && layers.size() == 1
+                    //? if >=1.21 {
                     && layers.get(0).pattern().value().assetId().getPath().equals("cross"), "carried=" + carried() + " layers=" + layers.size());
+                    //?} else if <1.21 {
+                    /*&& layers.get(0).pattern().unwrapKey().map(k -> k.location().getPath()).orElse("").equals("cross"),
+                    "carried=" + carried() + " layers=" + layers.size());
+                    *///?}
         });
         step(2, Showcase::stash);
         step(4, () -> report("loom after weaving"));
@@ -3354,8 +6145,12 @@ public final class Showcase {
             if (p.serverLevel().getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand) {
                 int awkward = 0;
                 for (int i = 0; i < 3; i++) {
+                    //? if >=1.21 {
                     var contents = stand.getItem(i).get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
                     if (contents != null && contents.is(net.minecraft.world.item.alchemy.Potions.AWKWARD)) {
+                    //?} else if <1.21 {
+                    /*if (net.minecraft.world.item.alchemy.PotionUtils.getPotion(stand.getItem(i)) == net.minecraft.world.item.alchemy.Potions.AWKWARD) {
+                    *///?}
                         awkward++;
                     }
                 }
@@ -3367,12 +6162,22 @@ public final class Showcase {
             int awkward = 0;
             if (Minecraft.getInstance().level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand) {
                 for (int i = 0; i < 3; i++) {
+                    //? if >=1.21 {
                     var contents = ClientBrewing.item(stand, i).get(net.minecraft.core.component.DataComponents.POTION_CONTENTS);
                     if (contents != null && contents.is(net.minecraft.world.item.alchemy.Potions.AWKWARD)) awkward++;
+                    //?} else if <1.21 {
+                    /*if (net.minecraft.world.item.alchemy.PotionUtils.getPotion(ClientBrewing.item(stand, i)) == net.minecraft.world.item.alchemy.Potions.AWKWARD) awkward++;
+                    *///?}
                 }
             }
             check("client sees the brewed potions", awkward == 3, "awkward=" + awkward);
+            //? if neoforge {
             if (net.neoforged.fml.ModList.get().isLoaded("amendments")
+            //?} else if fabric {
+            /*if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("amendments")
+            *///?} else if forge {
+            /*if (net.minecraftforge.fml.ModList.get().isLoaded("amendments")
+            *///?}
                     && Minecraft.getInstance().level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand) {
                 // Amendments syncs the stand through its own update packet: that data still reaches the client
                 check("Amendments' own stand data reaches the client", stand.getItem(0).is(Items.POTION) && stand.getItem(2).is(Items.POTION),
@@ -3412,9 +6217,15 @@ public final class Showcase {
             });
         });
         step(4, () -> shot("b9_chunk_back"));
+        //? if >=1.21 {
         smithyAct("r", CRAFTER);
+        //?} else if <1.21 {
+        /*// the crafter's act comes next in later versions; 1.20.1 has no crafter
+        campfireAct();
+        *///?}
     }
 
+    //? if >=1.21 {
     private static CrafterStation crafter() {
         return Scene.station(CrafterStation.class);
     }
@@ -3467,6 +6278,7 @@ public final class Showcase {
         else campfireAct();
     }
 
+    //?}
     private static final long[] beefPace = new long[3];
 
     /** Cooked beef dropped round the campfire or already picked up by the player. */
@@ -3500,7 +6312,17 @@ public final class Showcase {
     private static void campfireAct() {
         step(2, () -> {
             act = "f";
+            //? if >=1.21 {
             server(p -> p.teleportTo(p.serverLevel(), CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.9, 180f, 24f));
+            //?} else if <1.21 {
+            /*server(p -> {
+                if ("f".equals(FROM)) {
+                    p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+                    p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+                }
+                p.teleportTo(p.serverLevel(), CAMPFIRE.getX() + 0.5, -60, CAMPFIRE.getZ() + 2.9, 180f, 24f);
+            });
+            *///?}
         });
         step(30, () -> shot("f0_hint"));
         campfireHintFadeScript("f");
@@ -3511,7 +6333,13 @@ public final class Showcase {
             introShot = 0;
             outroShot = 0;
             waitingForActive = true;
+            //? if neoforge {
             net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey());
+            //?} else if fabric {
+            /*net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT));
+            *///?} else if forge {
+            /*net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey());
+            *///?}
         });
         step(6, () -> check("sit key starts the campfire scene", Scene.station instanceof CampfireStation, "station=" + Scene.station));
     }
@@ -3673,7 +6501,13 @@ public final class Showcase {
             introShot = 0;
             outroShot = 0;
             waitingForActive = true;
+            //? if neoforge {
             net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey());
+            //?} else if fabric {
+            /*net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(CampfireHint.SIT));
+            *///?} else if forge {
+            /*net.minecraft.client.KeyMapping.click(CampfireHint.SIT.getKey());
+            *///?}
         });
         step(6, () -> check("sit key works at a soul campfire too", campfire() != null && campfire().pos.equals(SOUL_CAMPFIRE),
                 "station=" + Scene.station));
@@ -3757,10 +6591,22 @@ public final class Showcase {
     /** A book and quill with a few pages of notes in it. */
     private static ItemStack notesBook() {
         ItemStack book = new ItemStack(Items.WRITABLE_BOOK);
+        //? if >=1.21 {
         book.set(DataComponents.WRITABLE_BOOK_CONTENT, new net.minecraft.world.item.component.WritableBookContent(List.of(
                 net.minecraft.server.network.Filterable.passThrough("Записки мастера.\n\nКниги на резной полке достают по одной: корешок под рукой чуть выдвигается, а клик вытягивает книгу."),
                 net.minecraft.server.network.Filterable.passThrough("Книгу с текстом можно раскрыть прямо у полки и читать, как на кафедре: лист за листом."),
                 net.minecraft.server.network.Filterable.passThrough("Зачарованные книги мерцают на полке, а их чары видны в подсказке."))));
+        //?} else if <1.21 {
+        /*// in 1.20.1 the pages of a book and quill are plain strings in its tag
+        net.minecraft.nbt.ListTag pages = new net.minecraft.nbt.ListTag();
+        for (String page : List.of(
+                "Записки мастера.\n\nКниги на резной полке достают по одной: корешок под рукой чуть выдвигается, а клик вытягивает книгу.",
+                "Книгу с текстом можно раскрыть прямо у полки и читать, как на кафедре: лист за листом.",
+                "Зачарованные книги мерцают на полке, а их чары видны в подсказке.")) {
+            pages.add(net.minecraft.nbt.StringTag.valueOf(page));
+        }
+        book.getOrCreateTag().put("pages", pages);
+        *///?}
         return book;
     }
 
@@ -3774,7 +6620,12 @@ public final class Showcase {
                 {"Глава третья", "Маяк стоит на пирамиде из железа, золота, изумрудов и алмазов. Над ним висят силы, а плата парит над стеклом."},
                 {"Конец", "Закрой книгу и забери её с собой. Или оставь на кафедре: следующий читатель откроет её на той же странице."},
         };
+        //? if >=1.21 {
         List<net.minecraft.server.network.Filterable<net.minecraft.network.chat.Component>> pages = new ArrayList<>();
+        //?} else if <1.21 {
+        /*// in 1.20.1 the pages of a written book are text components as JSON in its tag
+        net.minecraft.nbt.ListTag pages = new net.minecraft.nbt.ListTag();
+        *///?}
         for (String[] page : text) {
             net.minecraft.network.chat.MutableComponent c = net.minecraft.network.chat.Component.empty();
             if (!page[0].isEmpty()) {
@@ -3782,11 +6633,24 @@ public final class Showcase {
                         net.minecraft.ChatFormatting.DARK_RED)).append("\n\n");
             }
             c.append(page[1]);
+            //? if >=1.21 {
             pages.add(net.minecraft.server.network.Filterable.passThrough(c));
+            //?} else if <1.21 {
+            /*pages.add(net.minecraft.nbt.StringTag.valueOf(net.minecraft.network.chat.Component.Serializer.toJson(c)));
+            *///?}
         }
         ItemStack book = new ItemStack(Items.WRITTEN_BOOK);
+        //? if >=1.21 {
         book.set(DataComponents.WRITTEN_BOOK_CONTENT, new net.minecraft.world.item.component.WrittenBookContent(
                 net.minecraft.server.network.Filterable.passThrough("Мастерская"), "dcvke", 0, pages, true));
+        //?} else if <1.21 {
+        /*net.minecraft.nbt.CompoundTag tag = book.getOrCreateTag();
+        tag.putString("title", "Мастерская");
+        tag.putString("author", "dcvke");
+        tag.putInt("generation", 0);
+        tag.putBoolean("resolved", true);
+        tag.put("pages", pages);
+        *///?}
         return book;
     }
 
@@ -3840,10 +6704,21 @@ public final class Showcase {
         step(5, () -> shot("k8_take_050"));
         step(5, () -> shot("k8_take_075"));
         step(30, () -> server(p -> {
+            //? if >=1.21 {
             boolean taken = p.getInventory().contains(stack -> stack.is(Items.WRITTEN_BOOK));
+            //?} else if <1.21 {
+            /*boolean taken = p.getInventory().hasAnyMatching(stack -> stack.is(Items.WRITTEN_BOOK));
+            *///?}
             boolean empty = !p.serverLevel().getBlockState(LECTERN).getValue(net.minecraft.world.level.block.LecternBlock.HAS_BOOK);
             check("book taken off the lectern", taken && empty, "inventory=" + taken + " lecternEmpty=" + empty);
         }));
+        //? if fabric {
+        /*// the frames since then drew the empty lectern under the edited layout: its renderer returns early without a
+        // book, and the layout's pose must come off there too (Fabric runs the game's own bytecode, LecternRendererMixin)
+        step(2, () -> check("empty lectern drawn under a saved layout", StationDisplayLayouts.customLectern()
+                && Minecraft.getInstance().level.getBlockEntity(LECTERN) instanceof net.minecraft.world.level.block.entity.LecternBlockEntity lectern
+                && !lectern.hasBook(), "custom=" + StationDisplayLayouts.customLectern()));
+        *///?}
         step(2, restoreLayout);
         step(30, () -> shot("k9_after"));
         step(2, () -> server(p -> {
@@ -3954,7 +6829,11 @@ public final class Showcase {
         });
         moveShots("ei_bag", 0.3, 0.6, 0.9);
         step(10, () -> server(p -> check("shelf: the plain book into the inventory", shelfItem(p, 4).isEmpty()
+                //? if >=1.21 {
                 && p.getInventory().contains(stack -> stack.is(Items.BOOK)), "slot 4=" + describe(shelfItem(p, 4)))));
+                //?} else if <1.21 {
+                /*&& p.getInventory().hasAnyMatching(stack -> stack.is(Items.BOOK)), "slot 4=" + describe(shelfItem(p, 4)))));
+                *///?}
         step(4, () -> report("shelf before leaving"));
         step(2, Scene::leave);
         step(40, () -> shot("e9_after"));
@@ -3975,14 +6854,23 @@ public final class Showcase {
         // the scene turned off: using the shelf takes the book out the vanilla way
         step(40, () -> {
             act = "ek";
+            //? if >=1.21 {
             Settings.SCENES.get(StationKind.CHISELED_BOOKSHELF).set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.SCENES.get(StationKind.CHISELED_BOOKSHELF), false);
+            *///?}
         });
         step(4, () -> useAt(SHELF, SHELF_SLOTS[3], Direction.SOUTH));
         step(20, () -> {
             check("shelf, scene off: no scene", Scene.phase == Scene.Phase.NONE, "phase=" + Scene.phase);
             server(p -> check("shelf, scene off: the written book taken out the vanilla way", shelfItem(p, 3).isEmpty()
+                    //? if >=1.21 {
                     && p.getInventory().contains(stack -> stack.is(Items.WRITTEN_BOOK)), "slot 3=" + describe(shelfItem(p, 3))));
             Settings.SCENES.get(StationKind.CHISELED_BOOKSHELF).set(true);
+                    //?} else if <1.21 {
+                    /*&& p.getInventory().hasAnyMatching(stack -> stack.is(Items.WRITTEN_BOOK)), "slot 3=" + describe(shelfItem(p, 3))));
+            Settings.set(Settings.SCENES.get(StationKind.CHISELED_BOOKSHELF), true);
+                    *///?}
         });
         beaconAct();
     }
@@ -4026,8 +6914,17 @@ public final class Showcase {
         step(2, () -> clickBeacon(BeaconStation.Target.PAYMENT, 0));
         moveShots("n8_light", 0.2, 0.45, 0.62, 0.72, 0.85, 1.05, 1.4, 1.9, 2.6);
         step(10, () -> server(p -> {
+            //? if >=1.21 {
             net.minecraft.nbt.CompoundTag tag = p.serverLevel().getBlockEntity(BEACON).saveWithoutMetadata(p.serverLevel().registryAccess());
             String primary = tag.getString("primary_effect"), secondary = tag.getString("secondary_effect");
+            //?} else if <1.21 {
+            /*// 1.20.1 keeps the powers as effect ids
+            net.minecraft.nbt.CompoundTag tag = p.serverLevel().getBlockEntity(BEACON).saveWithoutMetadata();
+            var first = net.minecraft.world.effect.MobEffect.byId(tag.getInt("Primary"));
+            var second = net.minecraft.world.effect.MobEffect.byId(tag.getInt("Secondary"));
+            String primary = first == null ? "-" : String.valueOf(net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(first));
+            String secondary = second == null ? "-" : String.valueOf(net.minecraft.core.registries.BuiltInRegistries.MOB_EFFECT.getKey(second));
+            *///?}
             check("beacon lit with speed and regeneration", primary.equals("minecraft:speed") && secondary.equals("minecraft:regeneration"),
                     "primary=" + primary + " secondary=" + secondary);
         }));
@@ -4365,58 +7262,88 @@ public final class Showcase {
             act = "o";
             closeWindow();
             Minecraft mc = Minecraft.getInstance();
+            //? if neoforge {
             net.neoforged.fml.ModContainer mod = net.neoforged.fml.ModList.get().getModContainerById(Cinematic.MODID).orElseThrow();
             Screen screen = mod.getCustomExtension(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class).orElseThrow().createScreen(mod, null);
             mc.setScreen(screen);
-            // (NeoForge's own screen goes straight on to the one settings file there is)
-            check("the settings screen opens", mc.screen != null, mc.screen == null ? "-" : mc.screen.getClass().getName());
+            //?} else if fabric {
+            /*mc.setScreen(CinematicClient.settingsScreen(null));
+            *///?} else if forge {
+            /*net.minecraftforge.fml.ModContainer mod = net.minecraftforge.fml.ModList.get().getModContainerById(Cinematic.MODID).orElseThrow();
+            Screen screen = mod.getCustomExtension(net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class).orElseThrow()
+                    .screenFunction().apply(mc, null);
+            mc.setScreen(screen);
+            *///?}
+            check("the settings screen opens", mc.screen instanceof SettingsScreen, mc.screen == null ? "-" : mc.screen.getClass().getName());
             pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() - 4);
         });
-        step(20, () -> shot("o1_settings_scenes"));
-        // over the height logic switch, for its tooltip
-        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.3, 143));
-        step(16, () -> shot("o2_settings_tooltip"));
-        step(2, () -> {
-            Minecraft mc = Minecraft.getInstance();
-            pointGui(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6);
-            mc.screen.mouseScrolled(mc.getWindow().getGuiScaledWidth() * 0.5, mc.getWindow().getGuiScaledHeight() * 0.6, 0, -6);
-        });
-        step(20, () -> shot("o3_settings_blocks"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.interface").getString()));
-        step(16, () -> shot("o4_settings_interface"));
-        step(2, () -> clickWidget(Component.translatable("cinematic.settings.camera").getString()));
-        step(16, () -> shot("o5_settings_camera"));
-        step(2, () -> check("multiplayer tab opens", clickSettingsSection(Minecraft.getInstance().screen,
-                Component.translatable("cinematic.configuration.multiplayer").getString()), "client-only switch visible in-game"));
-        step(16, () -> shot("o5a_settings_multiplayer"));
-        step(2, () -> check("developer tab opens", clickSettingsSection(Minecraft.getInstance().screen, Component.translatable("cinematic.configuration.developer").getString()), "profile selectors available"));
-        step(16, () -> { verifyProfileControls(); shot("o5_settings_developer"); });
+        step(20, () -> shot("o1_settings_general"));
+        // over the first option, for its description under the list
+        step(2, () -> pointGui(Minecraft.getInstance().getWindow().getGuiScaledWidth() * 0.4, 78));
+        step(16, () -> shot("o2_settings_description"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.stations").getString()));
+        step(16, () -> shot("o3_settings_stations"));
+        step(2, () -> clickWidget(Component.translatable("cinematic.settings.tab.camera").getString()));
+        step(16, () -> shot("o4_settings_camera"));
+        step(2, () -> check("advanced tab opens", clickSettingsSection(Minecraft.getInstance().screen,
+                Component.translatable("cinematic.settings.tab.advanced").getString()), "client-only switch visible in-game"));
+        step(16, () -> shot("o5_settings_advanced"));
+        step(2, () -> { if (Minecraft.getInstance().screen instanceof SettingsScreen settings) settings.showDeveloper(); });
+        step(16, () -> { verifyProfileControls(); shot("o6_settings_profiles"); });
         step(2, () -> Minecraft.getInstance().setScreen(null));
 
         // the height logic off: no window, a word on why
+        //? if >=1.21 {
         step(10, () -> Settings.HEIGHT_LOGIC.set(false));
+        //?} else if <1.21 {
+        /*step(10, () -> Settings.set(Settings.HEIGHT_LOGIC, false));
+        *///?}
         noticeCase(0, "o6_too_high", heightSpot(0).above(), new Vec3(0.5, 0, 2.2), new Vec3(0.5, 0.5, 1.0), Direction.SOUTH, "too_high");
         noticeCase(5, "o6_too_low", heightSpot(5).below(2), new Vec3(0.5, 0, 1.9), new Vec3(0.5, 1.0, 0.5), Direction.UP, "too_low");
         noticeCase(22, "o6_facing_wall", heightSpot(22), new Vec3(0.5, 0, 1.6), new Vec3(0.5, 1.0, 0.5), Direction.UP, "no_way");
         noticeCase(8, "o6_covered", heightSpot(8), new Vec3(0.5, 0, 2.2), new Vec3(0.5, 0.5, 1.0), Direction.SOUTH, "covered");
         noticeCase(9, "o6_on_top", heightSpot(9), new Vec3(0.5, 1, 0.5), new Vec3(0.5, 1.0, 0.5), Direction.UP, "on_top");
         noticeCase(23, "o6_no_way", heightSpot(23), new Vec3(0.5, 0, 4.6), new Vec3(0.5, 0.5, 1.0), Direction.SOUTH, "no_way");
+        //? if >=1.21 {
         step(2, () -> Settings.HEIGHT_LOGIC.set(true));
+        //?} else if <1.21 {
+        /*step(2, () -> Settings.set(Settings.HEIGHT_LOGIC, true));
+        *///?}
 
         // the pace: twice as fast, the lean is over in 0.6 s instead of 1.2 (standing right at the table, no walk)
         Vec3 atTable = Vec3.atLowerCornerOf(heightSpot(4)).add(0.5, 0, 1.36);
         BlockPos flush = heightSpot(4).below();
         step(4, () -> {
+            //? if neoforge {
             Settings.APPROACH_SPEED.set(200);
             Settings.QUICK_RETURN.set(false);
+            //?} else if fabric {
+            /*Settings.APPROACH_SPEED.set(200);
+            Settings.QUICK_MODE.set(0);
+            *///?} else if forge {
+            /*Settings.set(Settings.APPROACH_SPEED, 200);
+            Settings.set(Settings.QUICK_RETURN, false);
+            *///?}
         });
         paceCase("o9_pace_fast", atTable, flush, true);
+        //? if >=1.21 {
         step(4, () -> Settings.APPROACH_SPEED.set(100));
+        //?} else if <1.21 {
+        /*step(4, () -> Settings.set(Settings.APPROACH_SPEED, 100));
+        *///?}
         paceCase("o9_pace_usual", atTable, flush, false);
         // the camera's lean: none, the camera stays at the eyes and looks at the work
         step(4, () -> {
+            //? if neoforge {
             Settings.LEAN_STRENGTH.set(0);
             Settings.QUICK_RETURN.set(true);
+            //?} else if fabric {
+            /*Settings.LEAN_STRENGTH.set(0);
+            Settings.QUICK_MODE.set(1);
+            *///?} else if forge {
+            /*Settings.set(Settings.LEAN_STRENGTH, 0);
+            Settings.set(Settings.QUICK_RETURN, true);
+            *///?}
         });
         step(2, () -> {
             act = "o8_lean_0";
@@ -4431,7 +7358,11 @@ public final class Showcase {
             shot("o8_lean_0");
         });
         step(2, Scene::leave);
+        //? if >=1.21 {
         step(36, () -> Settings.LEAN_STRENGTH.set(100));
+        //?} else if <1.21 {
+        /*step(36, () -> Settings.set(Settings.LEAN_STRENGTH, 100));
+        *///?}
         step(2, () -> {
             act = "o8_lean_100";
             standLooking(atTable, Vec3.atCenterOf(flush));
@@ -4442,9 +7373,17 @@ public final class Showcase {
         step(36, () -> {});
 
         // a scene turned off: the block keeps its usual window
+        //? if >=1.21 {
         step(2, () -> Settings.SCENES.get(StationKind.TABLE).set(false));
+        //?} else if <1.21 {
+        /*step(2, () -> Settings.set(Settings.SCENES.get(StationKind.TABLE), false));
+        *///?}
         heightCase(4, "o7_table_scene_off", heightSpot(4).below(), new Vec3(0.5, 0, 2.2), new Vec3(0.5, 1.0, 0.7), Direction.UP, false, null);
+        //? if >=1.21 {
         step(2, () -> Settings.SCENES.get(StationKind.TABLE).set(true));
+        //?} else if <1.21 {
+        /*step(2, () -> Settings.set(Settings.SCENES.get(StationKind.TABLE), true));
+        *///?}
         transitionAct();
     }
 
@@ -4699,8 +7638,13 @@ public final class Showcase {
                     dev.dyslexic.cinematic.net.StationActionPayload.Action.QUICK, 35, 0, true, 0);
             for (var sent : List.of(spread, place, quick)) {
                 var buf = new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.buffer());
+                //? if >=1.21 {
                 dev.dyslexic.cinematic.net.StationActionPayload.CODEC.encode(buf, sent);
                 var read = dev.dyslexic.cinematic.net.StationActionPayload.CODEC.decode(buf);
+                //?} else if <1.21 {
+                /*sent.write(buf);
+                var read = dev.dyslexic.cinematic.net.StationActionPayload.read(buf);
+                *///?}
                 check("station action " + sent.action() + " survives the codec", read.equals(sent) && buf.readableBytes() == 0,
                         "read=" + read);
                 buf.release();
@@ -4911,7 +7855,11 @@ public final class Showcase {
         });
         // pressed on and off, as the settings allow
         step(2, () -> {
+            //? if >=1.21 {
             Settings.LOOK_TOGGLES.set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.LOOK_TOGGLES, true);
+            *///?}
             Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_LEFT_ALT, 0, 0);
             Minecraft.getInstance().screen.keyReleased(GLFW.GLFW_KEY_LEFT_ALT, 0, 0);
         });
@@ -4919,7 +7867,11 @@ public final class Showcase {
         step(2, () -> Minecraft.getInstance().screen.keyPressed(GLFW.GLFW_KEY_ESCAPE, 0, 0));
         step(30, () -> check("look round: Esc comes back to work first", FreeLook.amount() < 0.02 && Scene.phase == Scene.Phase.ACTIVE,
                 String.format("amount=%.2f phase=%s", FreeLook.amount(), Scene.phase)));
+        //? if >=1.21 {
         step(2, () -> Settings.LOOK_TOGGLES.set(false));
+        //?} else if <1.21 {
+        /*step(2, () -> Settings.set(Settings.LOOK_TOGGLES, false));
+        *///?}
         step(2, Scene::leave);
         jukeboxAct();
     }
@@ -4930,7 +7882,11 @@ public final class Showcase {
         if (stopHere("j")) return;
         boolean developer = Settings.developerMode();
         step(35, () -> {
+            //? if >=1.21 {
             act = "jx"; closeWindow(); Settings.DEVELOPER_MODE.set(true);
+            //?} else if <1.21 {
+            /*act = "jx"; closeWindow(); Settings.set(Settings.DEVELOPER_MODE, true);
+            *///?}
             hold(8, new ItemStack(Items.MUSIC_DISC_CAT));
             standLooking(new Vec3(JUKEBOX.getX() - 1.6, -60, JUKEBOX.getZ() + 0.5), Vec3.atCenterOf(JUKEBOX));
         });
@@ -4938,7 +7894,11 @@ public final class Showcase {
         step(75, () -> {
             check("jukebox waits for editing", Scene.phase == Scene.Phase.ACTIVE && Scene.station.kind() == StationKind.JUKEBOX && !Scene.station.busy(), "no automatic insertion in developer mode");
             Runnable restoreLayout = spatialEditorScript();
+            //? if >=1.21 {
             step(2, Scene::leave); step(45, () -> Settings.DEVELOPER_MODE.set(false));
+            //?} else if <1.21 {
+            /*step(2, Scene::leave); step(45, () -> Settings.set(Settings.DEVELOPER_MODE, false));
+            *///?}
             jukeboxOperations(developer, restoreLayout);
         });
     }
@@ -4983,7 +7943,11 @@ public final class Showcase {
         // the scene turned off: the jukebox works as in vanilla
         step(20, () -> {
             act = "j3";
+            //? if >=1.21 {
             Settings.SCENES.get(StationKind.JUKEBOX).set(false);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.SCENES.get(StationKind.JUKEBOX), false);
+            *///?}
             server(p -> {
                 for (int i = 0; i < p.getInventory().items.size(); i++) {
                     if (p.getInventory().items.get(i).is(Items.MUSIC_DISC_CAT)) {
@@ -5003,9 +7967,17 @@ public final class Showcase {
         step(20, () -> {
             server(p -> check("jukebox, scene off: the record pops out the vanilla way",
                     !p.serverLevel().getBlockState(JUKEBOX).getValue(net.minecraft.world.level.block.JukeboxBlock.HAS_RECORD), ""));
+            //? if >=1.21 {
             Settings.SCENES.get(StationKind.JUKEBOX).set(true);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.SCENES.get(StationKind.JUKEBOX), true);
+            *///?}
             restoreLayout.run();
+            //? if >=1.21 {
             Settings.DEVELOPER_MODE.set(developer);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.DEVELOPER_MODE, developer);
+            *///?}
         });
         quickAct();
     }
@@ -5021,7 +7993,11 @@ public final class Showcase {
         step(40, () -> {
             act = "q";
             closeWindow();
+            //? if >=1.21 {
             Settings.QUICK_WINDOW.set(12);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.QUICK_WINDOW, 12);
+            *///?}
             standLooking(atTable, Vec3.atCenterOf(TABLE));
         });
         step(10, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
@@ -5050,7 +8026,11 @@ public final class Showcase {
         step(80, Scene::leave);
         // after the window: the usual way again
         step(30, () -> {
+            //? if >=1.21 {
             Settings.QUICK_WINDOW.set(5);
+            //?} else if <1.21 {
+            /*Settings.set(Settings.QUICK_WINDOW, 5);
+            *///?}
             standLooking(atTable, Vec3.atCenterOf(TABLE));
         });
         step(10, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
@@ -5061,14 +8041,44 @@ public final class Showcase {
         step(70, Scene::leave);
         // turned off: always the usual way
         step(30, () -> {
+            //? if neoforge {
             Settings.QUICK_WINDOW.set(12);
             Settings.QUICK_RETURN.set(false);
+            //?} else if fabric {
+            /*Settings.QUICK_WINDOW.set(12);
+            Settings.QUICK_MODE.set(0);
+            *///?} else if forge {
+            /*Settings.set(Settings.QUICK_WINDOW, 12);
+            Settings.set(Settings.QUICK_RETURN, false);
+            *///?}
             useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP);
         });
         step(20, () -> check("quick return turned off: the usual way in", !Scene.quick && Scene.phase == Scene.Phase.INTRO,
                 "quick=" + Scene.quick + " phase=" + Scene.phase));
         step(70, () -> {
+            //? if neoforge {
             Settings.QUICK_RETURN.set(true);
+            //?} else if fabric {
+            /*Scene.leave();
+            Settings.QUICK_MODE.set(2);
+            Settings.APPROACH_SPEED.set(200);
+        });
+        step(35, () -> standLooking(atTable, Vec3.atCenterOf(TABLE)));
+        step(10, () -> useAt(TABLE, new Vec3(0.5, 1.0, 0.8), Direction.UP));
+        step(38, () -> check("always quick: first entry is short and pace is fixed",
+                Scene.quick && Scene.phase == Scene.Phase.ACTIVE && Settings.approachSpeed() == 1.0,
+                "quick=" + Scene.quick + " phase=" + Scene.phase));
+        step(2, () -> Settings.ARM_STYLE.set(1));
+        step(12, () -> shot("q5_natural_hands"));
+        step(2, () -> Settings.ARM_STYLE.set(2));
+        step(12, () -> shot("q6_floating_hands"));
+        step(12, () -> {
+            Settings.ARM_STYLE.set(0);
+            Settings.QUICK_MODE.set(1);
+            Settings.APPROACH_SPEED.set(100);
+            *///?} else if forge {
+            /*Settings.set(Settings.QUICK_RETURN, true);
+            *///?}
             Scene.leave();
         });
         watchAct();
@@ -5113,18 +8123,32 @@ public final class Showcase {
             Minecraft mc = Minecraft.getInstance();
             smith = new net.minecraft.client.player.RemotePlayer(mc.level, new com.mojang.authlib.GameProfile(UUID.nameUUIDFromBytes(new byte[]{7}), "Smith"));
             smith.setId(SMITH_ID);
+            //? if >=1.21 {
             mc.level.addEntity(smith);
+            //?} else if <1.21 {
+            /*mc.level.addPlayer(SMITH_ID, smith);
+            *///?}
             // the anvil faces east: the smith stands at its south side, the onlooker off to the east, seeing their right arm
             smithAt(new Vec3(ANVIL.getX() + 0.5, -60, ANVIL.getZ() + 0.5 + 0.86), 180f, StationKind.ANVIL, ANVIL, false);
             standLooking(new Vec3(ANVIL.getX() + 3.1, -60, ANVIL.getZ() + 1.7), new Vec3(ANVIL.getX() + 0.5, -59.0, ANVIL.getZ() + 1.0));
         });
         step(20, () -> shot("w0_smith"));
         step(2, () -> {
+            //? if >=1.21 {
             var enchantments = Minecraft.getInstance().level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+            //?}
             ItemStack forged = new ItemStack(Items.IRON_PICKAXE);
+            //? if >=1.21 {
             forged.enchant(enchantments.getOrThrow(Enchantments.EFFICIENCY), 3);
+            //?} else if <1.21 {
+            /*forged.enchant(Enchantments.BLOCK_EFFICIENCY, 3);
+            *///?}
             smithMoves(ANVIL, StationKind.ANVIL, Direction.SOUTH, List.of(new ItemStack(Items.IRON_PICKAXE),
+                    //? if >=1.21 {
                     EnchantedBookItem.createForEnchantment(new EnchantmentInstance(enchantments.getOrThrow(Enchantments.EFFICIENCY), 3))), forged, false);
+                    //?} else if <1.21 {
+                    /*EnchantedBookItem.createForEnchantment(new EnchantmentInstance(Enchantments.BLOCK_EFFICIENCY, 3))), forged, false);
+                    *///?}
         });
         step(1, () -> check("watching: onlookers are told the smith began forging", ClientMenus.sinceMove(SMITH_ID) < 0.3
                 && ClientMenus.BLOCKS.get(ANVIL) != null && ClientMenus.BLOCKS.get(ANVIL).moveResult.isEnchanted(), "since=" + ClientMenus.sinceMove(SMITH_ID)));
@@ -5136,9 +8160,15 @@ public final class Showcase {
             standLooking(new Vec3(GRINDSTONE.getX() + 3.0, -60, GRINDSTONE.getZ() + 2.0), new Vec3(GRINDSTONE.getX() + 0.5, -59.2, GRINDSTONE.getZ() + 1.0));
         });
         step(16, () -> {
+            //? if >=1.21 {
             var enchantments = Minecraft.getInstance().level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT);
+            //?}
             ItemStack sword = new ItemStack(Items.GOLDEN_SWORD);
+            //? if >=1.21 {
             sword.enchant(enchantments.getOrThrow(Enchantments.SHARPNESS), 3);
+            //?} else if <1.21 {
+            /*sword.enchant(Enchantments.SHARPNESS, 3);
+            *///?}
             smithMoves(GRINDSTONE, StationKind.GRINDSTONE, Direction.SOUTH, List.of(sword, ItemStack.EMPTY), new ItemStack(Items.GOLDEN_SWORD), false);
         });
         moveShots("w2_grind", 0.2, 0.45, 0.7, 1.0, 1.3, 1.55, 1.9, 2.2);
@@ -5241,7 +8271,15 @@ public final class Showcase {
     // ---- how others see it --------------------------------------------------------------------------
 
     private static void thirdPersonShots() {
+        //? if >=1.21 {
         step(2, () -> server(p -> p.teleportTo(p.serverLevel(), -0.4, -60, 5.2, 168f, 12f)));
+        //?} else if <1.21 {
+        /*step(2, () -> server(p -> {
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, new ItemStack(Items.IRON_LEGGINGS));
+            p.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, new ItemStack(Items.IRON_BOOTS));
+            p.teleportTo(p.serverLevel(), -0.4, -60, 5.2, 168f, 12f);
+        }));
+        *///?}
         step(30, () -> shot("80_workshop"));
         poseShot("81_pose_furnace", StationKind.FURNACE, FURNACE);
         poseShot("82_pose_table", StationKind.TABLE, TABLE);
@@ -5397,16 +8435,35 @@ public final class Showcase {
                 if (!stack.isEmpty()) {
                     inv.append(i).append(':').append(describe(stack));
                     if (stack.isEnchanted()) {
+                        //? if >=1.21 {
                         inv.append(stack.getEnchantments());
+                        //?} else if <1.21 {
+                        /*inv.append(stack.getEnchantmentTags());
+                        *///?}
                     }
+                    //? if >=1.21 {
                     if (stack.has(DataComponents.STORED_ENCHANTMENTS)) {
                         inv.append(stack.get(DataComponents.STORED_ENCHANTMENTS));
+                    //?} else if <1.21 {
+                    /*if (stack.is(Items.ENCHANTED_BOOK)) {
+                        inv.append(net.minecraft.world.item.EnchantedBookItem.getEnchantments(stack));
+                    *///?}
                     }
+                    //? if >=1.21 {
                     if (stack.has(DataComponents.CUSTOM_NAME)) {
+                    //?} else if <1.21 {
+                    /*if (stack.hasCustomHoverName()) {
+                    *///?}
                         inv.append('«').append(stack.getHoverName().getString()).append('»');
                     }
+                    //? if >=1.21 {
                     if (stack.has(DataComponents.TRIM)) {
                         inv.append("[trim ").append(stack.get(DataComponents.TRIM).material().getRegisteredName()).append(']');
+                    //?} else if <1.21 {
+                    /*var trim = net.minecraft.world.item.armortrim.ArmorTrim.getTrim(p.serverLevel().registryAccess(), stack);
+                    if (trim.isPresent()) {
+                        inv.append("[trim ").append(trim.get().material().unwrapKey().map(k -> k.location().toString()).orElse("?")).append(']');
+                    *///?}
                     }
                     if (stack.isDamaged()) {
                         inv.append("{damage ").append(stack.getDamageValue()).append('}');
@@ -5443,7 +8500,9 @@ public final class Showcase {
                 : Scene.station instanceof LoomStation ls ? "target=" + ls.target + " pattern=" + ls.hoverPattern + " move=" + String.format("%.2f", ls.moveTime())
                 : Scene.station instanceof CartographyStation ms ? "target=" + ms.target + " move=" + String.format("%.2f", ms.moveTime())
                 : Scene.station instanceof BrewingStation bs ? "target=" + bs.target + " slot=" + bs.hoverSlot
+                //? if >=1.21 {
                 : Scene.station instanceof CrafterStation rs ? "target=" + rs.target + " cell=" + rs.hoverCell
+                //?}
                 : Scene.station instanceof CampfireStation fs2 ? "target=" + fs2.target + " spot=" + fs2.hoverSpot
                 : Scene.station instanceof ShelfStation es ? "target=" + es.target + " slot=" + es.hoverSlot + " move=" + es.moveName()
                 : Scene.station instanceof StonecutterStation cs ? "target=" + cs.target + " shape=" + cs.hoverShape

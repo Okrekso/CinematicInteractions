@@ -7,11 +7,19 @@ import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+//? if neoforge {
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.resources.PlayerSkin;
+//?} else if forge {
+/*import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+*///?}
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.HumanoidArm;
+//? if neoforge {
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+//?} else if forge {
+/*import net.minecraftforge.client.event.EntityRenderersEvent;
+*///?}
 
 /**
  * What a player at a station holds, as others see it: the smith's hammer in the right hand while they forge (the arm
@@ -39,6 +47,7 @@ public final class PropLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
         getParentModel().translateToHand(HumanoidArm.RIGHT, pose);
         HammerModel.renderInArm(pose, buffers, shown, light);
         pose.popPose();
+    //? if neoforge {
     }
 
     public static void addTo(EntityRenderersEvent.AddLayers event) {
@@ -47,5 +56,15 @@ public final class PropLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
                 renderer.addLayer(new PropLayer(renderer));
             }
         }
+    //?} else if forge {
+    /*}
+
+    public static void addTo(EntityRenderersEvent.AddLayers event) {
+        for (String skin : event.getSkins()) {
+            if (event.getSkin(skin) instanceof PlayerRenderer renderer) {
+                renderer.addLayer(new PropLayer(renderer));
+            }
+        }
+    *///?}
     }
 }

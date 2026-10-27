@@ -6,7 +6,7 @@ Check that the JAR matches the exact Minecraft version and loader. Remove duplic
 
 ## A block opens its normal screen
 
-Check that its scene is enabled. The mod also uses the normal screen when a workstation is too high, too low, obstructed, or cannot be approached safely with height logic enabled. Leave enough space to stand at the working side of the block. Chests and barrels intentionally keep normal screens.
+Check that its scene is enabled. When a workstation is too high, too low, obstructed, or cannot be approached safely, a short notice above the hotbar says why; with height logic enabled, the normal screen opens instead. Leave enough space to stand at the working side of the block. Chests and barrels intentionally keep normal screens.
 
 ## How do I sit at a campfire?
 
@@ -18,7 +18,7 @@ No. Both sides need the mod; Fabric also needs Fabric API on both sides. The mod
 
 ## Does it support shaders?
 
-Iris/Sodium combinations have been checked on selected versions, including 1.21.10 and 1.21.11 with Complementary Reimagined. Compatibility with every shader, resource pack, or modpack is not guaranteed. See [recorded test coverage](https://github.com/dcvke/CinematicInteractions/blob/main/fabric/TESTING.md).
+Iris/Sodium combinations have been checked on selected versions, including 1.21.10 and 1.21.11 with Complementary Reimagined. Compatibility with every shader, resource pack, or modpack is not guaranteed. See [recorded test coverage](https://github.com/dcvke/CinematicInteractions/blob/main/docs/ports/fabric-1.21/TESTING.md).
 
 For a rendering issue, report whether it also happens without shaders and include the exact Iris/Sodium versions, shader pack, resource packs, and a recording if possible.
 

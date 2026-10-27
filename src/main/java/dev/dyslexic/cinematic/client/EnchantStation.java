@@ -20,8 +20,10 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+//?}
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -36,8 +38,15 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+//? if >=1.21 {
 import net.minecraft.world.level.block.entity.EnchantingTableBlockEntity;
+//?} else if <1.21 {
+/*import net.minecraft.world.level.block.entity.EnchantmentTableBlockEntity;
+*///?}
 import net.minecraft.world.phys.Vec3;
+//? if !forge {
+import org.joml.Vector3f;
+//?}
 
 /**
  * The enchanting scene. The item is laid on the table and rises to hover before the book; lapis goes into the
@@ -54,6 +63,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
     public static final double RITUAL_LENGTH = 1.5;
     public static final double RITUAL_PEAK = 0.5;
     private static final float ITEM_SIZE = 0.34f;
+    /** How far an offer's cost and runes float in front of its circle, towards the camera (blocks). */
+    private static final double SIGIL_TEXT_LIFT = 0.01;
 
     public enum Target { NONE, SURFACE, ITEM, LAPIS, OFFER }
 
@@ -300,7 +311,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
             aimAir = true;
             return;
         }
-        // The empty crystal and the count float a little above the socket, but both point the hand to it.
+        // The socket and lapis count point the hand to the same place.
         if (geometry().equals(SpatialAppearance.VANILLA) && under(mouse, corner().add(0, 0.06, 0), 0.09)) {
             target = Target.LAPIS;
             aim = corner();
@@ -488,7 +499,11 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
 
         double t = ritualTime();
         boolean stirring = hoverOffer >= 0 || t >= 0;
+        //? if >=1.21 {
         if (stirring && mc.level.getBlockEntity(pos) instanceof EnchantingTableBlockEntity book && mc.player.tickCount % 3 == 0) {
+        //?} else if <1.21 {
+        /*if (stirring && mc.level.getBlockEntity(pos) instanceof EnchantmentTableBlockEntity book && mc.player.tickCount % 3 == 0) {
+        *///?}
             book.flipT += (random.nextBoolean() ? 1 : -1) * (1 + random.nextInt(2));
         }
         ItemStack item = item();
@@ -545,8 +560,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
             canEnchant = offered(k) && affordable(k);
         }
         EnchantFx.CirclePalette tablePalette = canEnchant ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED;
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, spin, tablePalette, 0.85f * g);
-        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -spin * 1.7, tablePalette, 0.55f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.OUTER_LIFT, 0), 0.47, spin, tablePalette, 0.85f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.INNER_LIFT, 0), 0.25, -spin * 1.7, tablePalette, 0.55f * g);
 
         boolean outro = Scene.phase == Scene.Phase.OUTRO;
         double fade = outro ? 1 - Anim.smoother(Scene.time / 0.45) : 1;
@@ -567,11 +582,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         if (presence > 0.01) {
             float socket = (float) ((0.50 + 0.42 * lapisFocus) * presence);
             boolean wrong = this.target == Target.LAPIS && !Hands.carried().isEmpty() && !Hands.carried().is(Items.LAPIS_LAZULI);
-            EnchantFx.circle(pose, buffers, cam, corner().add(0, 0.006, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
+            EnchantFx.circle(pose, buffers, cam, corner().add(0, EnchantFx.SOCKET_LIFT, 0), 0.10 * geometry().scale(1), clock * 0.3 + Math.toRadians(geometry().rotation(1)),
                     wrong ? EnchantFx.CirclePalette.RED : EnchantFx.CirclePalette.LAPIS, socket);
-            if (lapis == 0 && t < 0) {
-                EnchantFx.lapisGhost(pose, buffers, camera, corner().add(0, 0.052 + Math.sin(clock * 1.5) * 0.004, 0), socket, geometry().scale(1), (float) -geometry().rotation(1));
-            }
         }
         if (lapis > 0 && fade > 0.01) {
             drawLapis(pose, buffers, cam, corner(), lapis, light, (float) fade * geometry().scale(1), (float) -geometry().rotation(1));
@@ -624,7 +636,7 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         if (target == Target.SURFACE && !Hands.carried().isEmpty() && aim != null) {
             float p = (float) (0.25 + 0.1 * Math.sin(clock * 5));
-            EnchantFx.circle(pose, buffers, camera, top.add(0, 0.006, 0), 0.16, -clock,
+            EnchantFx.circle(pose, buffers, camera, top.add(0, EnchantFx.HINT_LIFT, 0), 0.16, -clock,
                     EnchantFx.CirclePalette.VIOLET, p);
         }
     }
@@ -639,8 +651,13 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         String label = "×" + count;
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+        // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
+        //? if >=1.21 {
         pose.scale(0.0045f, -0.0045f, 0.0045f);
+        //?} else if <1.21 {
+        /*pose.scale(-0.0045f, -0.0045f, 0.0045f);
+        *///?}
         font.drawInBatch(label, -font.width(label) / 2f, -4f, (alpha << 24) | 0x9CC8FF, true, pose.last().pose(), buffers,
                 Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
         pose.popPose();
@@ -653,7 +670,8 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         }
         double clock = Scene.clock();
         float size = (float) (0.13 * appear * (hovered ? 1.2 : 1.0) * geometry().scale(k + 2));
-        float b = brightness * (hovered ? 1.35f : 0.85f);
+        // the circle fades in as it grows, rather than popping in at full strength
+        float b = brightness * (hovered ? 1.35f : 0.85f) * Math.min(1f, appear);
         float r = affordable ? 0.55f : 0.5f;
         float g = affordable ? 0.45f : 0.12f;
         float bl = affordable ? 1.0f : 0.16f;
@@ -664,15 +682,33 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
 
         Font font = Minecraft.getInstance().font;
         Vec3 cam = camera.getPosition();
+        //? if >=1.21 {
+        // the cost sits a little in front of its circle: in the same plane the depth test let the turning lines through
+        // the digits; the circle faces the camera, so this holds from any angle and the text still hides behind blocks
+        Vector3f look = camera.getLookVector();
+        //?} else if <1.21 {
+        /*var look = camera.getLookVector();
+        *///?}
+        Vec3 text = at.subtract(look.x() * SIGIL_TEXT_LIFT, look.y() * SIGIL_TEXT_LIFT, look.z() * SIGIL_TEXT_LIFT);
         pose.pushPose();
-        pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+        pose.translate(text.x - cam.x, text.y - cam.y, text.z - cam.z);
+        // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
+        //? if >=1.21 {
         pose.mulPose(Axis.ZP.rotationDegrees((float) geometry().rotation(k + 2)));
+        //?} else if <1.21 {
+        /*pose.mulPose(Axis.ZP.rotationDegrees((float) -geometry().rotation(k + 2)));
+        *///?}
         float s = 0.01f * appear * (hovered ? 1.2f : 1f) * geometry().scale(k + 2);
+        //? if >=1.21 {
         pose.scale(s, -s, s);
+        //?} else if <1.21 {
+        /*pose.scale(-s, -s, s);
+        *///?}
         String number = String.valueOf(cost);
         int numberColor = affordable ? 0xFFF4EEFF : 0xFFFF6B6B;
-        font.drawInBatch(number, -font.width(number) / 2f, -4.5f, numberColor, false, pose.last().pose(), buffers, Font.DisplayMode.NORMAL,
+        // a light vanilla shadow keeps the digits apart from the lines behind them, with no plate under the number
+        font.drawInBatch(number, -font.width(number) / 2f, -4.5f, numberColor, true, pose.last().pose(), buffers, Font.DisplayMode.NORMAL,
                 0, LightTexture.FULL_BRIGHT);
         FormattedCharSequence rune = runes[k];
         if (rune != null) {
@@ -768,11 +804,21 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
     private List<Component> offerTooltip(EnchantmentMenu menu, int k) {
         Minecraft mc = Minecraft.getInstance();
         List<Component> lines = new ArrayList<>();
+        //? if >=1.21 {
         Optional<Holder.Reference<Enchantment>> clue = mc.level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolder(menu.enchantClue[k]);
         lines.add(Component.translatable("container.enchant.clue", clue.isEmpty() ? "" : Enchantment.getFullname(clue.get(), menu.levelClue[k]))
+        //?} else if <1.21 {
+        /*Enchantment clue = Enchantment.byId(menu.enchantClue[k]);
+        lines.add(Component.translatable("container.enchant.clue", clue == null ? "" : clue.getFullname(menu.levelClue[k]))
+        *///?}
                 .withStyle(ChatFormatting.WHITE));
+        //? if >=1.21 {
         if (clue.isEmpty()) {
             lines.add(Component.translatable("neoforge.container.enchant.limitedEnchantability").withStyle(ChatFormatting.RED));
+        //?} else if <1.21 {
+        /*if (clue == null) {
+            lines.add(Component.translatable("forge.container.enchant.limitedEnchantability").withStyle(ChatFormatting.RED));
+        *///?}
             return lines;
         }
         if (mc.player.getAbilities().instabuild) {

@@ -4,12 +4,22 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.dyslexic.cinematic.Cinematic;
 import java.io.IOException;
+//? if neoforge {
 import java.nio.file.AtomicMoveNotSupportedException;
+//?}
 import java.nio.file.Files;
 import java.nio.file.Path;
+//? if neoforge {
 import java.nio.file.StandardCopyOption;
+//?}
 import java.util.Arrays;
+//? if neoforge {
 import net.neoforged.fml.loading.FMLPaths;
+//?} else if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?} else if forge {
+/*import net.minecraftforge.fml.loading.FMLPaths;
+*///?}
 
 /** Three local profiles, loaded once; draft previews never touch the file or the server. */
 final class TableLayouts {
@@ -23,7 +33,13 @@ final class TableLayouts {
     private static TableLayout current = TableLayout.VANILLA;
     private record Saved(int version, int selected, TableLayout[] profiles) {}
 
+    //? if neoforge {
     static Path path() { return FMLPaths.CONFIGDIR.get().resolve(FILE); }
+    //?} else if fabric {
+    /*static Path path() { return FabricLoader.getInstance().getConfigDir().resolve(FILE); }
+    *///?} else if forge {
+    /*static Path path() { return FMLPaths.CONFIGDIR.get().resolve(FILE); }
+    *///?}
 
     private static void load() {
         if (loaded) return;
@@ -65,8 +81,11 @@ final class TableLayouts {
 
     static boolean save(TableLayout[] drafts, int active) {
         if (drafts.length != 3 || active < 0 || active > 2 || Arrays.stream(drafts).anyMatch(java.util.Objects::isNull)) return false;
+        //? if neoforge {
         Path temp = path().resolveSibling(FILE + ".tmp");
+        //?}
         try {
+            //? if neoforge {
             Files.createDirectories(path().getParent());
             Files.writeString(temp, JSON.toJson(new Saved(1, active, drafts)) + "\n");
             try {
@@ -74,6 +93,9 @@ final class TableLayouts {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(temp, path(), StandardCopyOption.REPLACE_EXISTING);
             }
+            //?} else if !neoforge {
+            /*LayoutFiles.write(path(), JSON.toJson(new Saved(1, active, drafts)) + "\n");
+            *///?}
             profiles = drafts.clone();
             selected = active;
             preview = null;

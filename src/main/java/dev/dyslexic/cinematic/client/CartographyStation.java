@@ -16,7 +16,9 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvent;
@@ -25,7 +27,9 @@ import net.minecraft.world.inventory.CartographyTableMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+//? if >=1.21 {
 import net.minecraft.world.level.saveddata.maps.MapId;
+//?}
 import net.minecraft.world.level.saveddata.maps.MapItemSavedData;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -54,7 +58,11 @@ public final class CartographyStation extends SurfaceStation<CartographyTableMen
 
     public enum Target { NONE, PLACE, ITEM }
 
+    //? if >=1.21 {
     private static final ResourceLocation MAP_BACKGROUND = ResourceLocation.withDefaultNamespace("textures/map/map_background.png");
+    //?} else if <1.21 {
+    /*private static final ResourceLocation MAP_BACKGROUND = new ResourceLocation("textures/map/map_background.png");
+    *///?}
 
     private enum Work { ZOOM, LOCK, COPY }
 
@@ -383,8 +391,13 @@ public final class CartographyStation extends SurfaceStation<CartographyTableMen
             return;
         }
         Minecraft mc = Minecraft.getInstance();
+        //? if >=1.21 {
         MapId id = stack.get(DataComponents.MAP_ID);
         MapItemSavedData data = id == null || mc.level == null ? null : mc.level.getMapData(id);
+        //?} else if <1.21 {
+        /*Integer id = net.minecraft.world.item.MapItem.getMapId(stack);
+        MapItemSavedData data = id == null || mc.level == null ? null : net.minecraft.world.item.MapItem.getSavedData(id, mc.level);
+        *///?}
         if (data == null) {
             ItemPlacer.drawOriented(pose, buffers, cam, stack, at.add(0, 0.004, 0), ItemPlacer.lying(yaw, 0), size, light);
             return;
@@ -400,10 +413,17 @@ public final class CartographyStation extends SurfaceStation<CartographyTableMen
         // the parchment under the map, as the map in hand has it (the map itself only paints what is charted)
         VertexConsumer paper = buffers.getBuffer(RenderType.text(MAP_BACKGROUND));
         Matrix4f m = pose.last().pose();
+        //? if >=1.21 {
         paper.addVertex(m, -7, 135, 0.005f).setColor(255, 255, 255, 255).setUv(0, 1).setLight(light);
         paper.addVertex(m, 135, 135, 0.005f).setColor(255, 255, 255, 255).setUv(1, 1).setLight(light);
         paper.addVertex(m, 135, -7, 0.005f).setColor(255, 255, 255, 255).setUv(1, 0).setLight(light);
         paper.addVertex(m, -7, -7, 0.005f).setColor(255, 255, 255, 255).setUv(0, 0).setLight(light);
+        //?} else if <1.21 {
+        /*paper.addVertex(m, -7, 135, 0.005f).color(255, 255, 255, 255).setUv(0, 1).uv2(light).endVertex();
+        paper.addVertex(m, 135, 135, 0.005f).color(255, 255, 255, 255).setUv(1, 1).uv2(light).endVertex();
+        paper.addVertex(m, 135, -7, 0.005f).color(255, 255, 255, 255).setUv(1, 0).uv2(light).endVertex();
+        paper.addVertex(m, -7, -7, 0.005f).color(255, 255, 255, 255).setUv(0, 0).uv2(light).endVertex();
+        *///?}
         mc.gameRenderer.getMapRenderer().render(pose, buffers, id, data, false, light);
         pose.popPose();
     }

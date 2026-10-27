@@ -2,7 +2,9 @@ package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.mojang.math.Axis;
+//? if forge {
+/*import com.mojang.math.Axis;
+*///?}
 import dev.dyslexic.cinematic.Cinematic;
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +20,11 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
+//? if >=1.21 {
 import net.minecraft.world.level.block.EnchantingTableBlock;
+//?} else if <1.21 {
+/*import net.minecraft.world.level.block.EnchantmentTableBlock;
+*///?}
 import net.minecraft.world.phys.Vec3;
 import org.joml.Vector3f;
 
@@ -30,6 +36,18 @@ public final class EnchantFx {
     public static final ResourceLocation PIXEL_CIRCLE = Cinematic.id("textures/fx/enchant_circle_pixel.png");
     public static final ResourceLocation GLOW = Cinematic.id("textures/fx/glow.png");
     public static final ResourceLocation BEAM = Cinematic.id("textures/fx/beam.png");
+    /** Surface sigils test against the scene depth, but do not claim depth for their transparent square. */
+    private static final RenderType SURFACE_CIRCLE = noDepthWrite(RenderType.entityTranslucent(PIXEL_CIRCLE, false));
+
+    private static RenderType noDepthWrite(RenderType original) {
+        return new RenderType("cinematic_enchant_surface", original.format(), original.mode(), original.bufferSize(), false, true, () -> {
+            original.setupRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(false);
+        }, () -> {
+            original.clearRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+        }) {};
+    }
 
     public static final double LAPIS_RADIUS = 0.115;
     // Raising the right-edge rune clears the open book without putting it behind the resting hand.
@@ -56,7 +74,60 @@ public final class EnchantFx {
         return top(pos).add(out.scale(LAPIS_NEAR)).add(right.scale(LAPIS_RIGHT)).add(0, LAPIS_LIFT, 0);
     }
 
-    /** A small empty-socket crystal made of added light, rather than an opaque placeholder item. */
+    //? if fabric && <1.21 {
+    /*/^* A small empty-socket crystal made of added light, rather than an opaque placeholder item. ^/
+    public static void lapisGhost(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 at, float brightness) {
+        lapisGhost(pose, buffers, camera, at, brightness, 1, 0);
+    }
+
+    public static void lapisGhost(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 at, float brightness, float scale, float rotation) {
+        Vec3 pivot = at.subtract(camera.getPosition());
+        pose.pushPose(); pose.translate(pivot.x, pivot.y, pivot.z);
+        pose.mulPose(com.mojang.math.Axis.YP.rotationDegrees(rotation)); pose.scale(scale, scale, scale);
+        pose.translate(-pivot.x, -pivot.y, -pivot.z);
+        double[][] gem = {{0, 0.052}, {0.035, 0.018}, {0.023, -0.032}, {-0.023, -0.032}, {-0.035, 0.018}};
+        VertexConsumer vc = buffers.getBuffer(RenderType.lightning());
+        for (int i = 0; i < gem.length; i++) {
+            double[] a = gem[i];
+            double[] b = gem[(i + 1) % gem.length];
+            crystalLine(vc, pose.last(), camera, at, a[0], a[1], b[0], b[1], brightness);
+        }
+        crystalLine(vc, pose.last(), camera, at, -0.035, 0.018, 0.035, 0.018, brightness * 0.65f);
+        crystalLine(vc, pose.last(), camera, at, 0, 0.052, -0.023, -0.032, brightness * 0.65f);
+        crystalLine(vc, pose.last(), camera, at, 0, 0.052, 0.023, -0.032, brightness * 0.65f);
+        pose.popPose();
+    }
+
+    private static void crystalLine(VertexConsumer vc, PoseStack.Pose pose, Camera camera, Vec3 at,
+            double x0, double y0, double x1, double y1, float brightness) {
+        double length = Math.hypot(x1 - x0, y1 - y0);
+        double dx = -(y1 - y0) / length * 0.0025;
+        double dy = (x1 - x0) / length * 0.0025;
+        // Fade both edges to zero alpha so the little ribbons remain light under shader packs.
+        for (int edge = -1; edge <= 1; edge += 2) {
+            double[][] ribbon = {{x0, y0}, {x1, y1}, {x1 + dx * edge, y1 + dy * edge}, {x0 + dx * edge, y0 + dy * edge}};
+            int[][] windings = {{0, 1, 2, 3}, {3, 2, 1, 0}};
+            for (int[] winding : windings) {
+                for (int vertex : winding) {
+                    crystalVertex(vc, pose, camera, at, ribbon[vertex][0], ribbon[vertex][1], brightness, vertex < 2 ? 190 : 0);
+                }
+            }
+        }
+    }
+
+    private static void crystalVertex(VertexConsumer vc, PoseStack.Pose pose, Camera camera, Vec3 at,
+            double x, double y, float brightness, int alpha) {
+        Vector3f left = camera.getLeftVector();
+        Vector3f up = camera.getUpVector();
+        Vec3 cam = camera.getPosition();
+        vc.addVertex(pose.pose(), (float) (at.x + left.x() * x + up.x() * y - cam.x),
+                        (float) (at.y + left.y() * x + up.y() * y - cam.y),
+                        (float) (at.z + left.z() * x + up.z() * y - cam.z))
+                .color(clamp(0.25f * brightness), clamp(0.62f * brightness), clamp(brightness), alpha).endVertex();
+    }
+
+    *///?} else if forge {
+    /*/^* A small empty-socket crystal made of added light, rather than an opaque placeholder item. ^/
     public static void lapisGhost(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 at, float brightness) {
         lapisGhost(pose, buffers, camera, at, brightness, 1, 0);
     }
@@ -101,49 +172,102 @@ public final class EnchantFx {
         Vector3f left = camera.getLeftVector();
         Vector3f up = camera.getUpVector();
         Vec3 cam = camera.getPosition();
-        vc.addVertex(pose, (float) (at.x + left.x() * x + up.x() * y - cam.x),
+        vc.addVertex(pose.pose(), (float) (at.x + left.x() * x + up.x() * y - cam.x),
                         (float) (at.y + left.y() * x + up.y() * y - cam.y),
                         (float) (at.z + left.z() * x + up.z() * y - cam.z))
-                .setColor(clamp(0.25f * brightness), clamp(0.62f * brightness), clamp(brightness), alpha);
+                .color(clamp(0.25f * brightness), clamp(0.62f * brightness), clamp(brightness), alpha).endVertex();
     }
 
+    *///?}
     // ---- quads -------------------------------------------------------------------------------------
 
     /** A textured, additive quad given by four camera-relative corners (wound both ways). */
     /** Texture corners of a quad, and its corners wound both ways (seen from either side). */
     private static final float[][] QUAD_UV = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
     private static final int[][] BOTH_WAYS = {{0, 1, 2, 3}, {3, 2, 1, 0}};
+    private static final int[][] SURFACE_SIDE = {{3, 2, 1, 0}};
+    //? if <1.21 {
+    /*public static final double OUTER_LIFT = 0.012, INNER_LIFT = 0.02, HINT_LIFT = 0.028, SOCKET_LIFT = 0.016;
+    *///?}
 
     private static void quad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] c, float r, float g, float b, Vec3 normal) {
         int ri = clamp(r), gi = clamp(g), bi = clamp(b);
         for (int[] order : BOTH_WAYS) {
             for (int i : order) {
+                //? if >=1.21 {
                 vc.addVertex(pose, (float) c[i].x, (float) c[i].y, (float) c[i].z).setColor(ri, gi, bi, 255).setUv(QUAD_UV[i][0], QUAD_UV[i][1])
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT)
                         .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z);
+                //?} else if <1.21 {
+                /*vc.addVertex(pose.pose(), (float) c[i].x, (float) c[i].y, (float) c[i].z).color(ri, gi, bi, 255).setUv(QUAD_UV[i][0], QUAD_UV[i][1])
+                        .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(LightTexture.FULL_BRIGHT)
+                        .normal(pose.normal(), (float) normal.x, (float) normal.y, (float) normal.z).endVertex();
+                *///?}
             }
         }
     }
 
-    /** The neutral pixel mask stays white; its two vertex colours supply the palette as the quad rotates. */
+    //? if >=1.21 {
+    /**
+     * Heights of the circles over the table top (blocks). A few thousandths left the depth test to chance, and with
+     * shaders (their own depth buffer, the camera jittered a fraction of a pixel every frame for anti-aliasing) the top and
+     * the circles, and the two circles, took turns in front: they flickered. These keep a clear step between all of them.
+     */
+    public static final double OUTER_LIFT = 0.012, INNER_LIFT = 0.02, HINT_LIFT = 0.028, SOCKET_LIFT = 0.016;
+
+    /** The brightness at which a pixel circle is fully there: below it the circle fades by its alpha. */
+    private static final float FULL_PRESENCE = 0.4f;
+
+    /**
+     * The neutral pixel mask stays white; its two vertex colours supply the palette as the quad rotates. Brightness is
+     * presence, not a darker colour: scaled RGB under a solid alpha drew an opaque black ring while a circle faded in and
+     * a dull one at rest. Above full presence the colour stays the palette's own (heating it towards white turned the
+     * violet a pale pink). Every circle is lit as an upward face: the entity shader's diffuse light dims a face turned
+     * away from its two lights to 0.4-0.75, which greyed the camera-facing sigils.
+     */
+    private static void gradientQuad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] corners, CirclePalette palette, float brightness,
+            boolean surface) {
+        float presence = Math.max(0, Math.min(1, brightness / FULL_PRESENCE));
+    //?} else if <1.21 {
+    /*/^* The neutral pixel mask stays white; fade by alpha so the circle never starts out black. ^/
     private static void gradientQuad(VertexConsumer vc, PoseStack.Pose pose, Vec3[] corners, CirclePalette palette,
-            float brightness, Vec3 normal) {
-        for (int[] order : BOTH_WAYS) {
+            float brightness, boolean surface) {
+        float presence = Math.max(0, Math.min(1, brightness / 0.4f));
+    *///?}
+        int alpha = clamp(presence * presence * (3 - 2 * presence));
+        //? if >=1.21 {
+        if (alpha == 0) {
+            // nothing to see, and a translucent quad would still write depth
+            return;
+        }
+        //?} else if <1.21 {
+        /*if (alpha == 0) return;
+        *///?}
+        for (int[] order : surface ? SURFACE_SIDE : BOTH_WAYS) {
             for (int i : order) {
                 int rgb = i < 2 ? palette.top : palette.bottom;
+                //? if >=1.21 {
                 vc.addVertex(pose, (float) corners[i].x, (float) corners[i].y, (float) corners[i].z)
-                        .setColor(clamp(((rgb >> 16) & 255) / 255f * brightness),
-                                clamp(((rgb >> 8) & 255) / 255f * brightness),
-                                clamp((rgb & 255) / 255f * brightness), 255)
+                        .setColor((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255, alpha)
+                //?} else if <1.21 {
+                /*vc.addVertex(pose.pose(), (float) corners[i].x, (float) corners[i].y, (float) corners[i].z)
+                        .color((rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255, alpha)
+                *///?}
                         .setUv(QUAD_UV[i][0], QUAD_UV[i][1])
+                        //? if >=1.21 {
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT)
-                        .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z);
+                        .setNormal(pose, 0, 1, 0);
+                        //?} else if <1.21 {
+                        /*.overlayCoords(OverlayTexture.NO_OVERLAY).uv2(LightTexture.FULL_BRIGHT)
+                        .normal(pose.normal(), 0, 1, 0).endVertex();
+                        *///?}
             }
         }
     }
 
     public enum CirclePalette {
-        VIOLET(0xAB00F9, 0xDA9FFF),
+        // a short step from deep to bright violet: lit at full strength, a lavender end read as pale pink
+        VIOLET(0xAB00F9, 0xC566FF),
         RED(0xA3303B, 0xCF5354),
         LAPIS(0x3B78D9, 0x9CC8FF);
 
@@ -168,8 +292,12 @@ public final class EnchantFx {
             double d = radius * Math.sqrt(2);
             corners[i] = new Vec3(center.x + Math.cos(a) * d - cam.x, center.y - cam.y, center.z + Math.sin(a) * d - cam.z);
         }
-        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette,
-                brightness, new Vec3(0, 1, 0));
+        //? if !forge {
+        gradientQuad(buffers.getBuffer(SURFACE_CIRCLE), pose.last(), corners, palette, brightness, true);
+        //?} else if forge {
+        /*gradientQuad(buffers.getBuffer(SURFACE_CIRCLE), pose.last(), corners, palette,
+                brightness, true);
+        *///?}
     }
 
     /** The same pixel rune facing the camera, used by the floating enchantment offers. */
@@ -186,9 +314,7 @@ public final class EnchantFx {
             corners[i] = new Vec3(center.x + left.x() * x + up.x() * y - cam.x,
                     center.y + left.y() * x + up.y() * y - cam.y, center.z + left.z() * x + up.z() * y - cam.z);
         }
-        Vector3f look = camera.getLookVector();
-        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette, brightness,
-                new Vec3(-look.x(), -look.y(), -look.z()));
+        gradientQuad(buffers.getBuffer(RenderType.entityTranslucent(PIXEL_CIRCLE, false)), pose.last(), corners, palette, brightness, false);
     }
 
     /** A texture lying flat on a surface as added light. */
@@ -303,8 +429,13 @@ public final class EnchantFx {
     /** Centres of the bookshelves that empower this table. */
     public static List<Vec3> shelves(ClientLevel level, BlockPos pos) {
         List<Vec3> list = new ArrayList<>();
+        //? if >=1.21 {
         for (BlockPos offset : EnchantingTableBlock.BOOKSHELF_OFFSETS) {
             if (EnchantingTableBlock.isValidBookShelf(level, pos, offset)) {
+        //?} else if <1.21 {
+        /*for (BlockPos offset : EnchantmentTableBlock.BOOKSHELF_OFFSETS) {
+            if (EnchantmentTableBlock.isValidBookShelf(level, pos, offset)) {
+        *///?}
                 list.add(Vec3.atCenterOf(pos.offset(offset)));
             }
         }

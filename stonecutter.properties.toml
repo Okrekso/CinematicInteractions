@@ -1,0 +1,60 @@
+# Read by Stonecutter for every target: the shared values first, then the [<loader>."<version>"] tables.
+mod.id = "cinematic"
+mod.name = "Cinematic Interactions"
+mod.license = "MIT"
+mod.group = "dev.dyslexic.cinematic"
+# One version for every target: they all ship the same features.
+mod.version = "0.18.30"
+loomx.loom_version = "1.17.21"
+loomx.loom_remap_plugin = "fabric-loom"
+
+[neoforge."1.21.1"]
+mod.java = 21
+# the jar's name as the owner wants to see it in the mods folder (the mod's id stays "cinematic")
+mod.archive = "Cinematic Interaction"
+# Matches Southware's pack (Modrinth profile and the Skuf server).
+deps.neoforge = "21.1.255"
+deps.minecraft_range = "[1.21.1]"
+deps.loader_range = "[1,)"
+deps.parchment_minecraft = "1.21.1"
+deps.parchment = "2024.11.17"
+# Optional integrations, never bundled: Inventory Particles / Interactions, JEI 19.57.0.451 (Southware's pack), Polymorph.
+deps.compile_only = "maven.modrinth:inventory-particles:tIeIGFCs maven.modrinth:inventory-interactions:U3SO7tDA maven.modrinth:jei:RI8WCow6 maven.modrinth:polymorph:Ac1c8Jlj"
+
+[forge."1.20.1"]
+mod.java = 17
+mod.archive = "Cinematic Interaction-Forge-1.20.1"
+# The recommended Forge for 1.20.1 on files.minecraftforge.net (promotions_slim.json, 19 October 2026).
+deps.forge = "47.4.10"
+deps.minecraft_range = "[1.20.1]"
+deps.forge_range = "[47.1,)"
+deps.loader_range = "[47,)"
+deps.parchment_minecraft = "1.20.1"
+deps.parchment = "2023.09.03"
+# JEI 15.56.0.205, Inventory Particles 3.2.0, Inventory Interactions 2.2.0, MossyLib 1.6.0, Polymorph 0.49.11.
+deps.compile_only = "maven.modrinth:jei:9jqubC9n maven.modrinth:inventory-particles:31tfSz4E maven.modrinth:inventory-interactions:4a67bkSC maven.modrinth:mossylib:B8d1ZLpg maven.modrinth:polymorph:5lNATnbO"
+
+[fabric."1.21.1"]
+mod.java = 21
+mod.archive = "Cinematic Interaction-Fabric-1.21.1"
+deps.parchment = "2024.11.17"
+deps.fabric_loader = "0.16.14"
+deps.fabric_api = "0.116.17+1.21.1"
+deps.modmenu = "11.0.3"
+# JEI and the inventory mods have the same API on every loader, so their NeoForge jars are compiled against.
+deps.compile_only = "maven.modrinth:jei:RI8WCow6 maven.modrinth:inventory-particles:tIeIGFCs maven.modrinth:inventory-interactions:U3SO7tDA"
+# Polymorph 1.1.0 for Fabric 1.21.1.
+deps.mod_compile_only = "maven.modrinth:polymorph:Ng5Y6KVo"
+mixins.exclude = "ChunkMapMixin"
+
+[fabric."1.20.1"]
+mod.java = 17
+mod.archive = "Cinematic Interaction-Fabric-1.20.1"
+deps.parchment = "2023.09.03"
+deps.fabric_loader = "0.16.14"
+deps.fabric_api = "0.92.12+1.20.1"
+deps.modmenu = "7.2.2"
+deps.compile_only = ""
+# JEI 15.74.0.230, Inventory Particles 3.2.0, Inventory Interactions 2.2.0 and Polymorph 0.49.11, Fabric builds.
+deps.mod_compile_only = "maven.modrinth:jei:NKdcms4C maven.modrinth:inventory-particles:JDwRa5Wi maven.modrinth:inventory-interactions:t3ypx0EB maven.modrinth:polymorph:YGcahGOD"
+mixins.exclude = "PlayerChunkSenderMixin"

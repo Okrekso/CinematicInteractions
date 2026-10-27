@@ -20,11 +20,27 @@ public final class ServerSmoke {
     private ServerSmoke() {}
 
     private static final boolean ENABLED = Boolean.getBoolean("cinematic.serverSmoke");
+    //? if fabric {
+    /*/^* -Dcinematic.serverSmoke.reload=true: the same server restarted after a run, what was put in must be there still. ^/
+    private static final boolean RELOAD = Boolean.getBoolean("cinematic.serverSmoke.reload");
+    *///?} else if forge {
+    /*/^* After the server was stopped and started again: the planks left on the table must come back from the saved world. ^/
+    private static final boolean RECONNECT = Boolean.getBoolean("cinematic.serverSmoke.reconnect");
+    *///?}
     private static final BlockPos TABLE = new BlockPos(0, -60, 0);
     private static final BlockPos FURNACE = new BlockPos(2, -60, 0);
     private static final BlockPos BREWING = new BlockPos(-2, -60, 0);
+    //? if neoforge {
     private static int stage = 1;
+    //?} else if fabric {
+    /*private static int stage = RELOAD ? 50 : 1;
+    *///?} else if forge {
+    /*private static int stage = 1;
+    *///?}
     private static int ticks;
+    //? if fabric {
+    /*private static int inventoryRounds;
+    *///?}
 
     public static void tick() {
         if (!ENABLED || stage == 99 || stage == -1) return;
@@ -34,7 +50,35 @@ public final class ServerSmoke {
             fail("timed out at stage " + stage + ", phase " + Scene.phase);
             return;
         }
+        //? if neoforge {
         switch (stage) {
+        //?} else if fabric {
+        /*switch (stage) {
+            case 50 -> {
+                // the table's own store, the furnace and the stand reach a client that joins the restarted server
+                ClientTables.Entry table = ClientTables.get(TABLE);
+                boolean planks = table != null && java.util.Arrays.stream(table.items).anyMatch(s -> s.is(Items.OAK_PLANKS) && s.getCount() == 16);
+                boolean ore = ClientFurnaces.item(FURNACE, 0).is(Items.RAW_IRON) && ClientFurnaces.item(FURNACE, 0).getCount() == 5;
+                boolean potion = mc.level.getBlockEntity(BREWING) instanceof BrewingStandBlockEntity stand
+                        && java.util.stream.IntStream.range(0, 3).anyMatch(i -> ClientBrewing.item(stand, i).is(Items.POTION));
+                if (!planks || !ore || !potion || ticks < 40) return;
+                Cinematic.LOGGER.info("[ServerSmoke] PASS: after a restart the table still holds 16 planks, the furnace 5 raw iron, the stand its bottle");
+                stage = 99;
+                mc.stop();
+            }
+        *///?} else if forge {
+        /*if (RECONNECT) {
+            ClientTables.Entry entry = ClientTables.get(TABLE);
+            boolean back = entry != null && java.util.Arrays.stream(entry.items).anyMatch(s -> s.is(Items.OAK_PLANKS) && s.getCount() == 16);
+            if (back && ClientOnly.serverHasMod()) {
+                Cinematic.LOGGER.info("[ServerSmoke] PASS: the table's 16 planks came back after the server was stopped and started (world save)");
+                stage = 99;
+                mc.stop();
+            }
+            return;
+        }
+        switch (stage) {
+        *///?}
             case 1 -> {
                 // the test script places the blocks and gives the items through RCON
                 if (!StationKind.TABLE.matches(mc.level.getBlockState(TABLE)) || !StationKind.FURNACE.matches(mc.level.getBlockState(FURNACE))
@@ -103,10 +147,53 @@ public final class ServerSmoke {
                 next();
             }
             case 10 -> {
+                // stepping away and opening the inventory at once, three times over: the stand must play its scene again
                 if (Scene.phase != Scene.Phase.NONE || ticks < 30) return;
+                //? if neoforge {
                 Cinematic.LOGGER.info("[ServerSmoke] PASS: dedicated server with the mod, shift-clicks into table, furnace and brewing stand");
                 stage = 99;
                 mc.stop();
+                //?} else if fabric {
+                /*if (inventoryRounds == 3) {
+                    Cinematic.LOGGER.info("[ServerSmoke] PASS: dedicated server with the mod, shift-clicks into table, furnace and brewing stand,"
+                            + " the inventory opened while stepping away three times and the scene played again each time");
+                    stage = 99;
+                    mc.stop();
+                    return;
+                }
+                use(mc, BREWING, new Vec3(0.5, 1, 0.5), Direction.UP);
+                next();
+            }
+            case 11 -> {
+                if (ticks == 60 && !active(StationKind.BREWING)) {
+                    fail("round " + inventoryRounds + ": the stand did not play its scene (screen "
+                            + (mc.screen == null ? "none" : mc.screen.getClass().getSimpleName()) + ")");
+                    return;
+                }
+                if (!active(StationKind.BREWING) || ticks < 25) return;
+                Scene.leave();
+                next();
+            }
+            case 12 -> {
+                // the work's screen has gone after 0.22 s: the game's own key opens the inventory, still stepping away
+                if (ticks == 8 + inventoryRounds * 3) {
+                    net.minecraft.client.KeyMapping.click(net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.getBoundKeyOf(mc.options.keyInventory));
+                }
+                if (!(mc.screen instanceof net.minecraft.client.gui.screens.inventory.InventoryScreen)) return;
+                Cinematic.LOGGER.info("[ServerSmoke] round {}: inventory open while {}", inventoryRounds + 1, Scene.phase);
+                next();
+            }
+            case 13 -> {
+                if (Scene.phase != Scene.Phase.NONE || ticks < 10) return;
+                mc.setScreen(null);
+                inventoryRounds++;
+                stage = 10;
+                ticks = 0;
+                *///?} else if forge {
+                /*Cinematic.LOGGER.info("[ServerSmoke] PASS: dedicated server with the mod, shift-clicks into table, furnace and brewing stand");
+                stage = 99;
+                mc.stop();
+                *///?}
             }
             default -> {}
         }

@@ -16,9 +16,12 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.Containers;
 import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /** What the hands do on a crafting table top: lay items into cells, pick them up, craft. */
 public final class TableActions {
@@ -238,7 +241,8 @@ public final class TableActions {
             return;
         }
         List<ItemStack> consumed = new ArrayList<>();
-        ItemStack first = TableCrafting.match(level, table.items, session.side()).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+        var chosen = dev.dyslexic.cinematic.station.RecipeChoices.chosen(player);
+        ItemStack first = TableCrafting.match(level, table.items, session.side(), chosen).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
         int crafts = 0;
         do {
             List<ItemStack> used = TableCrafting.craftOnce(player, level, table, session.side(), all);
@@ -250,7 +254,7 @@ public final class TableActions {
             if (!all) {
                 break;
             }
-            ItemStack next = TableCrafting.match(level, table.items, session.side()).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+            ItemStack next = TableCrafting.match(level, table.items, session.side(), chosen).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
             if (!ItemStack.isSameItemSameComponents(first, next)) {
                 break;
             }
@@ -292,6 +296,68 @@ public final class TableActions {
 
     public static void sync(ServerLevel level, BlockPos pos) {
         dev.dyslexic.cinematic.net.Network.sendToTrackingChunk(level, new ChunkPos(pos), contents(pos, TableStore.get(level).get(pos)));
+    }
+
+    /**
+     * A crafting window opened at a table (the scene off or out of reach, a sneaking use, another mod): what lies on the
+     * table top moves into the window's grid, laid out as the player sees it, so it is never stuck there. Vanilla then
+     * owns it: crafted from, taken, or handed back to the inventory (dropped when full) as the window closes. Moved, not
+     * copied, and only while nobody works the same table in a scene.
+     */
+    public static void intoWindow(ServerPlayer player, CraftingMenu menu) {
+        ServerLevel level = player.serverLevel();
+        //? if !forge {
+        BlockPos pos = menu.access.evaluate((at, where) -> at == level ? where : null).orElse(null);
+        if (pos == null || !TableGrid.isTable(level.getBlockState(pos))) {
+            return;
+        }
+        //?} else if forge {
+        /*BlockPos pos = ((dev.dyslexic.cinematic.mixin.CraftingMenuAccess) menu).cinematic$access()
+                .evaluate((at, where) -> at == level ? where : null).orElse(null);
+        if (pos == null || !TableGrid.isTable(level.getBlockState(pos))) return;
+        *///?}
+        TableStore store = TableStore.get(level);
+        TableStore.Table table = store.get(pos);
+        //? if !forge {
+        if (table == null || table.isEmpty()) {
+            return;
+        }
+        //?} else if forge {
+        /*if (table == null || table.isEmpty()) return;
+        *///?}
+        for (ServerPlayer other : level.players()) {
+            //? if !forge {
+            Session session = Sessions.get(other);
+            if (session != null && session.pos().equals(pos)) {
+                return;
+            }
+            //?} else if forge {
+            /*Sessions.Session session = Sessions.get(other);
+            if (session != null && session.pos().equals(pos)) return;
+            *///?}
+        }
+        //? if !forge {
+        for (int i = 0; i < TableGrid.CELLS; i++) {
+            if (!menu.craftSlots.getItem(i).isEmpty()) {
+                return;
+            }
+        //?} else if forge {
+        /*for (int i = 1; i <= TableGrid.CELLS; i++) {
+            if (!menu.slots.get(i).getItem().isEmpty()) return;
+        *///?}
+        }
+        List<ItemStack> grid = TableGrid.oriented(table.items, TableGrid.sideFacing(pos, player.getX(), player.getZ()));
+        store.remove(pos);
+        //? if !forge {
+        store.setDirty();
+        for (int i = 0; i < TableGrid.CELLS; i++) {
+            menu.craftSlots.setItem(i, grid.get(i));
+        }
+        //?} else if forge {
+        /*for (int i = 0; i < TableGrid.CELLS; i++) menu.slots.get(i + 1).set(grid.get(i));
+        *///?}
+        sync(level, pos);
+        menu.broadcastChanges();
     }
 
     /** Spills everything lying on a table that no longer exists. */

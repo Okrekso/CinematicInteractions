@@ -32,7 +32,11 @@ public final class Fx {
     static final RandomSource RANDOM = RandomSource.create();
 
     /** Plain white: under {@link #flatGlow()} the vertex colours alone make the light. */
+    //? if >=1.21 {
     private static final ResourceLocation WHITE = ResourceLocation.withDefaultNamespace("textures/misc/white.png");
+    //?} else if <1.21 {
+    /*private static final ResourceLocation WHITE = new ResourceLocation("textures/misc/white.png");
+    *///?}
 
     /**
      * Warm light lying flat on a block face (furnace gauges, the glow inside its openings). RenderType.lightning()
@@ -47,8 +51,13 @@ public final class Fx {
 
     /** One corner of a {@link #flatGlow()} quad; the colour is the light added there. */
     static void glowVertex(VertexConsumer vc, org.joml.Matrix4f m, float x, float y, float z, int r, int g, int b, Vec3 normal) {
+        //? if >=1.21 {
         vc.addVertex(m, x, y, z).setColor(r, g, b, 255).setUv(0.5f, 0.5f).setOverlay(OverlayTexture.NO_OVERLAY)
                 .setLight(LightTexture.FULL_BRIGHT).setNormal((float) normal.x, (float) normal.y, (float) normal.z);
+        //?} else if <1.21 {
+        /*vc.addVertex(m, x, y, z).color(r, g, b, 255).setUv(0.5f, 0.5f).overlayCoords(OverlayTexture.NO_OVERLAY)
+                .uv2(LightTexture.FULL_BRIGHT).normal((float) normal.x, (float) normal.y, (float) normal.z).endVertex();
+        *///?}
     }
 
     /**
@@ -152,6 +161,24 @@ public final class Fx {
     }
 
     /** A soft dark spot facing the camera, so something bright in front of it stands out against a light background. */
+    //? if !forge {
+    /**
+     * The dark glass: an ordinary translucent entity layer (shader packs treat it as one, so it stays dark; an emissive
+     * layer came out as no light at all under Complementary), only without the depth write.
+     */
+    private static final RenderType SHADE = noDepthWrite(RenderType.entityTranslucent(EnchantFx.GLOW));
+
+    private static RenderType noDepthWrite(RenderType original) {
+        return new RenderType("cinematic_shade", original.format(), original.mode(), original.bufferSize(), false, true, () -> {
+            original.setupRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(false);
+        }, () -> {
+            original.clearRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+        }) {};
+    }
+
+    //?}
     public static void shade(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 center, double radius, float alpha) {
         Vector3f left = camera.getLeftVector();
         Vector3f up = camera.getUpVector();
@@ -164,13 +191,25 @@ public final class Fx {
             c[i] = new Vec3(center.x + left.x() * x + up.x() * y - cam.x, center.y + left.y() * x + up.y() * y - cam.y,
                     center.z + left.z() * x + up.z() * y - cam.z);
         }
-        VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EnchantFx.GLOW));
+        //? if !forge {
+        // blended without writing depth: as a translucent entity it wrote its whole soft square into the depth buffer, the
+        // rings and glows laid on it in the same plane fought it for every pixel (they flickered), and chests, bells or the
+        // book drawn after the scene vanished behind the clear part of it
+        VertexConsumer vc = buffers.getBuffer(SHADE);
+        //?} else if forge {
+        /*VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EnchantFx.GLOW));
+        *///?}
         Vector3f look = camera.getLookVector();
         int a = channel(alpha);
         for (int[] order : BOTH_WAYS) {
             for (int i : order) {
+                //? if >=1.21 {
                 vc.addVertex(pose.last(), (float) c[i].x, (float) c[i].y, (float) c[i].z).setColor(0, 0, 0, a).setUv(QUAD_UV[i][0], QUAD_UV[i][1])
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT).setNormal(pose.last(), -look.x(), -look.y(), -look.z());
+                //?} else if <1.21 {
+                /*vc.addVertex(pose.last().pose(), (float) c[i].x, (float) c[i].y, (float) c[i].z).color(0, 0, 0, a).setUv(QUAD_UV[i][0], QUAD_UV[i][1])
+                        .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(LightTexture.FULL_BRIGHT).normal(pose.last().normal(), -look.x(), -look.y(), -look.z()).endVertex();
+                *///?}
             }
         }
     }
@@ -208,9 +247,15 @@ public final class Fx {
         int ri = channel(r), gi = channel(g), bi = channel(b);
         for (int[] order : BOTH_WAYS) {
             for (int i : order) {
+                //? if >=1.21 {
                 vc.addVertex(pose, (float) c[i].x, (float) c[i].y, (float) c[i].z).setColor(ri, gi, bi, 255).setUv(QUAD_UV[i][0], QUAD_UV[i][1])
                         .setOverlay(OverlayTexture.NO_OVERLAY).setLight(LightTexture.FULL_BRIGHT)
                         .setNormal(pose, (float) normal.x, (float) normal.y, (float) normal.z);
+                //?} else if <1.21 {
+                /*vc.addVertex(pose.pose(), (float) c[i].x, (float) c[i].y, (float) c[i].z).color(ri, gi, bi, 255).setUv(QUAD_UV[i][0], QUAD_UV[i][1])
+                        .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(LightTexture.FULL_BRIGHT)
+                        .normal(pose.normal(), (float) normal.x, (float) normal.y, (float) normal.z).endVertex();
+                *///?}
             }
         }
     }
@@ -288,8 +333,26 @@ public final class Fx {
 
     // ---- props cut from the block atlas ------------------------------------------------------------
 
+    //? if <1.21 {
+    /*/^*
+     * A point of a sprite, {@code fraction} 0..1 across it. (In 1.20.1 the sprite itself takes sixteenths: later versions
+     * take the fraction.)
+     ^/
+    public static float u(TextureAtlasSprite sprite, double fraction) {
+        return sprite.getU(fraction * 16);
+    }
+
+    public static float v(TextureAtlasSprite sprite, double fraction) {
+        return sprite.getV(fraction * 16);
+    }
+
+    *///?}
     public static TextureAtlasSprite sprite(String blockTexture) {
+        //? if >=1.21 {
         return Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(ResourceLocation.withDefaultNamespace(blockTexture));
+        //?} else if <1.21 {
+        /*return Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS).apply(new ResourceLocation(blockTexture));
+        *///?}
     }
 
     public static VertexConsumer atlas(MultiBufferSource buffers) {
@@ -326,9 +389,15 @@ public final class Fx {
         float t = texels / 16f;
         float[][] uv = {{0, t}, {t, t}, {t, 0}, {0, 0}};
         for (int i = 0; i < 4; i++) {
+            //? if >=1.21 {
             vc.addVertex(pose.last(), (float) p[i].x, (float) p[i].y, (float) p[i].z).setColor(255, 255, 255, 255)
                     .setUv(sprite.getU(uv[i][0]), sprite.getV(uv[i][1])).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
                     .setNormal(pose.last(), (float) n.x, (float) n.y, (float) n.z);
+            //?} else if <1.21 {
+            /*vc.addVertex(pose.last().pose(), (float) p[i].x, (float) p[i].y, (float) p[i].z).color(255, 255, 255, 255)
+                    .setUv(Fx.u(sprite, uv[i][0]), Fx.v(sprite, uv[i][1])).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light)
+                    .normal(pose.last().normal(), (float) n.x, (float) n.y, (float) n.z).endVertex();
+            *///?}
         }
     }
 }

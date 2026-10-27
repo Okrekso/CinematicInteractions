@@ -270,10 +270,17 @@ final class TableGridEditor implements LayoutEditor {
     }
 
     private static void quad(VertexConsumer out, Matrix4f m, double x0, double z0, double x1, double z1, int a) {
+        //? if >=1.21 {
         out.addVertex(m, (float) x0, 0, (float) z0).setColor(103, 211, 231, a);
         out.addVertex(m, (float) x0, 0, (float) z1).setColor(103, 211, 231, a);
         out.addVertex(m, (float) x1, 0, (float) z1).setColor(103, 211, 231, a);
         out.addVertex(m, (float) x1, 0, (float) z0).setColor(103, 211, 231, a);
+        //?} else if <1.21 {
+        /*out.addVertex(m, (float) x0, 0, (float) z0).color(103, 211, 231, a).endVertex();
+        out.addVertex(m, (float) x0, 0, (float) z1).color(103, 211, 231, a).endVertex();
+        out.addVertex(m, (float) x1, 0, (float) z1).color(103, 211, 231, a).endVertex();
+        out.addVertex(m, (float) x1, 0, (float) z0).color(103, 211, 231, a).endVertex();
+        *///?}
     }
 
     // The showcase clicks the same screen controls as a player.

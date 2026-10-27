@@ -145,7 +145,12 @@ final class RemainingLayouts {
         } else if (kind == StationKind.BEACON && slot == 0) {
             EnchantStation.drawFloating(pose, buffers, camera, example, target.layoutPoint(slot), (float) (Scene.clock() * 50), 0.26f * scale);
         } else if (kind == StationKind.BEACON || kind == StationKind.ANVIL && slot == 2) {
+            //? if !forge {
             var cameraRotation = new org.joml.Quaternionf(Minecraft.getInstance().gameRenderer.getMainCamera().rotation());
+            //?} else if forge {
+            /*// facing the camera as in later versions, whose camera quaternion is 1.20.1's turned half round
+            var cameraRotation = new org.joml.Quaternionf(Minecraft.getInstance().gameRenderer.getMainCamera().rotation()).mul(Axis.YP.rotationDegrees(180f));
+            *///?}
             cameraRotation.mul(Axis.ZP.rotationDegrees(rotation));
             ItemPlacer.drawOriented(pose, buffers, camera, example, target.layoutPoint(slot), cameraRotation, 0.16f * scale, light);
         } else if (kind == StationKind.CAMPFIRE) {

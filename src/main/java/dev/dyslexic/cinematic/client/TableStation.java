@@ -3,6 +3,9 @@ package dev.dyslexic.cinematic.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+//? if fabric && <1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
 import dev.dyslexic.cinematic.table.TableCrafting;
@@ -29,7 +32,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric && >=1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import org.joml.Matrix4f;
 
 /**
@@ -63,6 +70,11 @@ public final class TableStation extends ClientStation {
     public ItemStack result = ItemStack.EMPTY;
     public double resultChangedAt = -10;
     private int resultVersion = -1;
+    //? if <1.21 {
+    /*private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+    private List<net.minecraft.world.item.crafting.CraftingRecipe> competing = List.of();
+    @Nullable private net.minecraft.resources.ResourceLocation chosenRecipe;
+    *///?}
 
     /** The ingredients as they lay when crafting was clicked, gathered while the server crafts. */
     public double craftAt = -10;
@@ -136,6 +148,16 @@ public final class TableStation extends ClientStation {
     /** When in a move the item is let go of (the server is asked to put it down). */
     private static final double LAY_DROP = 0.64;
 
+    /** A move's "slot" for taking back what lies on the cell into the inventory, rather than laying onto it. */
+    static final int TAKE = -2;
+    /**
+     * A move's "slot" for working out the rest of the layout once the cells taken back are clear ({cell -1, REPLAN,
+     * 1 for every whole set}): what came back to the inventory may be laid out again, in its new slot.
+     */
+    static final int REPLAN = -3;
+    /** How long a re-plan waits for the server to clear the cells taken back (seconds) before it lays what it can. */
+    private static final double REPLAN_WAIT = 1.5;
+
     /**
      * The moves still to make, {world cell, inventory slot or -1, how many}; the one under way is {@link #laying}. A
      * move carries a whole handful, so laying out many sets takes no longer than laying out one.
@@ -146,6 +168,8 @@ public final class TableStation extends ClientStation {
     private ItemStack layItem = ItemStack.EMPTY;
     private double layAt;
     private boolean layDropped;
+    /** The cells taken back for a re-plan, which the server is to empty first. */
+    private final List<Integer> takenBack = new java.util.ArrayList<>();
 
     /** Lays out the selected recipe from the inventory, one cell after another. */
     void layOut(List<int[]> moves) {
@@ -212,8 +236,20 @@ public final class TableStation extends ClientStation {
         laying = layQueue.poll();
         layDropped = false;
         layAt = Scene.clock();
+        //? if >=1.21 {
+        if (laying == null) {
+            takenBack.clear();
+        }
+        //?} else if <1.21 {
+        /*if (laying == null) takenBack.clear();
+        *///?}
+        if (laying != null && laying[1] == REPLAN) {
+            layItem = ItemStack.EMPTY;
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         ItemStack source = laying == null || mc.player == null ? ItemStack.EMPTY
+                : laying[1] == TAKE ? onCell(ClientTables.get(pos), laying[0])
                 : laying[1] < 0 ? mc.player.containerMenu.getCarried() : mc.player.getInventory().getItem(laying[1]);
         layItem = laying == null ? ItemStack.EMPTY : source.copyWithCount(Math.min(source.getCount(), laying[2]));
         if (laying != null && layItem.isEmpty()) {
@@ -227,6 +263,33 @@ public final class TableStation extends ClientStation {
         return Anim.clamp01((Scene.clock() - layAt) / LAY_MOVE);
     }
 
+    /** Where the hand is on the laying path: taking back runs the same path the other way, from the cell to the hand. */
+    private double layPath() {
+        return laying != null && laying[1] == TAKE ? 1 - layProgress() : layProgress();
+    }
+
+    /** The rest of the layout, once the server has cleared the cells taken back (or it took too long). */
+    private void replan() {
+        boolean clear = true;
+        ClientTables.Entry entry = ClientTables.get(pos);
+        for (int cell : takenBack) clear &= onCell(entry, cell).isEmpty();
+        double waited = Scene.clock() - layAt;
+        //? if >=1.21 {
+        if (waited < 0.1 || !clear && waited < REPLAN_WAIT) {
+            return;
+        }
+        //?} else if <1.21 {
+        /*if (waited < 0.1 || !clear && waited < REPLAN_WAIT) return;
+        *///?}
+        boolean all = laying[2] == 1;
+        TableRecipeGuide guide = recipeBook.guide;
+        guide.tick();
+        for (int[] move : all ? guide.maxLayout().moves() : guide.layoutMoves()) {
+            if (move[1] >= -1) layQueue.add(move);
+        }
+        nextLay();
+    }
+
     @Override
     public void beforeFrame() {
         gridEditor.frame();
@@ -237,12 +300,43 @@ public final class TableStation extends ClientStation {
             }
             return;
         }
+        if (laying[1] == REPLAN) {
+            replan();
+            return;
+        }
         double t = layProgress();
+        if (laying[1] == TAKE) {
+            if (!layDropped && t >= 1 - LAY_DROP) {
+                layDropped = true;
+                Hands.tap();
+                takenBack.add(laying[0]);
+                // the server's own shift-click: into the inventory as far as it has room, the rest stays on the cell
+                if (Scene.clientOnly()) clickVanilla(laying[0], 0, true);
+                //? if !forge {
+                else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CLICK,
+                //?} else if forge {
+                /*else ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CLICK,
+                *///?}
+                        laying[0], 0, true, 0));
+            }
+            //? if >=1.21 {
+            if (t >= 1) {
+                nextLay();
+            }
+            //?} else if <1.21 {
+            /*if (t >= 1) nextLay();
+            *///?}
+            return;
+        }
         if (!layDropped && t >= LAY_DROP) {
             layDropped = true;
             Hands.tap();
             if (Scene.clientOnly()) placeVanilla(laying[0], laying[1], layItem.getCount());
+            //? if !forge {
             else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE,
+            //?} else if forge {
+            /*else ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE,
+            *///?}
                     laying[0], laying[1], false, layItem.getCount()));
         }
         if (t >= 1) {
@@ -261,10 +355,10 @@ public final class TableStation extends ClientStation {
      */
     @Nullable
     private Vec3[] layHands() {
-        if (laying == null) {
+        if (laying == null || laying[1] == REPLAN) {
             return null;
         }
-        double t = layProgress();
+        double t = layPath();
         Vec3 cell = cellPoint(laying[0]);
         boolean right = lateral(cell) >= 0;
         Vec3 rest = rest(right);
@@ -289,10 +383,18 @@ public final class TableStation extends ClientStation {
 
     /** The item in the hand while it is carried over (until the table has it). */
     private void drawLayItem(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
-        if (laying == null || layItem.isEmpty()) {
+        //? if >=1.21 {
+        if (laying == null || layItem.isEmpty() || laying[1] == REPLAN) {
+        //?} else if <1.21 {
+        /*if (laying == null || layItem.isEmpty()) {
+        *///?}
             return;
         }
-        double t = layProgress();
+        //? if >=1.21 {
+        double t = layPath();
+        //?} else if <1.21 {
+        /*double t = layProgress();
+        *///?}
         if (t < 0.24 || t > LAY_DROP + 0.04) {
             return;
         }
@@ -361,23 +463,69 @@ public final class TableStation extends ClientStation {
         hoverResult = false;
     }
 
-    /** The tabletop remains pickable through ingredients; only the ones blocking that view fade. */
+    /** How far the camera must really move (blocks) before the items in the way are worked out again. */
+    private static final double OCCLUSION_MOVE = 0.06;
+    /** Points of the hovered cell the camera must see (fractions of a cell from its middle): its middle and four inside it. */
+    private static final double[][] CELL_SAMPLES = {{0, 0}, {-0.3, -0.3}, {0.3, -0.3}, {-0.3, 0.3}, {0.3, 0.3}};
+    private final boolean[] inTheWay = new boolean[TableGrid.CELLS];
+    private int occlusionCell = Integer.MIN_VALUE;
+    private int occlusionVersion = Integer.MIN_VALUE;
+    //? if >=1.21 {
+    @Nullable
+    private Vec3 occlusionCamera;
+
+    /**
+     * The tabletop remains pickable through ingredients; only the ones in front of the hovered cell fade. Which ones is
+     * worked out for the cell itself (rays to its middle and four points in it), and kept while the same cell stays under
+     * the cursor: from the point under the cursor it changed with every small move of the mouse and every breath of the
+     * camera, and the items at the edge of that line faded in and out.
+     */
+    //?} else if fabric && <1.21 {
+    /*@Nullable private Vec3 occlusionCamera;
+
+    boolean[] inTheWayCopy() {
+        return inTheWay.clone();
+    }
+
+    /^* Keep one stable occlusion decision for the hovered cell until the camera or table changes. ^/
+    *///?} else if forge {
+    /*@Nullable private Vec3 occlusionCamera;
+
+    /^* Keep one stable occlusion decision for the hovered cell until the camera or table changes. ^/
+    *///?}
     void updateOcclusion(Vec3 camera) {
         ClientTables.Entry entry = ClientTables.get(pos);
-        Vec3 hit = Scene.phase == Scene.Phase.ACTIVE && hoverCell >= 0 && craftProgress() < 0
-                ? Picking.cursorOnPlane(surfaceY()) : null;
+        int cell = Scene.phase == Scene.Phase.ACTIVE && craftProgress() < 0 ? hoverCell : -1;
+        int version = entry == null ? -1 : entry.version;
+        if (cell != occlusionCell || version != occlusionVersion || occlusionCamera == null
+                || camera.distanceToSqr(occlusionCamera) > OCCLUSION_MOVE * OCCLUSION_MOVE) {
+            occlusionCell = cell;
+            occlusionVersion = version;
+            occlusionCamera = camera;
+            TableLayout layout = TableLayouts.current();
+            for (int i = 0; i < TableGrid.CELLS; i++) {
+                ItemStack stack = entry == null ? ItemStack.EMPTY : entry.items[i];
+                inTheWay[i] = false;
+                if (cell < 0 || i == cell || stack.isEmpty()) continue;
+                Vec3 base = cellPoint(i);
+                //? if >=1.21 {
+                net.minecraft.world.phys.AABB bounds = (layout.equals(TableLayout.VANILLA) ? ItemPlacer.restingBounds(stack, base) : layout.bounds(stack, base)).inflate(0.003);
+                //?} else if <1.21 {
+                /*var bounds = (layout.equals(TableLayout.VANILLA) ? ItemPlacer.restingBounds(stack, base) : layout.bounds(stack, base)).inflate(0.003);
+                *///?}
+                Vec3 target = cellPoint(cell);
+                for (double[] at : CELL_SAMPLES) {
+                    Vec3 point = new Vec3(target.x + at[0] * TableGrid.CELL, surfaceY(), target.z + at[1] * TableGrid.CELL);
+                    if (bounds.clip(camera, point).isPresent()) {
+                        inTheWay[i] = true;
+                        break;
+                    }
+                }
+            }
+        }
         for (int i = 0; i < TableGrid.CELLS; i++) {
             ItemStack stack = entry == null ? ItemStack.EMPTY : entry.items[i];
-            boolean blocking = false;
-            if (hit != null && i != hoverCell && !stack.isEmpty()) {
-                Vec3 base = cellPoint(i);
-                // A little hysteresis keeps the edge of a turning cube from flickering as the camera breathes.
-                double margin = itemOpacity[i] < 0.99f ? 0.009 : 0.003;
-                TableLayout layout = TableLayouts.current();
-                blocking = (layout.equals(TableLayout.VANILLA) ? ItemPlacer.restingBounds(stack, base) : layout.bounds(stack, base))
-                        .inflate(margin).clip(camera, hit).isPresent();
-            }
-            float target = blocking ? OCCLUDED_OPACITY : 1f;
+            float target = inTheWay[i] ? OCCLUDED_OPACITY : 1f;
             itemOpacity[i] = stack.isEmpty() ? 1f : (float) Anim.approach(itemOpacity[i], target, FADE_RATE, Scene.frameDt);
             if (Math.abs(itemOpacity[i] - target) < 0.001f) {
                 itemOpacity[i] = target;
@@ -385,6 +533,12 @@ public final class TableStation extends ClientStation {
         }
     }
 
+    //? if >=1.21 {
+    boolean[] inTheWayCopy() {
+        return inTheWay.clone();
+    }
+
+    //?}
     public float itemOpacity(int cell) {
         return cell >= 0 && cell < itemOpacity.length ? itemOpacity[cell] : 1f;
     }
@@ -526,7 +680,11 @@ public final class TableStation extends ClientStation {
     private void spread(int mask) {
         Hands.tap();
         if (!Scene.clientOnly()) {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.SPREAD,
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.SPREAD,
+            *///?}
                     mask, 0, false, 0));
             return;
         }
@@ -552,7 +710,11 @@ public final class TableStation extends ClientStation {
         if (Scene.clientOnly()) {
             clickVanilla(cell, button, shift);
         } else {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, action, cell, button, shift, 0));
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, action, cell, button, shift, 0));
+            *///?}
         }
     }
 
@@ -616,7 +778,11 @@ public final class TableStation extends ClientStation {
                 mc.gameMode.handleInventoryMouseClick(menu.containerId, CraftingMenu.RESULT_SLOT, 0,
                         all ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
         } else {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CRAFT, 0, 0, all, 0));
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CRAFT, 0, 0, all, 0));
+            *///?}
         }
     }
 
@@ -624,6 +790,95 @@ public final class TableStation extends ClientStation {
     public double craftProgress() {
         double t = (Scene.clock() - craftAt) / CRAFT_LENGTH;
         return t >= 0 && t <= 1 ? t : -1;
+    }
+
+    // ---- competing recipes (Polymorph) -------------------------------------------------------------------
+    //? if <1.21 {
+    /*@Override RecipeChoiceStrip choices() { return choiceStrip; }
+    *///?}
+
+    //? if >=1.21 {
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+    /** The recipe in use when several compete for what lies on the table; the server crafts the same one. */
+    @Nullable
+    private net.minecraft.resources.ResourceLocation chosenRecipe;
+    private List<net.minecraft.world.item.crafting.RecipeHolder<net.minecraft.world.item.crafting.CraftingRecipe>> competing = List.of();
+
+    @Override
+    RecipeChoiceStrip choices() {
+        return choiceStrip;
+    }
+
+    @Override
+    void chose(int index) {
+        if (index >= competing.size()) return;
+        chosenRecipe = competing.get(index).id();
+    //?} else if <1.21 {
+    /*@Override void chose(int index) {
+        if (index < 0 || index >= competing.size()) return;
+        chosenRecipe = competing.get(index).getId();
+    *///?}
+        super.chose(index);
+        // the preview follows at once
+        resultVersion = Integer.MIN_VALUE;
+    }
+
+    private void updateChoices(@Nullable ClientTables.Entry entry) {
+        Minecraft mc = Minecraft.getInstance();
+        //? if >=1.21 {
+        if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly() || entry == null || mc.level == null || mc.player == null) {
+        //?} else if <1.21 {
+        /*if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly()
+                || entry == null || mc.level == null || mc.player == null) {
+        *///?}
+            choiceStrip.clear();
+            competing = List.of();
+            return;
+        }
+        //? if >=1.21 {
+        var input = net.minecraft.world.item.crafting.CraftingInput.ofPositioned(3, 3, TableGrid.oriented(entry.list(), side)).input();
+        competing = input.isEmpty() ? List.of() : dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level,
+                net.minecraft.world.item.crafting.RecipeType.CRAFTING, input);
+        //?} else if <1.21 {
+        /*var input = new dev.dyslexic.cinematic.table.TableInput(TableGrid.oriented(entry.list(), side));
+        competing = input.isEmpty() ? List.of() : dev.dyslexic.cinematic.station.RecipeChoices.matching(
+                mc.level, net.minecraft.world.item.crafting.RecipeType.CRAFTING, input);
+        *///?}
+        if (competing.size() < 2) {
+            choiceStrip.clear();
+            return;
+        }
+        int index = -1;
+        //? if >=1.21 {
+        for (int i = 0; i < competing.size(); i++) if (competing.get(i).id().equals(chosenRecipe)) index = i;
+        //?} else if <1.21 {
+        /*for (int i = 0; i < competing.size(); i++) if (competing.get(i).getId().equals(chosenRecipe)) index = i;
+        *///?}
+        if (index < 0) {
+            // not chosen in this scene yet: Polymorph's own record if the client has it, else the first; the server is
+            // told, so both show and make the same thing
+            var known = dev.dyslexic.cinematic.station.RecipeChoices.chosen(mc.player);
+            //? if >=1.21 {
+            for (int i = 0; i < competing.size(); i++) if (competing.get(i).id().equals(known)) index = i;
+            //?} else if <1.21 {
+            /*for (int i = 0; i < competing.size(); i++) if (competing.get(i).getId().equals(known)) index = i;
+            *///?}
+            index = Math.max(0, index);
+            //? if >=1.21 {
+            chosenRecipe = competing.get(index).id();
+            //?} else if <1.21 {
+            /*chosenRecipe = competing.get(index).getId();
+            *///?}
+            RecipeChoiceStrip.send(pos, kind(), index);
+        }
+        //? if >=1.21 {
+        List<ItemStack> outputs = new java.util.ArrayList<>();
+        for (var holder : competing) outputs.add(holder.value().assemble(input, mc.level.registryAccess()));
+        //?} else if <1.21 {
+        /*List<ItemStack> outputs = new ArrayList<>();
+        for (var recipe : competing) outputs.add(recipe.assemble(input, mc.level.registryAccess()));
+        *///?}
+        choiceStrip.set(outputs, index);
     }
 
     @Override
@@ -636,9 +891,10 @@ public final class TableStation extends ClientStation {
             return;
         }
         resultVersion = version;
+        updateChoices(entry);
         ItemStack next = Scene.clientOnly() ? vanillaMenu() == null ? ItemStack.EMPTY : vanillaMenu().getSlot(0).getItem()
                 : entry == null || mc.level == null ? ItemStack.EMPTY
-                : TableCrafting.match(mc.level, entry.list(), side).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
+                : TableCrafting.match(mc.level, entry.list(), side, chosenRecipe).map(TableCrafting.Match::result).orElse(ItemStack.EMPTY);
         if (!ItemStack.isSameItemSameComponents(next, result) || next.getCount() != result.getCount()) {
             resultChangedAt = Scene.clock();
         }
@@ -703,10 +959,17 @@ public final class TableStation extends ClientStation {
         int alpha = 47;
         Matrix4f m = pose.last().pose();
         VertexConsumer quads = buffers.getBuffer(Fx.HIGHLIGHT);
+        //? if >=1.21 {
         quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz - half)).setColor(255, 244, 214, alpha);
         quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz + half)).setColor(255, 244, 214, alpha);
         quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz + half)).setColor(255, 244, 214, alpha);
         quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz - half)).setColor(255, 244, 214, alpha);
+        //?} else if <1.21 {
+        /*quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz - half)).color(255, 244, 214, alpha).endVertex();
+        quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz + half)).color(255, 244, 214, alpha).endVertex();
+        quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz + half)).color(255, 244, 214, alpha).endVertex();
+        quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz - half)).color(255, 244, 214, alpha).endVertex();
+        *///?}
         double width = 0.004;
         // The rim makes a partly hidden destination readable through the faded ingredient.
         highlightStrip(quads, m, cx - half, cz - half, cx + half, cz - half + width, y, 150);
@@ -717,10 +980,17 @@ public final class TableStation extends ClientStation {
     }
 
     private static void highlightStrip(VertexConsumer quads, Matrix4f m, double x0, double z0, double x1, double z1, double y, int alpha) {
+        //? if >=1.21 {
         quads.addVertex(m, (float) x0, (float) y, (float) z0).setColor(255, 235, 185, alpha);
         quads.addVertex(m, (float) x0, (float) y, (float) z1).setColor(255, 235, 185, alpha);
         quads.addVertex(m, (float) x1, (float) y, (float) z1).setColor(255, 235, 185, alpha);
         quads.addVertex(m, (float) x1, (float) y, (float) z0).setColor(255, 235, 185, alpha);
+        //?} else if <1.21 {
+        /*quads.addVertex(m, (float) x0, (float) y, (float) z0).color(255, 235, 185, alpha).endVertex();
+        quads.addVertex(m, (float) x0, (float) y, (float) z1).color(255, 235, 185, alpha).endVertex();
+        quads.addVertex(m, (float) x1, (float) y, (float) z1).color(255, 235, 185, alpha).endVertex();
+        quads.addVertex(m, (float) x1, (float) y, (float) z0).color(255, 235, 185, alpha).endVertex();
+        *///?}
     }
 
     /** The result floats over the far edge of the table, turning slowly. */
@@ -793,7 +1063,10 @@ public final class TableStation extends ClientStation {
         }
         ClientTables.Entry entry = ClientTables.get(pos);
         if (hoverCell >= 0 && entry != null && !entry.items[hoverCell].isEmpty()) {
-            return Screen.getTooltipFromItem(Minecraft.getInstance(), entry.items[hoverCell]);
+            ItemStack stack = entry.items[hoverCell];
+            List<Component> lines = new ArrayList<>(Screen.getTooltipFromItem(Minecraft.getInstance(), stack));
+            lines.add(Component.translatable("cinematic.hint.table_count", stack.getCount()).withStyle(ChatFormatting.GRAY));
+            return lines;
         }
         return null;
     }

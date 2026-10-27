@@ -28,7 +28,11 @@ import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.entity.CampfireBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import org.joml.Vector3f;
 
 /**
@@ -66,6 +70,23 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
     private final int[] cookingProgress = new int[CampfireActions.SPOTS];
     private final int[] cookingTime = new int[CampfireActions.SPOTS];
     private final double[] shownProgress = new double[CampfireActions.SPOTS];
+    //? if !forge {
+    /** How much of each rail no arm hides (eased), and where it was last drawn (GUI pixels). */
+    private final float[] railSeen = {1, 1, 1, 1};
+    final double[][] railShown = new double[CampfireActions.SPOTS][];
+    /** Points along a rail (blocks across the screen from its middle) tried against the arms. */
+    private static final double[] RAIL_SAMPLES = {-0.06, -0.03, 0, 0.03, 0.06};
+
+    private static float unhidden(Vec3 at) {
+        net.minecraft.client.Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        org.joml.Vector3f left = camera.getLeftVector();
+        int clear = 0;
+        for (double d : RAIL_SAMPLES) {
+            if (!Hands.hides(camera.getPosition(), camera.getYRot(), at.add(left.x() * d, left.y() * d, left.z() * d))) clear++;
+        }
+        return clear / (float) RAIL_SAMPLES.length;
+    }
+    //?}
     private boolean cookingLit;
     private double progressReceivedAt;
 
@@ -345,8 +366,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
                 if (carried.isEmpty() && !food.get(picked).isEmpty()) { target = Target.FOOD; hoverSpot = picked; aim = spot(picked); }
                 else if (!carried.isEmpty()) {
                     target = Target.PLACE;
-                    Minecraft mc = Minecraft.getInstance();
-                    boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
+                    boolean cookable = cookable(carried);
                     placeSpot = cookable && food.get(picked).isEmpty() ? picked : -1;
                     aim = spot(picked);
                 }
@@ -373,8 +393,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             return;
         }
         target = Target.PLACE;
-        Minecraft mc = Minecraft.getInstance();
-        boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
+        boolean cookable = cookable(carried);
         double best = Double.MAX_VALUE;
         for (int j = 0; j < CampfireActions.SPOTS && cookable; j++) {
             double d = hit.distanceToSqr(spot(j));
@@ -416,7 +435,11 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             return;
         }
         Hands.tap();
+        //? if !forge {
         PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.CAMPFIRE, StationActionPayload.Action.CLICK, index, button, shift,
+        //?} else if forge {
+        /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.CAMPFIRE, StationActionPayload.Action.CLICK, index, button, shift,
+        *///?}
                 sideDirection().get2DDataValue()));
         Scene.sound(target == Target.FOOD ? SoundEvents.ITEM_PICKUP : SoundEvents.WOOD_PLACE, 0.4f, target == Target.FOOD ? 1.4f : 1.2f);
     }
@@ -453,9 +476,7 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             return lines;
         }
         if (target == Target.PLACE && placeSpot < 0) {
-            Minecraft mc = Minecraft.getInstance();
-            boolean cookable = mc.level.getBlockEntity(pos) instanceof CampfireBlockEntity campfire && campfire.getCookableRecipe(carried).isPresent();
-            return List.of(Component.translatable(cookable ? "cinematic.campfire.full" : "cinematic.campfire.not_food").withStyle(ChatFormatting.RED));
+            return List.of(Component.translatable(cookable(carried) ?"cinematic.campfire.full" : "cinematic.campfire.not_food").withStyle(ChatFormatting.RED));
         }
         return null;
     }
@@ -489,20 +510,60 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             shownProgress[i] = Anim.approach(shownProgress[i], cookingFraction(i), 14, Scene.frameDt);
             double[] at = Picking.toGui(spot(i).add(0, 0.02, 0));
             if (at == null) continue;
-            int x = (int) Math.round(at[0]) - 15, y = (int) Math.round(at[1]) - 8;
+            //? if !forge {
+            // The rail stays on its food. It used to jump up above the cursor's tooltip whenever the food was hovered, which
+            // is just when the hand reaches over it; the tooltip itself says how far the cooking is.
+            double x = at[0] - 15, y = at[1] - 8;
+            railShown[i] = null;
+            //?} else if forge {
+            /*int x = (int) Math.round(at[0]) - 15, y = (int) Math.round(at[1]) - 8;
             // Vanilla tooltips start just above the cursor; keep the selected rail above their top edge.
             if (hoverSpot == i) y = Math.min(y, (int) Math.floor(Picking.mouseGui()[1]) - 24);
+            *///?}
             if (x < 2 || x + 30 >= g.guiWidth() - 2 || y < 18 || y > g.guiHeight() - 26) continue;
-            float a = alpha * (hoverSpot == i ? 1 : 0.82f);
+            //? if !forge {
+            // drawn over the frame, it would show through the hand: an arm in front of it hides it, as it hides the food
+            railSeen[i] = (float) Anim.approach(railSeen[i], unhidden(spot(i).add(0, 0.02, 0)), 18, Scene.frameDt);
+            float a = alpha * (hoverSpot == i ? 1 : 0.82f) * railSeen[i];
+            if (a < 0.02f) continue;
+            // placed to a fraction of a pixel: rounded, the rail stepped a whole GUI pixel at a time as the camera
+            // breathed and leant towards the hand's spot
+            g.pose().pushPose();
+            g.pose().translate(x, y, 0);
+            g.fill(-2, -2, 32, 7, color(a * 0.55f, 12, 16, 19));
+            g.fill(0, 0, 30, 4, color(a * 0.5f, 75, 80, 82));
+            //?} else if forge {
+            /*float a = alpha * (hoverSpot == i ? 1 : 0.82f);
             g.fill(x - 2, y - 2, x + 32, y + 7, color(a * 0.55f, 12, 16, 19));
             g.fill(x, y, x + 30, y + 4, color(a * 0.5f, 75, 80, 82));
+            *///?}
             int filled = (int) Math.round(30 * shownProgress[i]);
             if (filled > 0) {
                 int fill = cookingLit ? soul ? color(a, 103, 211, 231) : color(a, 255, 188, 99)
                         : color(a, 155, 176, 183);
-                g.fill(x, y, x + filled, y + 4, fill);
+                //? if !forge {
+                g.fill(0, 0, filled, 4, fill);
+                //?} else if forge {
+                /*g.fill(x, y, x + filled, y + 4, fill);
+                *///?}
             }
+            //? if !forge {
+            g.pose().popPose();
+            railShown[i] = new double[]{x, y, at[0] - 15, at[1] - 8};
+            //?}
         }
+    }
+
+    /** Whether the food cooks on a campfire. Not getCookableRecipe: it answers nothing once all four spots are taken. */
+    private static boolean cookable(ItemStack carried) {
+        Level level = Minecraft.getInstance().level;
+        //? if >=1.21 {
+        return level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CAMPFIRE_COOKING,
+                new net.minecraft.world.item.crafting.SingleRecipeInput(carried), level).isPresent();
+        //?} else if <1.21 {
+        /*return level.getRecipeManager().getRecipeFor(net.minecraft.world.item.crafting.RecipeType.CAMPFIRE_COOKING,
+                new net.minecraft.world.SimpleContainer(carried), level).isPresent();
+        *///?}
     }
 
     private static int color(float alpha, int red, int green, int blue) {
