@@ -1,5 +1,5 @@
 # Read by Stonecutter for every version: the shared values first, then each version's own table.
-mod.version = "0.18.28"
+mod.version = "0.18.30"
 loomx.loom_version = "1.17.21"
 # The obfuscated versions use the remapping Loom under its usual id.
 loomx.loom_remap_plugin = "fabric-loom"

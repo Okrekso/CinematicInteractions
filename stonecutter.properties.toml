@@ -3,11 +3,12 @@ mod.id = "cinematic"
 mod.name = "Cinematic Interactions"
 mod.license = "MIT"
 mod.group = "dev.dyslexic.cinematic"
+# One version for every target: they all ship the same features.
+mod.version = "0.18.30"
 loomx.loom_version = "1.17.21"
 loomx.loom_remap_plugin = "fabric-loom"
 
 [neoforge."1.21.1"]
-mod.version = "0.18.28"
 mod.java = 21
 # the jar's name as the owner wants to see it in the mods folder (the mod's id stays "cinematic")
 mod.archive = "Cinematic Interaction"
@@ -21,7 +22,6 @@ deps.parchment = "2024.11.17"
 deps.compile_only = "maven.modrinth:inventory-particles:tIeIGFCs maven.modrinth:inventory-interactions:U3SO7tDA maven.modrinth:jei:RI8WCow6 maven.modrinth:polymorph:Ac1c8Jlj"
 
 [forge."1.20.1"]
-mod.version = "0.18.28"
 mod.java = 17
 mod.archive = "Cinematic Interaction-Forge-1.20.1"
 # The recommended Forge for 1.20.1 on files.minecraftforge.net (promotions_slim.json, 19 October 2026).
@@ -35,8 +35,6 @@ deps.parchment = "2023.09.03"
 deps.compile_only = "maven.modrinth:jei:9jqubC9n maven.modrinth:inventory-particles:31tfSz4E maven.modrinth:inventory-interactions:4a67bkSC maven.modrinth:mossylib:B8d1ZLpg maven.modrinth:polymorph:5lNATnbO"
 
 [fabric."1.21.1"]
-# Follows NeoForge 1.21.1 0.18.12; 0.18.13-0.18.25 are Fabric-only additions (docs/ports/fabric-1.21.1/TESTING.md).
-mod.version = "0.18.25"
 mod.java = 21
 mod.archive = "Cinematic Interaction-Fabric-1.21.1"
 deps.parchment = "2024.11.17"
@@ -50,7 +48,6 @@ deps.mod_compile_only = "maven.modrinth:polymorph:Ng5Y6KVo"
 mixins.exclude = "ChunkMapMixin"
 
 [fabric."1.20.1"]
-mod.version = "0.18.25"
 mod.java = 17
 mod.archive = "Cinematic Interaction-Fabric-1.20.1"
 deps.parchment = "2023.09.03"

@@ -25,7 +25,7 @@ The mod is built by two [Stonecutter](https://stonecutter.kikugie.dev/) projects
 
 Each `src/` holds the code of its active target; the other targets' code sits next to it in `//? if` comments. To edit another target as plain Java, run `./gradlew "Set active project to <target>"`, and `./gradlew "Reset active project"` before committing.
 
-Fabric 1.21–1.21.10 (0.12.x) were built by the former layered `fabric/` project, kept on the `legacy/fabric-1.21` branch.
+Fabric 1.21–1.21.10 (0.12.x) are no longer built.
 
 ## Source map
 
