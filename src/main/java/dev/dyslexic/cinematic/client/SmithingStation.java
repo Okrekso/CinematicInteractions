@@ -59,6 +59,41 @@ public final class SmithingStation extends SurfaceStation<SmithingMenu> {
 
     public enum Target { NONE, PLACE, ITEM }
 
+    // ---- competing recipes (Polymorph): the strip shows the results, the server's result slot tells which is in use ----
+
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+
+    @Override
+    RecipeChoiceStrip choices() {
+        return choiceStrip;
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        Minecraft mc = Minecraft.getInstance();
+        SmithingMenu menu = menu();
+        if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly() || menu == null || mc.level == null) {
+            choiceStrip.clear();
+            return;
+        }
+        var input = new net.minecraft.world.item.crafting.SmithingRecipeInput(menu.getSlot(0).getItem(), menu.getSlot(1).getItem(), menu.getSlot(2).getItem());
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level, net.minecraft.world.item.crafting.RecipeType.SMITHING, input);
+        if (competing.size() < 2) {
+            choiceStrip.clear();
+            return;
+        }
+        List<ItemStack> outputs = new java.util.ArrayList<>();
+        int inUse = -1;
+        ItemStack result = menu.getSlot(3).getItem();
+        for (int i = 0; i < competing.size(); i++) {
+            ItemStack output = competing.get(i).value().assemble(input, mc.level.registryAccess());
+            outputs.add(output);
+            if (inUse < 0 && !result.isEmpty() && ItemStack.isSameItemSameComponents(output, result)) inUse = i;
+        }
+        choiceStrip.set(outputs, inUse);
+    }
+
     public final Vec3 top;
     public Target target = Target.NONE;
     public int hoverSlot = -1;

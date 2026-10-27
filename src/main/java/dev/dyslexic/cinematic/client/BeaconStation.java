@@ -672,16 +672,21 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
         if (Scene.phase != Scene.Phase.ACTIVE) {
             return;
         }
-        Vector3f up = Minecraft.getInstance().gameRenderer.getMainCamera().getUpVector();
+        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Vector3f up = camera.getUpVector();
         Vec3 upward = new Vec3(up.x(), up.y(), up.z());
-        for (Icon icon : icons) {
+        for (int i = 0; i < icons.size(); i++) {
+            Icon icon = icons.get(i);
             double[] at = Picking.toGui(icon.at()), edge = Picking.toGui(icon.at().add(upward.scale(icon.half())));
             if (at == null || edge == null) {
                 continue;
             }
             // GUI pixels for a block of the world there
             double perBlock = Math.hypot(edge[0] - at[0], edge[1] - at[1]) / icon.half();
-            float a = Math.min(1, icon.alpha()) * alpha;
+            if (i >= seen.length) seen = java.util.Arrays.copyOf(seen, i + 8);
+            seen[i] = (float) Anim.approach(seen[i], unhidden(camera, icon), 18, Scene.frameDt);
+            float a = Math.min(1, icon.alpha()) * alpha * seen[i];
+            if (a < 0.02f) continue;
             g.pose().pushPose();
             g.pose().translate(at[0], at[1], 0);
             g.pose().mulPose(com.mojang.math.Axis.ZP.rotationDegrees(-icon.rotation()));
@@ -704,6 +709,34 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
     }
 
     // ---- what others see -------------------------------------------------------------------------------
+
+    /** How much of each icon is in sight (eased): drawn over the frame, it would show through the hands and blocks otherwise. */
+    private float[] seen = new float[16];
+    /** Points of an icon (fractions of its half size, across and up) tried against the hands and the blocks. */
+    private static final double[][] ICON_SAMPLES = {{0, 0}, {-0.7, -0.7}, {0.7, -0.7}, {-0.7, 0.7}, {0.7, 0.7}, {0, 0.8}, {0, -0.8}, {0.8, 0}, {-0.8, 0}};
+
+    float iconSeen(int index) {
+        return index < seen.length ? seen[index] : 1f;
+    }
+
+    /** The share of an icon nothing hides from the eyes: no arm in front of it, no block between. */
+    private static float unhidden(Camera camera, Icon icon) {
+        Minecraft mc = Minecraft.getInstance();
+        Vec3 eye = camera.getPosition();
+        Vector3f l = camera.getLeftVector(), u = camera.getUpVector();
+        int clear = 0;
+        for (double[] at : ICON_SAMPLES) {
+            Vec3 point = icon.at().add(new Vec3(l.x(), l.y(), l.z()).scale(at[0] * icon.half())).add(new Vec3(u.x(), u.y(), u.z()).scale(at[1] * icon.half()));
+            boolean hidden = Hands.hides(eye, camera.getYRot(), point);
+            if (!hidden && mc.level != null && mc.player != null) {
+                var hit = mc.level.clip(new net.minecraft.world.level.ClipContext(eye, point, net.minecraft.world.level.ClipContext.Block.VISUAL,
+                        net.minecraft.world.level.ClipContext.Fluid.NONE, mc.player));
+                hidden = hit.getType() != net.minecraft.world.phys.HitResult.Type.MISS && hit.getLocation().distanceToSqr(eye) < point.distanceToSqr(eye) - 0.01;
+            }
+            if (!hidden) clear++;
+        }
+        return clear / (float) ICON_SAMPLES.length;
+    }
 
     /** The payment floating over someone else's beacon. */
     static void drawContents(PoseStack pose, MultiBufferSource buffers, Camera camera, BlockPos pos, Direction side, List<ItemStack> items) {

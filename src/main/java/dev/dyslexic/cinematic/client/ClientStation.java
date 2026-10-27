@@ -331,6 +331,17 @@ public abstract class ClientStation {
     /** Extras over the scene (progress indicators...). */
     public void renderScreen(GuiGraphics graphics, Font font, float alpha) {}
 
+    /** The results competing for the station's input (Polymorph), for the stations that offer a choice. */
+    @javax.annotation.Nullable
+    RecipeChoiceStrip choices() {
+        return null;
+    }
+
+    /** The player picked the {@code index}-th competing result on the strip: the server is told. */
+    void chose(int index) {
+        RecipeChoiceStrip.send(pos, kind(), index);
+    }
+
     /** Tooltip for what the cursor is over, or null. */
     @Nullable
     public List<Component> tooltip(ItemStack carried) {

@@ -28,12 +28,25 @@ public final class TableCrafting {
 
     /** The recipe the table currently spells for a player on {@code side}; the result is a fresh copy. */
     public static Optional<Match> match(Level level, List<ItemStack> world, Direction side) {
+        return match(level, world, side, null);
+    }
+
+    /**
+     * The same, with {@code chosen} winning when it is one of several recipes the cells spell (Polymorph's choice): the
+     * scene shows and the server crafts the same one.
+     */
+    public static Optional<Match> match(Level level, List<ItemStack> world, Direction side, @javax.annotation.Nullable net.minecraft.resources.ResourceLocation chosen) {
         CraftingInput.Positioned positioned = CraftingInput.ofPositioned(3, 3, TableGrid.oriented(world, side));
         CraftingInput input = positioned.input();
         if (input.isEmpty()) {
             return Optional.empty();
         }
-        Optional<RecipeHolder<CraftingRecipe>> found = level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, level);
+        Optional<RecipeHolder<CraftingRecipe>> found = Optional.empty();
+        if (chosen != null) {
+            found = dev.dyslexic.cinematic.station.RecipeChoices.matching(level, RecipeType.CRAFTING, input).stream()
+                    .filter(holder -> holder.id().equals(chosen)).findFirst();
+        }
+        if (found.isEmpty()) found = level.getRecipeManager().getRecipeFor(RecipeType.CRAFTING, input, level);
         if (found.isEmpty()) {
             return Optional.empty();
         }
@@ -50,7 +63,7 @@ public final class TableCrafting {
      */
     public static List<ItemStack> craftOnce(ServerPlayer player, ServerLevel level, TableStore.Table table, Direction side,
             boolean toInventory) {
-        Optional<Match> found = match(level, table.items, side);
+        Optional<Match> found = match(level, table.items, side, dev.dyslexic.cinematic.station.RecipeChoices.chosen(player));
         if (found.isEmpty()) {
             return null;
         }

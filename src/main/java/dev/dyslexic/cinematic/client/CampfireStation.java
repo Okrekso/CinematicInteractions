@@ -66,6 +66,21 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
     private final int[] cookingProgress = new int[CampfireActions.SPOTS];
     private final int[] cookingTime = new int[CampfireActions.SPOTS];
     private final double[] shownProgress = new double[CampfireActions.SPOTS];
+    /** How much of each rail no arm hides (eased), and where it was last drawn (GUI pixels). */
+    private final float[] railSeen = {1, 1, 1, 1};
+    final double[][] railShown = new double[CampfireActions.SPOTS][];
+    /** Points along a rail (blocks across the screen from its middle) tried against the arms. */
+    private static final double[] RAIL_SAMPLES = {-0.06, -0.03, 0, 0.03, 0.06};
+
+    private static float unhidden(Vec3 at) {
+        net.minecraft.client.Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        org.joml.Vector3f left = camera.getLeftVector();
+        int clear = 0;
+        for (double d : RAIL_SAMPLES) {
+            if (!Hands.hides(camera.getPosition(), camera.getYRot(), at.add(left.x() * d, left.y() * d, left.z() * d))) clear++;
+        }
+        return clear / (float) RAIL_SAMPLES.length;
+    }
     private boolean cookingLit;
     private double progressReceivedAt;
 
@@ -489,19 +504,29 @@ public final class CampfireStation extends ClientStation implements SpatialTarge
             shownProgress[i] = Anim.approach(shownProgress[i], cookingFraction(i), 14, Scene.frameDt);
             double[] at = Picking.toGui(spot(i).add(0, 0.02, 0));
             if (at == null) continue;
-            int x = (int) Math.round(at[0]) - 15, y = (int) Math.round(at[1]) - 8;
-            // Vanilla tooltips start just above the cursor; keep the selected rail above their top edge.
-            if (hoverSpot == i) y = Math.min(y, (int) Math.floor(Picking.mouseGui()[1]) - 24);
+            // The rail stays on its food. It used to jump up above the cursor's tooltip whenever the food was hovered, which
+            // is just when the hand reaches over it; the tooltip itself says how far the cooking is.
+            double x = at[0] - 15, y = at[1] - 8;
+            railShown[i] = null;
             if (x < 2 || x + 30 >= g.guiWidth() - 2 || y < 18 || y > g.guiHeight() - 26) continue;
-            float a = alpha * (hoverSpot == i ? 1 : 0.82f);
-            g.fill(x - 2, y - 2, x + 32, y + 7, color(a * 0.55f, 12, 16, 19));
-            g.fill(x, y, x + 30, y + 4, color(a * 0.5f, 75, 80, 82));
+            // drawn over the frame, it would show through the hand: an arm in front of it hides it, as it hides the food
+            railSeen[i] = (float) Anim.approach(railSeen[i], unhidden(spot(i).add(0, 0.02, 0)), 18, Scene.frameDt);
+            float a = alpha * (hoverSpot == i ? 1 : 0.82f) * railSeen[i];
+            if (a < 0.02f) continue;
+            // placed to a fraction of a pixel: rounded, the rail stepped a whole GUI pixel at a time as the camera
+            // breathed and leant towards the hand's spot
+            g.pose().pushPose();
+            g.pose().translate(x, y, 0);
+            g.fill(-2, -2, 32, 7, color(a * 0.55f, 12, 16, 19));
+            g.fill(0, 0, 30, 4, color(a * 0.5f, 75, 80, 82));
             int filled = (int) Math.round(30 * shownProgress[i]);
             if (filled > 0) {
                 int fill = cookingLit ? soul ? color(a, 103, 211, 231) : color(a, 255, 188, 99)
                         : color(a, 155, 176, 183);
-                g.fill(x, y, x + filled, y + 4, fill);
+                g.fill(0, 0, filled, 4, fill);
             }
+            g.pose().popPose();
+            railShown[i] = new double[]{x, y, at[0] - 15, at[1] - 8};
         }
     }
 

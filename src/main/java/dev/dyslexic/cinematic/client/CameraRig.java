@@ -22,6 +22,7 @@ public final class CameraRig {
     /** 0 = player's own view, 1 = fully leaning; drives the field of view too. */
     private static double weight;
     private static double parallaxX, parallaxY;
+    private static Vec3 reachLean = Vec3.ZERO;
 
     public static double weight() {
         return weight;
@@ -62,7 +63,8 @@ public final class CameraRig {
                 weight = Scene.transition ? Math.max(ep, 1 - Scene.released()) : ep;
             }
             case ACTIVE -> {
-                pose = FreeLook.apply(kick(tether(breathe(station.view(), Anim.smoother(Scene.time / 0.6)), livePos, station), station.cameraKick()));
+                Pose base = tether(breathe(station.view(), Anim.smoother(Scene.time / 0.6)), livePos, station);
+                pose = FreeLook.apply(kick(naturalReach(base, livePos, station), station.cameraKick()));
                 weight = 1;
             }
             default -> {
@@ -118,6 +120,28 @@ public final class CameraRig {
         return new Pose(pose.pos(), pose.yaw() + shakeYaw, pose.pitch() + shakePitch, pose.roll() + shakeYaw * 0.4f);
     }
 
+    /** A small local lean follows a reach while the two-part arms keep their natural length. */
+    private static Pose naturalReach(Pose pose, Vec3 liveEye, ClientStation station) {
+        Vec3 target = Vec3.ZERO;
+        if (Settings.armStyle() == 1 && station.aim != null && FreeLook.amount() < 0.01) {
+            Vec3 toward = station.aim.subtract(pose.pos());
+            if (toward.lengthSqr() > 1e-6) target = toward.normalize().scale(Math.min(0.09, toward.length() * 0.12));
+        }
+        reachLean = Anim.lerp(reachLean, target, 1 - Math.exp(-Scene.frameDt * 7));
+        if (reachLean.lengthSqr() < 1e-8) return pose;
+        Vec3 end = pose.pos().add(reachLean);
+        if (Scene.clientOnly()) {
+            Vec3 fromEye = end.subtract(liveEye);
+            if (fromEye.length() > 0.35) end = liveEye.add(fromEye.normalize().scale(0.35));
+        }
+        var mc = Minecraft.getInstance();
+        if (mc.level != null && mc.player != null) {
+            var hit = mc.level.clip(new ClipContext(pose.pos(), end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+            if (hit.getType() != HitResult.Type.MISS) end = pose.pos();
+        }
+        return new Pose(end, pose.yaw(), pose.pitch(), pose.roll());
+    }
+
     /** Slow breathing, plus a slight drift towards the cursor once the hands are at work. */
     private static Pose breathe(Pose pose, double parallax) {
         if (!Settings.livingCamera()) {
@@ -149,5 +173,6 @@ public final class CameraRig {
         last = null;
         weight = 0;
         parallaxX = parallaxY = 0;
+        reachLean = Vec3.ZERO;
     }
 }

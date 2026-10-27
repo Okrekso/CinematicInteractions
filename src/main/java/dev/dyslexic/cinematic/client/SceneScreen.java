@@ -228,7 +228,8 @@ public final class SceneScreen extends Screen {
         float look = (float) FreeLook.amount();
         boolean over = working() && drawer && !FreeLook.looking() && overPanel(mouseX, mouseY);
         Scene.overPanel = over || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY))
-                || (editor() != null && editor().over(mouseX, mouseY)) || guideShown() && guide.over(mouseX, mouseY);
+                || (editor() != null && editor().over(mouseX, mouseY)) || guideShown() && guide.over(mouseX, mouseY)
+                || station.choices() != null && station.choices().over(mouseX, mouseY);
         expand = Anim.approach(expand, over ? 1 : 0, 13, Scene.frameDt);
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
@@ -238,6 +239,9 @@ public final class SceneScreen extends Screen {
 
         if (alpha > 0.01f) {
             station.renderScreen(graphics, font, alpha);
+            if (station.choices() != null) {
+                station.choices().render(graphics, font, alpha);
+            }
             if (guideShown()) {
                 guide.render(graphics, font, alpha);
             }
@@ -402,7 +406,8 @@ public final class SceneScreen extends Screen {
             }
             return;
         }
-        List<Component> lines = station.tooltip(carried);
+        List<Component> lines = station.choices() != null && carried.isEmpty() ? station.choices().tooltip(mx, my) : null;
+        if (lines == null) lines = station.tooltip(carried);
         if (lines == null || lines.isEmpty()) {
             return;
         }
@@ -479,6 +484,12 @@ public final class SceneScreen extends Screen {
         }
         if (Scene.station.showsInventory() && overPanel(mx, my)) {
             panelClick(slotAt(mx, my), button, hasShiftDown());
+            return true;
+        }
+        RecipeChoiceStrip choices = Scene.station.choices();
+        int picked = choices == null ? -2 : choices.click(mx, my);
+        if (picked != -2) {
+            if (picked >= 0) Scene.station.chose(picked);
             return true;
         }
         if (button == 1 && Scene.neighbor != null) {

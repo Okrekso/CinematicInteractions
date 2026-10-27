@@ -166,7 +166,9 @@ final class TableRecipeBook {
 
     /** How many items "Lay out" would put down right now (0: nothing to do, or the hands are busy). */
     private int layable() {
-        return guide.selected == null || station.busy() ? 0 : guide.layoutMoves().size();
+        if (guide.selected == null || station.busy()) return 0;
+        // the last recipe's leftovers in the way are taken back first; they may also belong in the new one
+        return guide.takeBackMoves().isEmpty() ? guide.layoutMoves().size() : guide.layableAfterTakingBack();
     }
 
     private boolean inLayButton(double mx, double my) {
@@ -181,6 +183,15 @@ final class TableRecipeBook {
 
     /** Lays out the chosen recipe: one set, or with {@code all} as many whole sets as possible. */
     void layOut(boolean all) {
+        List<int[]> back = guide.selected == null || station.busy() ? List.of() : guide.takeBackMoves();
+        if (!back.isEmpty()) {
+            // take back what is in the way, then lay out from the inventory as it is after that
+            if (all ? maxLayout().moves().isEmpty() : layable() == 0) return;
+            List<int[]> moves = new ArrayList<>(back);
+            moves.add(new int[]{-1, TableStation.REPLAN, all ? 1 : 0});
+            station.layOut(moves);
+            return;
+        }
         List<int[]> moves = all ? maxLayout().moves() : layable() > 0 ? guide.layoutMoves() : List.of();
         if (!moves.isEmpty()) station.layOut(moves);
     }
@@ -268,6 +279,8 @@ final class TableRecipeBook {
                 List<Component> lines = new ArrayList<>();
                 lines.add(text(station.busy() ? "laying" : layable() > 0 ? "lay_out_tip" : "nothing_to_lay_tip"));
                 if (guide.missingCount > 0) lines.add(text("lay_missing", guide.missingCount).copy().withStyle(ChatFormatting.RED));
+                if (!station.busy() && !guide.takeBackMoves().isEmpty()) lines.add(text("lay_take_back", guide.takeBackMoves().size()).copy().withStyle(ChatFormatting.GRAY));
+                if (!station.busy() && guide.stuck() > 0) lines.add(text("lay_no_room", guide.stuck()).copy().withStyle(ChatFormatting.RED));
                 if (!station.busy()) {
                     TableRecipeGuide.MaxLayout max = maxLayout();
                     // Shift only promises what the items at hand and the stack limits really allow.

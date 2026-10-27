@@ -152,6 +152,22 @@ public final class Fx {
     }
 
     /** A soft dark spot facing the camera, so something bright in front of it stands out against a light background. */
+    /**
+     * The dark glass: an ordinary translucent entity layer (shader packs treat it as one, so it stays dark; an emissive
+     * layer came out as no light at all under Complementary), only without the depth write.
+     */
+    private static final RenderType SHADE = noDepthWrite(RenderType.entityTranslucent(EnchantFx.GLOW));
+
+    private static RenderType noDepthWrite(RenderType original) {
+        return new RenderType("cinematic_shade", original.format(), original.mode(), original.bufferSize(), false, true, () -> {
+            original.setupRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(false);
+        }, () -> {
+            original.clearRenderState();
+            com.mojang.blaze3d.systems.RenderSystem.depthMask(true);
+        }) {};
+    }
+
     public static void shade(PoseStack pose, MultiBufferSource buffers, Camera camera, Vec3 center, double radius, float alpha) {
         Vector3f left = camera.getLeftVector();
         Vector3f up = camera.getUpVector();
@@ -164,7 +180,10 @@ public final class Fx {
             c[i] = new Vec3(center.x + left.x() * x + up.x() * y - cam.x, center.y + left.y() * x + up.y() * y - cam.y,
                     center.z + left.z() * x + up.z() * y - cam.z);
         }
-        VertexConsumer vc = buffers.getBuffer(RenderType.entityTranslucent(EnchantFx.GLOW));
+        // blended without writing depth: as a translucent entity it wrote its whole soft square into the depth buffer, the
+        // rings and glows laid on it in the same plane fought it for every pixel (they flickered), and chests, bells or the
+        // book drawn after the scene vanished behind the clear part of it
+        VertexConsumer vc = buffers.getBuffer(SHADE);
         Vector3f look = camera.getLookVector();
         int a = channel(alpha);
         for (int[] order : BOTH_WAYS) {

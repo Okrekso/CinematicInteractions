@@ -79,6 +79,10 @@ public final class Sessions {
             quickMove(player, level, session, action.index());
             return;
         }
+        if (action.action() == StationActionPayload.Action.CHOOSE) {
+            RecipeChoices.choose(player, level, session, action.index());
+            return;
+        }
         switch (session.kind()) {
             case TABLE -> TableActions.handle(player, level, session, action);
             case FURNACE, SMOKER, BLAST_FURNACE -> FurnaceActions.handle(player, level, session, action);

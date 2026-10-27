@@ -45,6 +45,11 @@ public final class ClientOnly {
         return connection != null && NetworkRegistry.hasChannel(connection, StationActionPayload.TYPE.id());
     }
 
+    /** The mode as captured when this connection was made (what the server list's note sets takes effect here). */
+    static boolean modeForConnection() {
+        return enabledForConnection;
+    }
+
     /** Called before vanilla sends its block-use packet. True leaves that use untouched. */
     public static boolean onVanillaUse(BlockPos pos, StationKind kind) {
         if (serverHasMod()) return false;

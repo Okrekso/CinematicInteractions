@@ -405,14 +405,49 @@ public final class FurnaceStation extends ClientStation {
     // ---- state ---------------------------------------------------------------------------------------
 
     public void applyState(FurnaceStatePayload state) {
+        furnaceChoice = state.choice();
         litTime = state.litTime();
         litDuration = state.litDuration();
         cookingProgress = state.cookingProgress();
         cookingTotalTime = state.cookingTotalTime();
     }
 
+    // ---- competing recipes (Polymorph): which one this furnace was told to use comes from the server -------------
+
+    private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+    private String furnaceChoice = "";
+
+    @Override
+    RecipeChoiceStrip choices() {
+        return choiceStrip;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void updateChoices() {
+        Minecraft mc = Minecraft.getInstance();
+        ItemStack input = ClientFurnaces.item(pos, FurnaceZones.INPUT);
+        if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly() || input.isEmpty() || mc.level == null) {
+            choiceStrip.clear();
+            return;
+        }
+        var single = new SingleRecipeInput(input);
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level, (RecipeType<AbstractCookingRecipe>) layout.recipeType, single);
+        if (competing.size() < 2) {
+            choiceStrip.clear();
+            return;
+        }
+        List<ItemStack> outputs = new java.util.ArrayList<>();
+        int inUse = -1;
+        for (int i = 0; i < competing.size(); i++) {
+            outputs.add(competing.get(i).value().assemble(single, mc.level.registryAccess()));
+            if (competing.get(i).id().toString().equals(furnaceChoice)) inUse = i;
+        }
+        choiceStrip.set(outputs, inUse);
+    }
+
     @Override
     public void tick() {
+        updateChoices();
         if (Scene.clientOnly()) return;
         if (litTime > 0) {
             litTime--;

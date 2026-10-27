@@ -19,6 +19,7 @@ import net.neoforged.neoforge.common.util.TriState;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEnchantItemEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.level.ChunkWatchEvent;
@@ -118,6 +119,14 @@ public final class StationEvents {
     public static void onStartTracking(PlayerEvent.StartTracking event) {
         if (event.getTarget() instanceof ServerPlayer target && event.getEntity() instanceof ServerPlayer watcher) {
             Sessions.sendAtStation(target, watcher);
+        }
+    }
+
+    /** A crafting window opened at a table (another mod, a sneaking use, the scene off): it takes what lies on the table. */
+    @SubscribeEvent
+    public static void onContainerOpen(PlayerContainerEvent.Open event) {
+        if (event.getEntity() instanceof ServerPlayer player && event.getContainer() instanceof net.minecraft.world.inventory.CraftingMenu menu) {
+            dev.dyslexic.cinematic.table.TableActions.intoWindow(player, menu);
         }
     }
 

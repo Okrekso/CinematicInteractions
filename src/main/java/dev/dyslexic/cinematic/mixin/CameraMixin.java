@@ -21,7 +21,7 @@ public abstract class CameraMixin {
     protected abstract void setPosition(Vec3 pos);
 
     @Shadow
-    protected abstract void setRotation(float yRot, float xRot, float roll);
+    protected abstract void setRotation(float yRot, float xRot);
 
     @Inject(method = "setup", at = @At("TAIL"))
     private void cinematic$scene(BlockGetter level, Entity entity, boolean detached, boolean thirdPersonReverse, float partialTick,
@@ -38,7 +38,11 @@ public abstract class CameraMixin {
         }
         CameraRig.Pose pose = CameraRig.override(self.getPosition(), yaw, pitch);
         if (pose != null) {
-            setRotation(pose.yaw(), pose.pitch(), pose.roll());
+            setRotation(pose.yaw(), pose.pitch());
+            self.rotation().rotateZ((float) Math.toRadians(-pose.roll()));
+            self.getUpVector().set(0, 1, 0).rotate(self.rotation());
+            // vanilla's LEFT is (-1, 0, 0): billboards spanned by it (rune circles, glows) must not come out mirrored
+            self.getLeftVector().set(-1, 0, 0).rotate(self.rotation());
             setPosition(pose.pos());
         }
     }

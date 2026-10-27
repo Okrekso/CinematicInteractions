@@ -92,8 +92,10 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
                 rightArm.zRot = 0.08f;
             }
             case CAMPFIRE -> {
-                // sitting on the ground by the fire, right knee drawn up with the hand on it, leaning on the left hand
-                rightLeg.xRot = -2.0f;
+                // sitting on the ground by the fire, right knee drawn up with the hand on it, leaning on the left hand; the
+                // raised leg is drawn bent at the knee by KneeLayer (one straight piece would point at the sky)
+                boolean bent = dev.dyslexic.cinematic.client.KneeLayer.bends;
+                rightLeg.xRot = bent ? dev.dyslexic.cinematic.client.KneeLayer.THIGH : -2.0f;
                 rightLeg.yRot = 0.12f;
                 rightLeg.zRot = 0.05f;
                 leftLeg.xRot = -1.45f;

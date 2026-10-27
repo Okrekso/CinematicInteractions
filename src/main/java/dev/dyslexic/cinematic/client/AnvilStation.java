@@ -243,8 +243,11 @@ public final class AnvilStation extends MenuStation<AnvilMenu> implements Spatia
     }
 
     private boolean affordable() {
+        // the menu's own result slot decides, as in its window: anvil mods change the price (Easy Anvils renames for
+        // free, and lets a cost of 0 through), and vanilla's own rule is the same check
+        AnvilMenu menu = menu();
         LocalPlayer player = Minecraft.getInstance().player;
-        return player != null && cost() > 0 && (player.getAbilities().instabuild || player.experienceLevel >= cost());
+        return menu != null && player != null && menu.getSlot(menu.getResultSlot()).mayPickup(player);
     }
 
     /** Both pieces are there but vanilla refuses: the work would cost 40 levels or more. */

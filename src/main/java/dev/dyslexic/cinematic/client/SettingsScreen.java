@@ -9,6 +9,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.function.IntSupplier;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -229,6 +230,43 @@ public final class SettingsScreen extends Screen {
         };
     }
 
+    /** The way in as it plays: the three-way setting, or (still -1 from an older file) the old quick return switch. */
+    private int quickMode() {
+        int mode = number(Settings.QUICK_MODE);
+        return mode < 0 ? (bool(Settings.QUICK_RETURN) ? 1 : 0) : mode;
+    }
+
+    /**
+     * One of a few numbered choices (the way in, the arms), each named by its translation key and number; as made it
+     * is {@code made}.
+     */
+    private Option choice(Tab on, String key, ModConfigSpec.IntValue value, int count, IntSupplier current, int made) {
+        return new Option(on, Component.translatable("cinematic.configuration." + key), Component.translatable("cinematic.configuration." + key + ".tooltip")) {
+            @Override
+            AbstractWidget control() {
+                Integer[] values = new Integer[count];
+                for (int i = 0; i < count; i++) values[i] = i;
+                return CycleButton.<Integer>builder(v -> Component.translatable("cinematic.settings." + key + "." + v).withStyle(ChatFormatting.WHITE))
+                        .withValues(values).withInitialValue(current.getAsInt()).displayOnlyValue()
+                        .create(0, 0, CONTROL, 20, label, (button, to) -> {
+                            put(value, to);
+                            // (the way in switches the approach speed and the quick return window on or off)
+                            dirty = true;
+                        });
+            }
+
+            @Override
+            boolean changed() {
+                return current.getAsInt() != made;
+            }
+
+            @Override
+            void reset() {
+                put(value, made);
+            }
+        };
+    }
+
     private Option presetOption() {
         return new Option(Tab.CAMERA, Component.translatable("cinematic.settings.preset"), Component.translatable("cinematic.settings.preset.tooltip")) {
             @Override
@@ -296,6 +334,7 @@ public final class SettingsScreen extends Screen {
         all.add(invite);
         all.add(toggle(Tab.GENERAL, "lookToggles", Settings.LOOK_TOGGLES,
                 on -> Component.translatable(on ? "cinematic.settings.look.toggle" : "cinematic.settings.look.hold").withStyle(ChatFormatting.WHITE)));
+        all.add(choice(Tab.GENERAL, "armStyle", Settings.ARM_STYLE, 3, () -> number(Settings.ARM_STYLE), 0));
         // stations
         for (Object[] group : GROUPS) {
             all.add(new Header(Tab.STATIONS, Component.translatable("cinematic.settings.group." + group[0])));
@@ -308,11 +347,14 @@ public final class SettingsScreen extends Screen {
         all.add(presetOption());
         all.add(toggle(Tab.CAMERA, "reduceMotion", Settings.REDUCE_MOTION, onOff));
         all.add(new Header(Tab.CAMERA, Component.translatable("cinematic.settings.pace")));
-        all.add(slider(Tab.CAMERA, "approachSpeed", Settings.APPROACH_SPEED, 50, 200, SettingsScreen::percent));
+        all.add(choice(Tab.CAMERA, "quickMode", Settings.QUICK_MODE, 3, this::quickMode, 1));
+        Option approach = slider(Tab.CAMERA, "approachSpeed", Settings.APPROACH_SPEED, 50, 200, SettingsScreen::percent);
+        // every way in quick: the lean in always has the quick pace
+        approach.enabled = () -> quickMode() != 2;
+        all.add(approach);
         all.add(slider(Tab.CAMERA, "leaveSpeed", Settings.LEAVE_SPEED, 50, 200, SettingsScreen::percent));
-        all.add(toggle(Tab.CAMERA, "quickReturn", Settings.QUICK_RETURN, onOff));
         Option window = slider(Tab.CAMERA, "quickWindow", Settings.QUICK_WINDOW, 5, 30, v -> Component.translatable("cinematic.settings.seconds", v));
-        window.enabled = () -> bool(Settings.QUICK_RETURN);
+        window.enabled = () -> quickMode() == 1;
         all.add(window);
         all.add(new Header(Tab.CAMERA, Component.translatable("cinematic.settings.view")));
         all.add(slider(Tab.CAMERA, "leanStrength", Settings.LEAN_STRENGTH, 0, 100, SettingsScreen::percent));

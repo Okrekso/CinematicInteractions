@@ -1,7 +1,7 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.VertexFormatElement;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -93,7 +93,8 @@ public final class ItemPlacer {
                 pose.scale(size * 2f, size * 2f, size * 2f);
             } else {
                 float size = FLAT_SIZE * scale;
-                pose.translate(0, 0.0035f + c * 0.011f, 0);
+                // a flat item is 1/16 of its size thick: copies further apart than that never sink into each other
+                pose.translate(0, 0.0035f + c * flatStep(scale), 0);
                 pose.mulPose(Axis.XP.rotationDegrees(-90f + tilt));
                 pose.scale(size, size, size);
             }
@@ -106,7 +107,7 @@ public final class ItemPlacer {
         if (opacity >= 0.999f) return buffers;
         float alpha = (float) Anim.clamp01(opacity);
         // Glint must keep its fixed buffer: the item renderer writes to it and the model buffer together.
-        return type -> new VertexConsumerWrapper(buffers.getBuffer(type.format() == DefaultVertexFormat.NEW_ENTITY
+        return type -> new VertexConsumerWrapper(buffers.getBuffer(isEntityFormat(type)
                 ? FADING_TYPES.computeIfAbsent(type, ItemPlacer::fadingType) : type)) {
             @Override
             public VertexConsumer setColor(int r, int g, int b, int a) {
@@ -120,7 +121,7 @@ public final class ItemPlacer {
     private static RenderType fadingType(RenderType original) {
         return new RenderType("cinematic_fading_item", original.format(), original.mode(), original.bufferSize(), false, true, () -> {
             original.setupRenderState();
-            if (original.format() == DefaultVertexFormat.NEW_ENTITY) {
+            if (isEntityFormat(original)) {
                 RenderSystem.setShader(GameRenderer::getRendertypeEntityTranslucentShader);
             }
             RenderSystem.enableBlend();
@@ -137,7 +138,7 @@ public final class ItemPlacer {
     public static AABB restingBounds(ItemStack stack, Vec3 base) {
         boolean block = isBlock(stack);
         double half = block ? BLOCK_SIZE * 0.66 : FLAT_SIZE * 0.71 + (stack.getCount() > 1 ? 0.025 : 0);
-        double height = block ? BLOCK_SIZE : 0.006 + (copies(stack.getCount(), false) - 1) * 0.011;
+        double height = block ? BLOCK_SIZE : 0.006 + (copies(stack.getCount(), false) - 1) * flatStep(1f);
         return new AABB(base.x - half, base.y, base.z - half, base.x + half, base.y + height, base.z + half);
     }
 
@@ -178,10 +179,21 @@ public final class ItemPlacer {
         return mc.getItemRenderer().getModel(stack, mc.level, null, 0).isGui3d();
     }
 
+    /** Height between the copies of a flat stack: the model's thickness and a hair. */
+    private static float flatStep(float scale) {
+        return FLAT_SIZE * scale / 16f + 0.0015f;
+    }
+
     private static int copies(int count, boolean block) {
         if (block) {
             return 1;
         }
         return count >= 33 ? 4 : count >= 17 ? 3 : count >= 2 ? 2 : 1;
+    }
+
+    /** An entity-like format (Iris extends the vanilla one, so it is told by its elements rather than by identity). */
+    private static boolean isEntityFormat(RenderType type) {
+        return type.format().contains(VertexFormatElement.COLOR) && type.format().contains(VertexFormatElement.NORMAL)
+                && type.format().contains(VertexFormatElement.UV2);
     }
 }

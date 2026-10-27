@@ -21,7 +21,8 @@ public record StationActionPayload(BlockPos pos, StationKind kind, Action action
      * shift-click on inventory slot {@code index} (0..35) in the scene's drawer: the stack goes into the station where it
      * fits, as a shift-click into a menu would put it, or stays where it is.
      */
-    public enum Action { BEGIN, CLICK, PAINT, CRAFT, LEAVE, WINDOW, PLACE, SPREAD, QUICK }
+    /** CHOOSE: which of the recipes competing for the station's input to use (index in RecipeChoices.matching). */
+    public enum Action { BEGIN, CLICK, PAINT, CRAFT, LEAVE, WINDOW, PLACE, SPREAD, QUICK, CHOOSE }
 
     public static final Type<StationActionPayload> TYPE = new Type<>(Cinematic.id("station_action"));
     public static final StreamCodec<FriendlyByteBuf, StationActionPayload> CODEC = StreamCodec.of(

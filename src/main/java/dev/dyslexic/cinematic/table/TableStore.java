@@ -45,7 +45,7 @@ public final class TableStore extends SavedData {
     private final Long2ObjectMap<Set<BlockPos>> byChunk = new Long2ObjectOpenHashMap<>();
 
     public static TableStore get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(TableStore::new, TableStore::load), NAME);
+        return level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(TableStore::new, TableStore::load, null), NAME);
     }
 
     @Nullable

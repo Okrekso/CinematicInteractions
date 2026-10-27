@@ -66,6 +66,7 @@ public final class CinematicClient {
         container.registerConfig(ModConfig.Type.CLIENT, Settings.SPEC);
         container.registerExtensionPoint(IConfigScreenFactory.class, (mod, parent) -> new SettingsScreen(parent));
         NeoForge.EVENT_BUS.register(Events.class);
+        dev.dyslexic.cinematic.client.compat.FirstPersonBodyCompat.register();
     }
 
     public static final class Events {
@@ -233,6 +234,7 @@ public final class CinematicClient {
         public static void onScreenInit(ScreenEvent.Init.Post event) {
             Showcase.onScreen(event.getScreen());
             ClientOnlySmoke.onScreen(event.getScreen());
+            ServerListHint.onScreenInit(event);
         }
 
         @SubscribeEvent
