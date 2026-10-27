@@ -173,7 +173,11 @@ public final class CampfireActions {
         if (fire.cookingProgress[spot] >= fire.cookingTime[spot]) {
             SingleRecipeInput input = new SingleRecipeInput(item);
             ItemStack result = watch.recipes.getRecipeFor(input, level)
+                    //? if >=26.1 {
                     .map(recipe -> recipe.value().assemble(input)).orElse(item);
+                    //?} else if <26.1 {
+                    /*.map(recipe -> recipe.value().assemble(input, level.registryAccess())).orElse(item);
+                    *///?}
             if (result.isItemEnabled(level.enabledFeatures())) {
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), result);
                 fire.getItems().set(spot, ItemStack.EMPTY);

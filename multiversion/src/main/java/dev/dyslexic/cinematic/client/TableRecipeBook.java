@@ -131,7 +131,11 @@ final class TableRecipeBook {
         g.text(font, "−", WIDTH - 17, 8, color(a * 0.8f, 242, 234, 216), false);
         g.fill(8, 25, WIDTH - 8, 43, color(a * 0.08f, 255, 255, 255));
         search.setAlpha(a);
+        //? if >=26.1 {
         search.extractRenderState(g, (int) localX(mouse[0]), (int) localY(mouse[1]), 0);
+        //?} else if <26.1 {
+        /*search.render(g, (int) localX(mouse[0]), (int) localY(mouse[1]), 0);
+        *///?}
         g.fill(9, 48, 18, 57, color(a * 0.15f, 255, 255, 255));
         if (craftableOnly) g.fill(11, 50, 16, 55, color(a * 0.9f, 255, 226, 150));
         g.text(font, text("craftable"), 23, 49, color(a * 0.8f, 242, 234, 216), false);
@@ -268,7 +272,11 @@ final class TableRecipeBook {
     }
 
     boolean charTyped(char c, int modifiers) {
+        //? if >=26.1 {
         return search.isFocused() && search.charTyped(new net.minecraft.client.input.CharacterEvent(c));
+        //?} else if <26.1 {
+        /*return search.isFocused() && search.charTyped(new net.minecraft.client.input.CharacterEvent(c, 0));
+        *///?}
     }
 
     boolean keyPressed(int key, int scanCode, int modifiers) {

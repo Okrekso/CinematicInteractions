@@ -634,7 +634,11 @@ public final class SettingsScreen extends Screen {
         protected void extractContents(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
             extractDefaultSprite(graphics);
             // (item components are bound only once a world is loaded: from the main menu the block goes without its icon)
+            //? if >=26.1 {
             if (stack == null && item.builtInRegistryHolder().areComponentsBound()) stack = new ItemStack(item);
+            //?} else if <26.1 {
+            /*if (stack == null) stack = new ItemStack(item);
+            *///?}
             if (stack != null) graphics.item(stack, getX() + 3, getY() + 2);
             graphics.textRendererForWidget(this, GuiGraphicsExtractor.HoveredTextEffects.NONE)
                     .acceptScrollingWithDefaultCenter(getMessage(), getX() + 22, getX() + getWidth() - 3, getY(), getY() + getHeight());

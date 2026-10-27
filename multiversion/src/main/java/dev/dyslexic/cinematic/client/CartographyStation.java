@@ -411,7 +411,11 @@ public final class CartographyStation extends SurfaceStation<CartographyTableMen
         paper.addVertex(m, -7, -7, 0.005f).setColor(255, 255, 255, 255).setUv(0, 0).setLight(light);
         var mapState = new net.minecraft.client.renderer.state.MapRenderState();
         mc.getMapRenderer().extractRenderState(id, data, mapState);
+        //? if >=26.1 {
         mc.getMapRenderer().render(mapState, pose, dev.dyslexic.cinematic.client.SceneRenderer.collector(), false, light);
+        //?} else if <26.1 {
+        /*mc.getMapRenderer().render(mapState, pose, net.minecraft.client.Minecraft.getInstance().gameRenderer.getFeatureRenderDispatcher().getSubmitNodeStorage(), false, light);
+        *///?}
         pose.popPose();
     }
 

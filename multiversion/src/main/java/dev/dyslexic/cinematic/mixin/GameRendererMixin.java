@@ -1,4 +1,5 @@
-package dev.dyslexic.cinematic.mixin;
+//? if <26.1 {
+/*package dev.dyslexic.cinematic.mixin;
 
 import dev.dyslexic.cinematic.client.CameraRig;
 import dev.dyslexic.cinematic.client.Scene;
@@ -19,3 +20,4 @@ public abstract class GameRendererMixin {
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
     private void cinematic$hands(CallbackInfo ci) { if (Scene.active()) ci.cancel(); }
 }
+*///?}

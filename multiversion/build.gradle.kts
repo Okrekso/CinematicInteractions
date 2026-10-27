@@ -6,13 +6,13 @@ plugins {
 val minecraft = sc.current.version
 val java = property("mod.java").toString().toInt()
 fun dep(name: String) = property("deps.$name").toString()
-fun modrinth(name: String) = "maven.modrinth:${dep(name)}"
 
 version = property("mod.version").toString()
 group = "dev.dyslexic.cinematic"
 base.archivesName = "Cinematic Interaction-Fabric-$minecraft"
 
 repositories {
+    maven("https://maven.terraformersmc.com/releases/") { name = "Terraformers" }
     exclusiveContent {
         forRepository { maven("https://api.modrinth.com/maven") { name = "Modrinth" } }
         filter { includeGroup("maven.modrinth") }
@@ -26,24 +26,24 @@ dependencies {
     modImplementation("net.fabricmc.fabric-api:fabric-api:${dep("fabric_api")}")
     compileOnly("com.google.code.findbugs:jsr305:3.0.2")
     // Optional native APIs; none of these mods are packaged in the release JAR.
-    modCompileOnly(modrinth("modmenu"))
-    modCompileOnly(modrinth("inventory_particles"))
-    modCompileOnly(modrinth("inventory_interactions"))
-    modCompileOnly(modrinth("polymorph"))
-    modCompileOnly(modrinth("jei"))
-    if (hasProperty("withPunchy")) modRuntimeOnly(modrinth("punchy"))
-    if (hasProperty("withPolymorph")) modRuntimeOnly(modrinth("polymorph"))
-    if (hasProperty("withJei")) modRuntimeOnly(modrinth("jei"))
+    modCompileOnly(dep("modmenu"))
+    modCompileOnly(dep("inventory_particles"))
+    modCompileOnly(dep("inventory_interactions"))
+    modCompileOnly(dep("polymorph"))
+    modCompileOnly(dep("jei"))
+    if (hasProperty("withPunchy")) modRuntimeOnly(dep("punchy"))
+    if (hasProperty("withPolymorph")) modRuntimeOnly(dep("polymorph"))
+    if (hasProperty("withJei")) modRuntimeOnly(dep("jei"))
     if (hasProperty("withInventoryParticles") || hasProperty("withInventoryEffects")) {
-        modRuntimeOnly(modrinth("inventory_particles"))
-        modRuntimeOnly(modrinth("mossylib"))
+        modRuntimeOnly(dep("inventory_particles"))
+        modRuntimeOnly(dep("mossylib"))
     }
-    if (hasProperty("withInventoryEffects")) modRuntimeOnly(modrinth("inventory_interactions"))
+    if (hasProperty("withInventoryEffects")) modRuntimeOnly(dep("inventory_interactions"))
     if (hasProperty("withNoXpAnvils")) modRuntimeOnly(fileTree("test-mods/no-xp") { include("*.jar") })
-    if (hasProperty("withSettings")) modRuntimeOnly(modrinth("modmenu"))
+    if (hasProperty("withSettings")) modRuntimeOnly(dep("modmenu"))
     if (hasProperty("withShaders")) {
-        modRuntimeOnly(modrinth("iris"))
-        modRuntimeOnly(modrinth("sodium"))
+        modRuntimeOnly(dep("iris"))
+        modRuntimeOnly(dep("sodium"))
         runtimeOnly(files("test-mods/libraries/antlr4-runtime-4.13.1.jar",
                 "test-mods/libraries/glsl-transformer-3.0.0-pre3.jar", "test-mods/libraries/jcpp-1.4.14.jar"))
     }
@@ -102,13 +102,15 @@ sourceSets.main {
 
 tasks.processResources {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    val props = mapOf("version" to version.toString(), "minecraft" to minecraft, "fabric_api" to dep("fabric_api"))
+    val props = mapOf("version" to version.toString(), "minecraft" to minecraft, "fabric_api" to dep("fabric_api"),
+            "loader" to dep("fabric_loader"), "java" to java.toString())
     inputs.properties(props)
     filesMatching("fabric.mod.json") { expand(props) }
     // the mixin list is shared, so the mixins this version does not have are left out of it
     val excluded = findProperty("mixins.exclude")?.toString()?.split(",")?.map { it.trim() }.orEmpty()
     inputs.property("mixinsExcluded", excluded)
     filesMatching("cinematic.fabric.mixins.json") {
+        expand("java" to java.toString())
         filter { line -> if (excluded.any { line.trim() == "\"$it\"," }) "" else line }
     }
     // the version conditions and the variants they comment out stay out of the released file

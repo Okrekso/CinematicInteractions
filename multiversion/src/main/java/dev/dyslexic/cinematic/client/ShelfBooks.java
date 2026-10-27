@@ -15,10 +15,19 @@ import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.LevelRenderer;
+//? if >=26.1 {
 import dev.dyslexic.cinematic.client.SceneBuffers;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
 import net.minecraft.client.renderer.rendertype.RenderType;
+//? if >=26.1 {
 
 import net.minecraft.client.resources.model.geometry.BakedQuad;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.block.BlockModelShaper;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+*///?}
 import net.minecraft.client.renderer.culling.Frustum;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -28,7 +37,11 @@ import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+//? if >=26.1 {
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
+//?} else if <26.1 {
+/*import net.minecraft.world.level.BlockAndTintGetter;
+*///?}
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChiseledBookShelfBlock;
@@ -377,7 +390,11 @@ public final class ShelfBooks {
             }
             if (f.intoSlot || f.held || t < f.length()) {
                 if (frustum.isVisible(new AABB(f.pos).inflate(1.5))) {
+                    //? if >=26.1 {
                     int light = net.minecraft.util.LightCoordsUtil.getLightCoords(level, f.pos.relative(f.facing));
+                    //?} else if <26.1 {
+                    /*int light = LevelRenderer.getLightCoords(level, f.pos.relative(f.facing));
+                    *///?}
                     draw(pose, buffers, cam, f.slot, f.book, f.pose(), f.open, light);
                 }
             }
@@ -433,7 +450,11 @@ public final class ShelfBooks {
 
     static void unloadChunk(ChunkPos chunk) {
         ShelfLayoutBooks.unloadChunk(chunk);
+        //? if >=26.1 {
         FLIGHTS.removeIf(f -> f.pos.getX() >> 4 == chunk.x() && f.pos.getZ() >> 4 == chunk.z());
+        //?} else if <26.1 {
+        /*FLIGHTS.removeIf(f -> f.pos.getX() >> 4 == chunk.x && f.pos.getZ() >> 4 == chunk.z);
+        *///?}
     }
 
     static void clear() {
@@ -444,5 +465,9 @@ public final class ShelfBooks {
     }
 
     /** Slot pictures hidden while their physical books are out, read by the Fabric model wrapper. */
+    //? if >=26.1 {
     public static int emptyMask(BlockPos pos) { return ClientOnly.serverHasMod() ? SpatialLayouts.customShelf() ? 63 : HIDDEN.getOrDefault(pos, 0) : 0; }
+    //?} else if <26.1 {
+    /*public static int emptyMask(BlockPos pos) { return ClientOnly.serverHasMod() && SpatialLayouts.customShelf() ? 63 : HIDDEN.getOrDefault(pos, 0); }
+    *///?}
 }

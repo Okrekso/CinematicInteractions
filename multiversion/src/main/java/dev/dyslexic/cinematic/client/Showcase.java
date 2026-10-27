@@ -147,7 +147,11 @@ public final class Showcase {
             } catch (Exception e) {
                 Cinematic.LOGGER.warn("[Showcase] could not reopen world", e);
             }
+            //? if >=26.1 {
             LevelSettings settings = new LevelSettings(WORLD, GameType.SURVIVAL, new LevelSettings.DifficultySettings(Difficulty.PEACEFUL, false, false), true,
+            //?} else if <26.1 {
+            /*LevelSettings settings = new LevelSettings(WORLD, GameType.SURVIVAL, false, Difficulty.PEACEFUL, true, new GameRules(net.minecraft.world.flag.FeatureFlags.DEFAULT_FLAGS),
+            *///?}
                     WorldDataConfiguration.DEFAULT);
             mc.createWorldOpenFlows().createFreshLevel(WORLD, settings, new WorldOptions(20261010L, false, false),
                     registry -> registry.lookupOrThrow(Registries.WORLD_PRESET).getOrThrow(WorldPresets.FLAT).value()
@@ -1198,7 +1202,11 @@ public final class Showcase {
         for (int i = 0; i < 96; i++) screen.keyPressed(testKey(InputConstants.KEY_BACKSPACE));
         for (char c : query.toCharArray()) {
             if (c >= 'a' && c <= 'z') screen.keyPressed(testKey(InputConstants.KEY_A + c - 'a'));
+            //? if >=26.1 {
             screen.charTyped(new net.minecraft.client.input.CharacterEvent(c));
+            //?} else if <26.1 {
+            /*screen.charTyped(new net.minecraft.client.input.CharacterEvent(c, 0));
+            *///?}
         }
         screen.keyPressed(testKey(InputConstants.KEY_ESCAPE)); // first Esc releases search focus
     }
@@ -1825,12 +1833,20 @@ public final class Showcase {
             if (kind == StationKind.CHISELED_BOOKSHELF) {
                 var mc = Minecraft.getInstance();
                 var state = mc.level.getBlockState(station.pos);
+                //? if >=26.1 {
                 var model = mc.getModelManager().getBlockStateModelSet().get(state);
+                //?} else if <26.1 {
+                /*var model = mc.getBlockRenderer().getBlockModel(state);
+                *///?}
 
                 boolean occupiedPicture = false;
                 for (Direction face : new Direction[]{null, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP, Direction.DOWN})
                     occupiedPicture |= modelParts(model).stream().flatMap(part -> part.getQuads(face).stream())
+                            //? if >=26.1 {
                             .anyMatch(q -> q.materialInfo().sprite().contents().name().getPath().contains("chiseled_bookshelf_occupied"));
+                            //?} else if <26.1 {
+                            /*.anyMatch(q -> q.sprite().contents().name().getPath().contains("chiseled_bookshelf_occupied"));
+                            *///?}
                 check(prefix + " original spines hidden", !occupiedPicture, "real block state untouched");
                 var slotted = ShelfBooks.inSlot(station.pos, station.sideDirection(), 0, 0);
                 check(prefix + " book and hand contact agree", slotted.at(0, 0, OpenBook.STACK / 2).distanceTo(target.layoutPoint(0)) < 1e-8, "shared spine");
@@ -2240,7 +2256,11 @@ public final class Showcase {
         *///?}
         var textures = new HashSet<Identifier>();
         for (var quad : quads) {
+            //? if >=26.1 {
             textures.add(quad.materialInfo().sprite().contents().name());
+            //?} else if <26.1 {
+            /*textures.add(quad.sprite().contents().name());
+            *///?}
         }
         check("imported hammer model and textures loaded", !model.isEmpty()
                 && quads.size() == 24 && textures.size() == 4
@@ -2781,8 +2801,13 @@ public final class Showcase {
             // the stand's multipart model picks its parts by the state: count what it would draw for each
             int withBottles = 0, without = 0;
             for (Direction face : new Direction[]{null, Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST, Direction.UP, Direction.DOWN}) {
+                //? if >=26.1 {
                 withBottles += modelParts(mc.getModelManager().getBlockStateModelSet().get(full)).stream().mapToInt(part -> part.getQuads(face).size()).sum();
                 without += modelParts(mc.getModelManager().getBlockStateModelSet().get(empty)).stream().mapToInt(part -> part.getQuads(face).size()).sum();
+                //?} else if <26.1 {
+                /*withBottles += modelParts(mc.getBlockRenderer().getBlockModel(full)).stream().mapToInt(part -> part.getQuads(face).size()).sum();
+                without += modelParts(mc.getBlockRenderer().getBlockModel(empty)).stream().mapToInt(part -> part.getQuads(face).size()).sum();
+                *///?}
             }
             check("stand's own bottle pictures left out", withBottles == without, "quads with bottles=" + withBottles + " without=" + without);
             boolean known = mc.level.getBlockEntity(BREWING) instanceof net.minecraft.world.level.block.entity.BrewingStandBlockEntity stand
@@ -4651,8 +4676,13 @@ public final class Showcase {
         server(p -> p.level().getServer().getCommands().performPrefixedCommand(
                 p.createCommandSourceStack().withSuppressedOutput().withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.OWNER), command));
     }
+    //? if >=26.1 {
     private static List<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart> modelParts(net.minecraft.client.renderer.block.dispatch.BlockStateModel model) {
         List<net.minecraft.client.renderer.block.dispatch.BlockStateModelPart> parts = new ArrayList<>();
+    //?} else if <26.1 {
+    /*private static List<net.minecraft.client.renderer.block.model.BlockModelPart> modelParts(net.minecraft.client.renderer.block.model.BlockStateModel model) {
+        List<net.minecraft.client.renderer.block.model.BlockModelPart> parts = new ArrayList<>();
+    *///?}
         model.collectParts(RandomSource.create(1), parts);
         return parts;
     }

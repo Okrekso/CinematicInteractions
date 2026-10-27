@@ -22,7 +22,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class ExperienceOrbRendererMixin {
     private static final double HIDE_WITHIN_SQR = 1.0;
 
+    //? if >=26.1 {
     @Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/ExperienceOrbRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/level/CameraRenderState;)V",
+    //?} else if <26.1 {
+    /*@Inject(method = "submit(Lnet/minecraft/client/renderer/entity/state/ExperienceOrbRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
+    *///?}
             at = @At("HEAD"), cancellable = true)
     private void cinematic$notInTheLens(ExperienceOrbRenderState orb, PoseStack pose, SubmitNodeCollector features, CameraRenderState camera,
             CallbackInfo ci) {

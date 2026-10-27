@@ -28,14 +28,23 @@ public abstract class CameraMixin {
     @Shadow
     protected abstract void setRotation(float yRot, float xRot);
 
+    //? if >=26.1 {
     @Inject(method = "alignWithEntity", at = @At("TAIL"))
     private void cinematic$scene(float partialTick,
+    //?} else if <26.1 {
+    /*@Inject(method = "setup", at = @At("TAIL"))
+    private void cinematic$scene(Level level, Entity entity, boolean detached, boolean thirdPersonReverse, float partialTick,
+    *///?}
             CallbackInfo ci) {
         Camera self = (Camera) (Object) this;
         // Keep the same interpolation as the original: the scene steers the body per tick, but the camera moves per frame.
         float yaw = self.yRot();
         float pitch = self.xRot();
+        //? if >=26.1 {
         if (Scene.active() && net.minecraft.client.Minecraft.getInstance().getCameraEntity() instanceof LocalPlayer player && !player.isPassenger()) {
+        //?} else if <26.1 {
+        /*if (Scene.active() && entity instanceof LocalPlayer player && !player.isPassenger()) {
+        *///?}
             yaw = Mth.rotLerp(partialTick, player.yRotO, player.getYRot());
             pitch = Mth.lerp(partialTick, player.xRotO, player.getXRot());
         }
@@ -47,9 +56,11 @@ public abstract class CameraMixin {
             left.set(-1, 0, 0).rotate(self.rotation());
             setPosition(pose.pos());
         }
+    //? if >=26.1 {
     }
     @Inject(method = "calculateFov", at = @At("RETURN"), cancellable = true)
     private void cinematic$fov(float tick, org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable<Float> cir) {
         if (Scene.active()) cir.setReturnValue((float) CameraRig.fov(cir.getReturnValue()));
+    //?}
     }
 }

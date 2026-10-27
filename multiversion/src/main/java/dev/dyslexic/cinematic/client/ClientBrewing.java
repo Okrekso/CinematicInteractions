@@ -30,7 +30,11 @@ public final class ClientBrewing {
     }
 
     public static void unloadChunk(ChunkPos chunk) {
+        //? if >=26.1 {
         STANDS.keySet().removeIf(pos -> pos.getX() >> 4 == chunk.x() && pos.getZ() >> 4 == chunk.z());
+        //?} else if <26.1 {
+        /*STANDS.keySet().removeIf(pos -> pos.getX() >> 4 == chunk.x && pos.getZ() >> 4 == chunk.z);
+        *///?}
     }
 
     public static void clear() {

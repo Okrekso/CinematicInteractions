@@ -47,7 +47,11 @@ public final class TableCrafting {
         if (found.isEmpty()) {
             return Optional.empty();
         }
+        //? if >=26.1 {
         ItemStack result = found.get().value().assemble(input);
+        //?} else if <26.1 {
+        /*ItemStack result = found.get().value().assemble(input, level.registryAccess());
+        *///?}
         if (result.isEmpty() || !result.isItemEnabled(level.enabledFeatures())) {
             return Optional.empty();
         }

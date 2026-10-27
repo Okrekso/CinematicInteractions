@@ -1,4 +1,4 @@
-//? if <26.2 {
+//? if >=26.1 <26.2 {
 /*package dev.dyslexic.cinematic.mixin;
 
 import net.minecraft.client.renderer.SubmitNodeStorage;

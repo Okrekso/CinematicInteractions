@@ -302,7 +302,11 @@ final class FieldGuide {
         search.setY(9);
         search.setWidth(PAGE_W - 16);
         search.setAlpha(a);
+        //? if >=26.1 {
         search.extractRenderState(g, mx, my, 0);
+        //?} else if <26.1 {
+        /*search.render(g, mx, my, 0);
+        *///?}
         Component head = query.isBlank() ? text("made_here", items.size()) : text("found", items.size());
         g.text(font, head, px + 6, 27, color(a, 0x7A6A55), false);
         int hover = entryAt(mx, my);
@@ -543,7 +547,11 @@ final class FieldGuide {
     boolean charTyped(net.minecraft.client.input.CharacterEvent event) {
         char c = (char) event.codepoint();
         int modifiers = 0;
+        //? if >=26.1 {
         return present() && search.isFocused() && search.charTyped(new net.minecraft.client.input.CharacterEvent(c));
+        //?} else if <26.1 {
+        /*return present() && search.isFocused() && search.charTyped(new net.minecraft.client.input.CharacterEvent(c, 0));
+        *///?}
     }
 
     boolean keyPressed(net.minecraft.client.input.KeyEvent event) {

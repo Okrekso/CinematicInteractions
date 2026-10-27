@@ -24,6 +24,10 @@ import net.minecraft.world.level.saveddata.SavedData;
 
 /** Items lying on crafting tables in one dimension. Vanilla tables have no block entity, so they live here. */
 public final class TableStore extends SavedData {
+    //? if <26.1 {
+    /*private static final String NAME = "cinematic_tables";
+
+    *///?}
     /** What lies on one table: nine cells and, per cell, the side its item was put down from. */
     public static final class Table {
         public final NonNullList<ItemStack> items = NonNullList.withSize(TableGrid.CELLS, ItemStack.EMPTY);
@@ -43,7 +47,11 @@ public final class TableStore extends SavedData {
     private final Long2ObjectMap<Set<BlockPos>> byChunk = new Long2ObjectOpenHashMap<>();
 
     public static TableStore get(ServerLevel level) {
+        //? if >=26.1 {
         return level.getDataStorage().computeIfAbsent(new net.minecraft.world.level.saveddata.SavedDataType<TableStore>(dev.dyslexic.cinematic.Cinematic.id("tables"),
+        //?} else if <26.1 {
+        /*return level.getDataStorage().computeIfAbsent(new net.minecraft.world.level.saveddata.SavedDataType<TableStore>(NAME,
+        *///?}
                 TableStore::new, CompoundTag.CODEC.xmap(
                         tag -> load(tag, level.registryAccess()),
                         store -> store.save(new CompoundTag(), level.registryAccess())), null));
@@ -56,7 +64,11 @@ public final class TableStore extends SavedData {
 
     public Table getOrCreate(BlockPos pos) {
         return tables.computeIfAbsent(pos.immutable(), p -> {
+            //? if >=26.1 {
             byChunk.computeIfAbsent(ChunkPos.pack(p), c -> new HashSet<>()).add(p);
+            //?} else if <26.1 {
+            /*byChunk.computeIfAbsent(ChunkPos.asLong(p), c -> new HashSet<>()).add(p);
+            *///?}
             return new Table();
         });
     }
@@ -65,7 +77,11 @@ public final class TableStore extends SavedData {
     public Table remove(BlockPos pos) {
         Table table = tables.remove(pos);
         if (table != null) {
+            //? if >=26.1 {
             long chunk = ChunkPos.pack(pos);
+            //?} else if <26.1 {
+            /*long chunk = ChunkPos.asLong(pos);
+            *///?}
             Set<BlockPos> set = byChunk.get(chunk);
             if (set != null) {
                 set.remove(pos);
@@ -87,7 +103,11 @@ public final class TableStore extends SavedData {
     }
 
     public Collection<BlockPos> inChunk(ChunkPos chunk) {
+        //? if >=26.1 {
         Set<BlockPos> set = byChunk.get(chunk.pack());
+        //?} else if <26.1 {
+        /*Set<BlockPos> set = byChunk.get(chunk.toLong());
+        *///?}
         return set == null ? List.of() : set;
     }
 

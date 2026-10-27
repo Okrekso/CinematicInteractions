@@ -369,7 +369,11 @@ public final class JukeboxStation extends ClientStation implements SpatialTarget
     public Component hint() {
         if (move != Move.NONE && !record.isEmpty()) {
             Minecraft mc = Minecraft.getInstance();
+            //? if >=26.1 {
             Component song = mc.level == null ? null : net.minecraft.world.item.JukeboxSong.fromStack(record)
+            //?} else if <26.1 {
+            /*Component song = mc.level == null ? null : net.minecraft.world.item.JukeboxSong.fromStack(mc.level.registryAccess(), record)
+            *///?}
                     .map(holder -> holder.value().description()).orElse(null);
             return Component.literal("♪ ").append(song != null ? song : record.getHoverName());
         }

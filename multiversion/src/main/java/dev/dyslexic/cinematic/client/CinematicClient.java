@@ -38,10 +38,14 @@ public final class CinematicClient implements ClientModInitializer {
         BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityTypes.BREWING_STAND, BrewingBottles::new);
         BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityTypes.CHISELED_BOOKSHELF, ShelfLayoutBooks::new);
         net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register(context -> new LoomFlags.Renderer());
-        //?} else if <26.2 {
+        //?} else if >=26.1 <26.2 {
         /*BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityType.BREWING_STAND, BrewingBottles::new);
         BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityType.CHISELED_BOOKSHELF, ShelfLayoutBooks::new);
         net.fabricmc.fabric.api.client.rendering.v1.PictureInPictureRendererRegistry.register(context -> new LoomFlags.Renderer(context.bufferSource(), context.submitNodeCollector()));
+        *///?} else if <26.1 {
+        /*BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityType.BREWING_STAND, BrewingBottles::new);
+        BlockEntityRendererRegistry.register(net.minecraft.world.level.block.entity.BlockEntityType.CHISELED_BOOKSHELF, ShelfLayoutBooks::new);
+        net.fabricmc.fabric.api.client.rendering.v1.SpecialGuiElementRegistry.register(context -> new LoomFlags.Renderer(context.vertexConsumers()));
         *///?}
         ClientPlayNetworking.registerGlobalReceiver(RecipeSyncPayload.TYPE, (p, c) -> ClientRecipes.accept(p));
         ClientPlayNetworking.registerGlobalReceiver(ProtocolPayload.TYPE, (p, c) -> {});

@@ -151,7 +151,11 @@ public final class SceneScreen extends Screen {
         g.text(font, Component.translatable("cinematic.scene.text"), x, y - 11, argb(0.7f * alpha, 200, 192, 176), false);
         field.setX(x);
         field.setY(y + 1);
+        //? if >=26.1 {
         field.extractRenderState(g, 0, 0, 0);
+        //?} else if <26.1 {
+        /*field.render(g, 0, 0, 0);
+        *///?}
     }
 
     // ---- layout -------------------------------------------------------------------------------------
@@ -534,9 +538,17 @@ public final class SceneScreen extends Screen {
 
     private boolean charTyped(char c, int modifiers) {
         if (working() && editor() != null && editor().editing()) return true;
+        //? if >=26.1 {
         if (working() && guideShown() && guide.charTyped(new CharacterEvent(c))) return true;
+        //?} else if <26.1 {
+        /*if (working() && guideShown() && guide.charTyped(new CharacterEvent(c, 0))) return true;
+        *///?}
         if (working() && Scene.station instanceof TableStation table && table.recipeBook.charTyped(c, modifiers)) return true;
+        //? if >=26.1 {
         return field != null ? field.charTyped(new net.minecraft.client.input.CharacterEvent(c)) : super.charTyped(new net.minecraft.client.input.CharacterEvent(c));
+        //?} else if <26.1 {
+        /*return field != null ? field.charTyped(new net.minecraft.client.input.CharacterEvent(c, 0)) : super.charTyped(new net.minecraft.client.input.CharacterEvent(c, 0));
+        *///?}
     }
 
     private boolean mouseDragged(double mx, double my, int button, double dx, double dy) {

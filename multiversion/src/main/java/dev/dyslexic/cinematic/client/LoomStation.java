@@ -17,13 +17,21 @@ import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.LightCoordsUtil;
+//? if >=26.1 {
 import dev.dyslexic.cinematic.client.SceneBuffers;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.blockentity.BannerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+//? if >=26.1 {
 import net.minecraft.client.resources.model.sprite.SpriteId;
+//?} else if <26.1 {
+/*import net.minecraft.client.resources.model.Material;
+*///?}
 import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -201,7 +209,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
     }
 
     private DyeColor dye() {
+        //? if >=26.1 {
         return slot(1).getOrDefault(net.minecraft.core.component.DataComponents.DYE, DyeColor.WHITE);
+        //?} else if <26.1 {
+        /*return slot(1).getItem() instanceof DyeItem dye ? dye.getDyeColor() : DyeColor.WHITE;
+        *///?}
     }
 
     @Override
@@ -509,23 +521,40 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         double[][] pieces = partly ? new double[][]{{0, reveal}, {reveal, 1}} : new double[][]{{0, 1}};
         for (double[] piece : pieces) {
             // Ghost opacity can move solid layers into the shared translucent buffer; fetch only when writing.
+            //? if >=26.1 {
             layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, net.minecraft.client.renderer.Sheets.BANNER_BASE, 0xFFFFFFFF, piece, 0, light);
             layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.BANNER_PATTERN_BASE, base.getTextureDiffuseColor(), piece, 1, light);
+            //?} else if <26.1 {
+            /*layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entitySolid(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, ModelBakery.BANNER_BASE, 0xFFFFFFFF, piece, 0, light);
+            layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.BANNER_BASE, base.getTextureDiffuseColor(), piece, 1, light);
+            *///?}
             int i = 2;
             for (BannerPatternLayers.Layer l : layers) {
+                //? if >=26.1 {
                 layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.getBannerSprite(l.pattern()),
+                //?} else if <26.1 {
+                /*layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.getBannerMaterial(l.pattern()),
+                *///?}
                         l.color().getTextureDiffuseColor(), piece, i++, light);
             }
         }
         if (extra != null && reveal > 0.001) {
+            //? if >=26.1 {
             layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityTranslucent(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.getBannerSprite(extra.pattern()),
+            //?} else if <26.1 {
+            /*layer(pose, buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.getBannerMaterial(extra.pattern()),
+            *///?}
                     extra.color().getTextureDiffuseColor(), new double[]{0, Math.min(1, reveal)}, 2 + layers.size(), light);
         }
     }
 
     /** One layer of the flag's front, the part from {@code piece[0]} to {@code piece[1]} of its length (0 = its top). */
     private static void layer(PoseStack pose, VertexConsumer vc, Vec3 cam, Vec3 topLeft, Vec3 up, Vec3 right, Vec3 normal, double width,
+            //? if >=26.1 {
             double length, SpriteId material, int argb, double[] piece, int index, int light) {
+            //?} else if <26.1 {
+            /*double length, Material material, int argb, double[] piece, int index, int light) {
+            *///?}
         TextureAtlasSprite sprite = Minecraft.getInstance().getAtlasManager().get(material);
         Vec3 lift = normal.scale(0.0007 * index);
         Vec3 a = topLeft.add(lift).subtract(cam).subtract(up.scale(length * piece[0]));
@@ -661,7 +690,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
             part.y = 0;
             flag = new Model.Simple(part, net.minecraft.client.renderer.rendertype.RenderTypes::entitySolid);
         }
+        //? if >=26.1 {
         g.guiRenderState.addPicturesInPictureState(new LoomFlags.State(flags, flag, x0, y0, x1, y1, g.scissorStack.peek()));
+        //?} else if <26.1 {
+        /*g.guiRenderState.submitPicturesInPictureState(new LoomFlags.State(flags, flag, x0, y0, x1, y1, g.scissorStack.peek()));
+        *///?}
     }
 
     private static int argb(float a, int r, int g, int b) {

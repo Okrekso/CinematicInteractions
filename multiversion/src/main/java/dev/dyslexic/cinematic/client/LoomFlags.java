@@ -6,11 +6,19 @@ import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.pip.PictureInPictureRenderer;
+//? if >=26.1 {
 import net.minecraft.client.renderer.state.gui.pip.PictureInPictureRenderState;
+//?} else if <26.1 {
+/*import net.minecraft.client.gui.render.state.pip.PictureInPictureRenderState;
+*///?}
 import net.minecraft.client.model.Model;
 import net.minecraft.client.renderer.feature.FeatureRenderDispatcher;
 import net.minecraft.util.LightCoordsUtil;
+//? if >=26.1 {
 import dev.dyslexic.cinematic.client.SceneBuffers;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
 import net.minecraft.client.renderer.blockentity.BannerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.ModelBakery;
@@ -47,13 +55,17 @@ final class LoomFlags {
     static final class Renderer extends PictureInPictureRenderer<State> {
         //? if >=26.2 {
         Renderer() {}
-        //?} else if <26.2 {
+        //?} else if >=26.1 <26.2 {
         /*private final net.minecraft.client.renderer.SubmitNodeCollector collector;
 
         Renderer(net.minecraft.client.renderer.MultiBufferSource.BufferSource buffers,
                 net.minecraft.client.renderer.SubmitNodeCollector collector) {
             super(buffers);
             this.collector = collector;
+        }
+        *///?} else if <26.1 {
+        /*Renderer(MultiBufferSource.BufferSource buffers) {
+            super(buffers);
         }
         *///?}
 
@@ -82,27 +94,35 @@ final class LoomFlags {
             *///?}
             // since 1.21.9 a model is handed to the game's features and drawn with them, as the game draws its banner result
             Minecraft mc = Minecraft.getInstance();
+            //? if <26.1 {
+            /*FeatureRenderDispatcher features = mc.gameRenderer.getFeatureRenderDispatcher();
+            *///?}
             float middle = (state.x0() + state.x1()) / 2f;
             for (Flag flag : state.flags()) {
                 float k = flag.width() / 1.25f;
                 pose.pushPose();
                 pose.translate(flag.x() - middle, flag.y() - state.y0(), 0);
                 pose.scale(k, k, k);
+                //? if >=26.3 {
                 collector.submitModel(state.model(), net.minecraft.util.Unit.INSTANCE, pose, LightCoordsUtil.FULL_BRIGHT,
-                        //? if >=26.3 {
                         OverlayTexture.NO_OVERLAY, -1, net.minecraft.client.renderer.Sheets.BANNER_BASE, mc.getAtlasManager(), 0);
-                        //?} else if <26.3 {
-                        /*OverlayTexture.NO_OVERLAY, -1, net.minecraft.client.renderer.Sheets.BANNER_BASE, mc.getAtlasManager(), 0, null);
-                        *///?}
                 BannerRenderer.submitPatterns(mc.getAtlasManager(), pose, collector, LightCoordsUtil.FULL_BRIGHT,
-                        //? if >=26.3 {
                         OverlayTexture.NO_OVERLAY, state.model(), net.minecraft.util.Unit.INSTANCE, true, flag.base(), flag.layers());
-                        //?} else if <26.3 {
-                        /*OverlayTexture.NO_OVERLAY, state.model(), net.minecraft.util.Unit.INSTANCE, true, flag.base(), flag.layers(), null);
-                        *///?}
+                //?} else if >=26.1 <26.3 {
+                /*collector.submitModel(state.model(), net.minecraft.util.Unit.INSTANCE, pose, LightCoordsUtil.FULL_BRIGHT,
+                        OverlayTexture.NO_OVERLAY, -1, net.minecraft.client.renderer.Sheets.BANNER_BASE, mc.getAtlasManager(), 0, null);
+                BannerRenderer.submitPatterns(mc.getAtlasManager(), pose, collector, LightCoordsUtil.FULL_BRIGHT,
+                        OverlayTexture.NO_OVERLAY, state.model(), net.minecraft.util.Unit.INSTANCE, true, flag.base(), flag.layers(), null);
+                *///?} else if <26.1 {
+                /*BannerRenderer.submitPatterns(mc.getAtlasManager(), pose, features.getSubmitNodeStorage(), LightCoordsUtil.FULL_BRIGHT,
+                        OverlayTexture.NO_OVERLAY, state.model(), net.minecraft.util.Unit.INSTANCE, ModelBakery.BANNER_BASE, true, flag.base(),
+                        flag.layers(), false, null, 0);
+                *///?}
                 pose.popPose();
             }
-
+            //? if <26.1 {
+            /*features.renderAllFeatures();
+            *///?}
         }
 
         @Override

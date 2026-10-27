@@ -5,13 +5,23 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import net.fabricmc.fabric.api.client.model.loading.v1.wrapper.WrapperBlockStateModel;
+//? if >=26.1 {
 import net.fabricmc.fabric.api.client.renderer.v1.mesh.QuadEmitter;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModelPart;
 import net.minecraft.client.renderer.block.dispatch.BlockStateModel;
+//?} else if <26.1 {
+/*import net.fabricmc.fabric.api.renderer.v1.mesh.QuadEmitter;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
+*///?}
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.RandomSource;
+//? if >=26.1 {
 import net.minecraft.client.renderer.block.BlockAndTintGetter;
+//?} else if <26.1 {
+/*import net.minecraft.world.level.BlockAndTintGetter;
+*///?}
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.BrewingStandBlock;
 import net.minecraft.world.level.block.ChiseledBookShelfBlock;
@@ -42,8 +52,22 @@ public final class StationModels extends WrapperBlockStateModel {
         return state;
     }
 
+    //? if >=26.1 {
     @Override public void collectParts(RandomSource random, List<BlockStateModelPart> parts) {
+    //?} else if <26.1 {
+    /*@Override public void collectParts(RandomSource random, List<BlockModelPart> parts) {
+    *///?}
         MODELS.getOrDefault(displayed(state, BlockPos.ZERO), wrapped).collectParts(random, parts);
+    //? if <26.1 {
+    /*}
+
+    @Override public List<BlockModelPart> collectParts(RandomSource random) {
+        // Fabric's wrapper delegates this overload straight to the original occupied model.
+        // Route both collection paths through the same selected geometry.
+        List<BlockModelPart> parts = new java.util.ArrayList<>();
+        collectParts(random, parts);
+        return parts;
+    *///?}
     }
 
     @Override public void emitQuads(QuadEmitter emitter, BlockAndTintGetter level, BlockPos pos,

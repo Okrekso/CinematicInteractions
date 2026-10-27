@@ -35,8 +35,13 @@ final class MultiplayerSettingsScreen extends Screen {
                 .append(Component.translatable(Settings.CLIENT_ONLY_MODE.get() ? "cinematic.settings.on" : "cinematic.settings.off"));
     }
 
+    //? if >=26.1 {
     @Override public void extractRenderState(GuiGraphicsExtractor g, int x, int y, float tick) {
         super.extractRenderState(g, x, y, tick);
+    //?} else if <26.1 {
+    /*@Override public void render(GuiGraphicsExtractor g, int x, int y, float tick) {
+        super.render(g, x, y, tick);
+    *///?}
         g.centeredText(font, title, width / 2, 20, 0xFFFFFFFF);
         int line = 0;
         for (var text : font.split(Component.translatable("cinematic.settings.multiplayer.note"), Math.min(width - 40, 540))) {

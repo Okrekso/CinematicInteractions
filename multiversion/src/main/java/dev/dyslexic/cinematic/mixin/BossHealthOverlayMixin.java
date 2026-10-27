@@ -10,6 +10,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /** Boss bars are one more HUD layer a scene hides (as on NeoForge, where every layer but chat and the like is). */
 @Mixin(BossHealthOverlay.class)
 public abstract class BossHealthOverlayMixin {
+    //? if >=26.1 {
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
+    //?} else if <26.1 {
+    /*@Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    *///?}
     private void cinematic$hide(CallbackInfo ci) { if (Scene.active()) ci.cancel(); }
 }

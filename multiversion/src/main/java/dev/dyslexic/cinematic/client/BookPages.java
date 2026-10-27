@@ -19,9 +19,17 @@ import java.util.List;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+//? if >=26.1 {
 import net.minecraft.client.renderer.ProjectionMatrixBuffer;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.CachedOrthoProjectionMatrixBuffer;
+*///?}
 import net.minecraft.util.LightCoordsUtil;
+//? if >=26.1 {
 import dev.dyslexic.cinematic.client.SceneBuffers;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.fog.FogRenderer;
 import net.minecraft.client.renderer.texture.AbstractTexture;
@@ -64,18 +72,28 @@ public final class BookPages {
 
         Page(int slot) {
             GpuDevice device = RenderSystem.getDevice();
+            //? if >=26.2 {
             texture = device.createTexture(() -> "Cinematic book page", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
-                    //? if >=26.2 {
                     GpuFormat.RGBA8_UNORM, W * SCALE, H * SCALE, 1, 1);
-                    //?} else if <26.2 {
-                    /*TextureFormat.RGBA8, W * SCALE, H * SCALE, 1, 1);
-                    *///?}
+            //?} else if >=26.1 <26.2 {
+            /*texture = device.createTexture(() -> "Cinematic book page", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
+                    TextureFormat.RGBA8, W * SCALE, H * SCALE, 1, 1);
+            *///?} else if <26.1 {
+            /*texture = device.createTexture(() -> "Cinematic book page", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_TEXTURE_BINDING,
+                    TextureFormat.RGBA8, W * SCALE, H * SCALE, 1, 1);
+            *///?}
             sampler = RenderSystem.getSamplerCache().getClampToEdge(FilterMode.NEAREST);
             textureView = device.createTextureView(texture);
             id = Cinematic.id("book_page/" + slot);
         }
     }
 
+    //? if <26.1 {
+    /*/^* Kept for the shared Minecraft mixin, which redirected the GUI into a page before 1.21.6; never set here. ^/
+    @Nullable
+    public static com.mojang.renderpearl.api.pipeline.RenderTarget paintingTarget;
+
+    *///?}
     private static final List<Page> PAGES = new ArrayList<>();
     private static long frame;
     @Nullable
@@ -83,7 +101,11 @@ public final class BookPages {
     @Nullable
     private static GpuTextureView depthView;
     @Nullable
+    //? if >=26.1 {
     private static ProjectionMatrixBuffer projection;
+    //?} else if <26.1 {
+    /*private static CachedOrthoProjectionMatrixBuffer projection;
+    *///?}
     @Nullable
     private static FogRenderer noFog;
 
@@ -143,39 +165,64 @@ public final class BookPages {
 
         GpuDevice device = RenderSystem.getDevice();
         if (depth == null) {
+            //? if >=26.2 {
             depth = device.createTexture(() -> "Cinematic book page depth", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_DST,
-                    //? if >=26.2 {
                     GpuFormat.D32_FLOAT, W * SCALE, H * SCALE, 1, 1);
-                    //?} else if <26.2 {
-                    /*TextureFormat.DEPTH32, W * SCALE, H * SCALE, 1, 1);
-                    *///?}
+            //?} else if >=26.1 <26.2 {
+            /*depth = device.createTexture(() -> "Cinematic book page depth", GpuTexture.USAGE_RENDER_ATTACHMENT | GpuTexture.USAGE_COPY_DST,
+                    TextureFormat.DEPTH32, W * SCALE, H * SCALE, 1, 1);
+            *///?} else if <26.1 {
+            /*depth = device.createTexture(() -> "Cinematic book page depth", GpuTexture.USAGE_RENDER_ATTACHMENT, TextureFormat.DEPTH32,
+                    W * SCALE, H * SCALE, 1, 1);
+            *///?}
             depthView = device.createTextureView(depth);
+            //? if >=26.1 {
             projection = new ProjectionMatrixBuffer("Cinematic book page");
+            //?} else if <26.1 {
+            /*projection = new CachedOrthoProjectionMatrixBuffer("Cinematic book page", -1000, 1000, true);
+            *///?}
         }
         GpuBufferSlice fog = RenderSystem.getShaderFog();
-        if (noFog == null) noFog = new FogRenderer();
         //? if >=26.2 {
+        if (noFog == null) noFog = new FogRenderer();
         device.createCommandEncoder().clearColorAndDepthTextures(page.getTexture(), new org.joml.Vector4f(), depth, 0.0);
-        //?} else if <26.2 {
-        /*// 26.1.x uses forward depth for this off-screen pass; clearing to 0 rejects the entire page.
+        //?} else if >=26.1 <26.2 {
+        /*if (noFog == null) noFog = new FogRenderer();
+        // 26.1.x uses forward depth for this off-screen pass; clearing to 0 rejects the entire page.
         device.createCommandEncoder().clearColorAndDepthTextures(page.getTexture(), 0, depth, 1.0);
+        *///?} else if <26.1 {
+        /*if (noFog == null) {
+            noFog = new FogRenderer();
+        }
+        device.createCommandEncoder().clearColorAndDepthTextures(page.getTexture(), 0, depth, 1.0);
+        RenderSystem.outputColorTextureOverride = page.getTextureView();
+        RenderSystem.outputDepthTextureOverride = depthView;
         *///?}
         RenderSystem.backupProjectionMatrix();
+        //? if >=26.1 {
         var ortho = new net.minecraft.client.renderer.Projection();
         ortho.setupOrtho(-1000, 1000, W * SCALE, H * SCALE, true);
         RenderSystem.setProjectionMatrix(projection.getBuffer(ortho), ProjectionType.ORTHOGRAPHIC);
+        //?} else if <26.1 {
+        /*RenderSystem.setProjectionMatrix(projection.getBuffer(W * SCALE, H * SCALE), ProjectionType.ORTHOGRAPHIC);
+        *///?}
         RenderSystem.setShaderFog(noFog.getBuffer(FogRenderer.FogMode.NONE));
         Matrix4fStack view = RenderSystem.getModelViewStack();
         view.pushMatrix();
         view.identity();
-        //? if <26.3 {
+        //? if >=26.1 <26.3 {
         /*var oldColorTarget = RenderSystem.outputColorTextureOverride;
         var oldDepthTarget = RenderSystem.outputDepthTextureOverride;
         *///?}
         try {
+            //? if >=26.1 {
             var collector = new net.minecraft.client.renderer.SubmitNodeStorage();
             SceneBuffers.BufferSource buffers = new SceneBuffers.BufferSource(collector);
+            //?} else if <26.1 {
+            /*MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+            *///?}
             Matrix4f pose = new Matrix4f().scale(SCALE, SCALE, 1);
+            // the paper; a left-hand page is the same sheet turned over, its stitching towards the spine
             float u0 = (left ? PAPER_U + W : PAPER_U) / 256f, u1 = (left ? PAPER_U : PAPER_U + W) / 256f;
             float v0 = PAPER_V / 256f, v1 = (PAPER_V + H) / 256f;
             VertexConsumer paper = buffers.getBuffer(net.minecraft.client.renderer.rendertype.RenderTypes.text(BOOK));
@@ -188,16 +235,29 @@ public final class BookPages {
                 Font font = mc.font;
                 List<FormattedCharSequence> lines = font.split(text.get(index), TEXT_W);
                 int x = left ? W - TEXT_X - TEXT_W : TEXT_X;
+                //? if >=26.1 {
                 var textPose = new com.mojang.blaze3d.vertex.PoseStack();
                 textPose.mulPose(pose);
+                //?}
                 for (int i = 0; i < Math.min(LINES, lines.size()); i++) {
+                    //? if >=26.1 {
                     collector.order(1).submitText(textPose, x, TEXT_Y + i * 9, lines.get(i), false, Font.DisplayMode.NORMAL,
                             LightCoordsUtil.FULL_BRIGHT, INK, 0, 0);
+                    //?} else if <26.1 {
+                    /*font.drawInBatch(lines.get(i), x, TEXT_Y + i * 9, INK, false, pose, buffers, Font.DisplayMode.NORMAL, 0,
+                            LightCoordsUtil.FULL_BRIGHT);
+                    *///?}
                 }
                 String number = String.valueOf(index + 1);
+                //? if >=26.1 {
                 collector.order(1).submitText(textPose, (W - font.width(number)) / 2f, H - 13,
                         net.minecraft.network.chat.Component.literal(number).getVisualOrderText(), false, Font.DisplayMode.NORMAL,
                         LightCoordsUtil.FULL_BRIGHT, PAGE_NUMBER, 0, 0);
+                //?} else if <26.1 {
+                /*font.drawInBatch(number, (W - font.width(number)) / 2f, H - 13, PAGE_NUMBER, false, pose, buffers, Font.DisplayMode.NORMAL, 0,
+                        LightCoordsUtil.FULL_BRIGHT);
+                buffers.endBatch();
+                *///?}
             }
             //? if >=26.3 {
             try (var frame = mc.gameRenderer.featureRenderDispatcher().prepareFrame(collector);
@@ -210,7 +270,7 @@ public final class BookPages {
             /*RenderSystem.outputColorTextureOverride = page.getTextureView();
             RenderSystem.outputDepthTextureOverride = depthView;
             mc.gameRenderer.featureRenderDispatcher().renderAllFeatures(collector);
-            *///?} else if <26.2 {
+            *///?} else if >=26.1 <26.2 {
             /*RenderSystem.outputColorTextureOverride = page.getTextureView();
             RenderSystem.outputDepthTextureOverride = depthView;
             var dispatcher = mc.gameRenderer.getFeatureRenderDispatcher();
@@ -229,13 +289,17 @@ public final class BookPages {
             }
             *///?}
         } finally {
-            //? if <26.3 {
+            //? if >=26.1 <26.3 {
             /*RenderSystem.outputColorTextureOverride = oldColorTarget;
             RenderSystem.outputDepthTextureOverride = oldDepthTarget;
             *///?}
             view.popMatrix();
             RenderSystem.setShaderFog(fog);
             RenderSystem.restoreProjectionMatrix();
+            //? if <26.1 {
+            /*RenderSystem.outputColorTextureOverride = null;
+            RenderSystem.outputDepthTextureOverride = null;
+            *///?}
         }
     }
 

@@ -5,7 +5,11 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
+//? if >=26.1 {
 import dev.dyslexic.cinematic.client.SceneBuffers;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
 import net.minecraft.client.renderer.SubmitNodeCollector;
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
@@ -45,12 +49,14 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
 
     @Override
     public void submit(BlockEntityRenderState state, PoseStack pose, SubmitNodeCollector features, CameraRenderState camera) {
+    //? if >=26.1 {
     }
 
     @Override
     public void extractRenderState(BrewingStandBlockEntity stand, BlockEntityRenderState state, float partial, Vec3 camera,
             net.minecraft.client.renderer.feature.ModelFeatureRenderer.CrumblingOverlay overlay) {
         BlockEntityRenderer.super.extractRenderState(stand, state, partial, camera, overlay);
+    //?}
         SHOWN.add(new Shown(state.blockPos, state.lightCoords));
     }
 
@@ -60,7 +66,11 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
     }
 
     /** The bottles of the stands in sight, the pose at the camera. */
+    //? if >=26.1 {
     static void renderAll(PoseStack pose, SceneBuffers buffers, Vec3 cam, ClientLevel level) {
+    //?} else if <26.1 {
+    /*static void renderAll(PoseStack pose, MultiBufferSource buffers, Vec3 cam, ClientLevel level) {
+    *///?}
         if (!ClientOnly.serverHasMod()) return;
         for (Shown shown : SHOWN) {
             if (level.getBlockEntity(shown.pos()) instanceof BrewingStandBlockEntity stand) {
@@ -73,7 +83,11 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         SHOWN.clear();
     }
 
+    //? if >=26.1 {
     private static void render(BrewingStandBlockEntity stand, PoseStack pose, SceneBuffers buffers, int light) {
+    //?} else if <26.1 {
+    /*private static void render(BrewingStandBlockEntity stand, PoseStack pose, MultiBufferSource buffers, int light) {
+    *///?}
         BlockPos pos = stand.getBlockPos();
         Vec3 cam = Minecraft.getInstance().gameRenderer.mainCamera().position();
         // the pose already stands at the block's corner
@@ -81,7 +95,11 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         BrewingStation scene = Scene.station(BrewingStation.class);
         boolean mine = scene != null && scene.pos.equals(pos) && scene.menu() != null;
         for (int i = 0; i < BrewingStation.BOTTLES; i++) {
+            //? if >=26.1 {
             ItemStack stack = mine ? scene.slot(i) : ClientBrewing.item(stand, i);
+            //?} else if <26.1 {
+            /*ItemStack stack = mine ? scene.slot(i) : stand.getItem(i);
+            *///?}
             if (stack.isEmpty()) {
                 continue;
             }
@@ -91,24 +109,41 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         if (!mine) {
             // the ingredient in the bowl and the blaze powder at the foot stay where they were put (the scene at this
             // stand draws its own, melting as it brews); the powder lies on the side of the foot towards the viewer
+            //? if >=26.1 {
             ItemStack ingredient = ClientBrewing.item(stand, BrewingStation.INGREDIENT);
             ItemStack fuel = ClientBrewing.item(stand, BrewingStation.FUEL);
+            //?} else if <26.1 {
+            /*ItemStack ingredient = stand.getItem(BrewingStation.INGREDIENT);
+            ItemStack fuel = stand.getItem(BrewingStation.FUEL);
+            *///?}
             if (!ingredient.isEmpty() || !fuel.isEmpty()) {
                 pose.pushPose();
                 pose.translate(-origin.x + cam.x, -origin.y + cam.y, -origin.z + cam.z);
                 Direction towards = Direction.getApproximateNearest(cam.x - (pos.getX() + 0.5), 0, cam.z - (pos.getZ() + 0.5));
+                //? if >=26.1 {
                 BrewingStation.drawLoose(pose, buffers, cam, pos, towards, ingredient, fuel, light);
+                //?} else if <26.1 {
+                /*BrewingStation.drawLoose(pose, SceneBuffers.of(buffers), cam, pos, towards, ingredient, fuel, light);
+                *///?}
                 pose.popPose();
             }
         }
     }
 
     /** One bottle standing on a foot ({@code at} is the middle of the bottle), turned to the camera. */
+    //? if >=26.1 {
     static void draw(PoseStack pose, SceneBuffers buffers, Vec3 origin, Vec3 cam, ItemStack stack, Vec3 at, float grow, float scale, float rotation, int light) {
+    //?} else if <26.1 {
+    /*static void draw(PoseStack pose, MultiBufferSource buffers, Vec3 origin, Vec3 cam, ItemStack stack, Vec3 at, float grow, float scale, float rotation, int light) {
+    *///?}
         Vec3 toEye = new Vec3(cam.x - at.x, 0, cam.z - at.z);
         float yaw = (float) (180 - Math.toDegrees(Math.atan2(-toEye.x, toEye.z)));
         // standing on its foot: grown from the bottom, not the middle
         Vec3 center = at.add(0, 7 / 16.0 * SIZE * scale * (grow - 1), 0);
+        //? if >=26.1 {
         ItemPlacer.drawOriented(pose, buffers, origin, stack, center, ItemPlacer.lying(yaw + rotation, 90), SIZE * grow * scale, light);
+        //?} else if <26.1 {
+        /*ItemPlacer.drawOriented(pose, SceneBuffers.of(buffers), origin, stack, center, ItemPlacer.lying(yaw + rotation, 90), SIZE * grow * scale, light);
+        *///?}
     }
 }

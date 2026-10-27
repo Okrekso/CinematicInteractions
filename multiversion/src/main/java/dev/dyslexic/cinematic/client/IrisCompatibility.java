@@ -9,18 +9,33 @@ import net.minecraft.client.renderer.RenderPipelines;
 final class IrisCompatibility {
     private IrisCompatibility() {}
 
+    //? if <26.1 {
+    /*private static Object iris;
+    private static Method shadowPass;
+
+    *///?}
     static void initialize() {
         try {
             Class<?> api = Class.forName("net.irisshaders.iris.api.v0.IrisApi");
             Class<?> program = Class.forName("net.irisshaders.iris.api.v0.IrisProgram");
+            //? if >=26.1 {
             Object iris = api.getMethod("getInstance").invoke(null);
+            //?} else if <26.1 {
+            /*iris = api.getMethod("getInstance").invoke(null);
+            shadowPass = api.getMethod("isRenderingShadowPass");
+            *///?}
             Method assign = api.getMethod("assignPipeline", RenderPipeline.class, program);
             assign.invoke(iris, CinematicPipelines.HIGHLIGHT, program(program, "BASIC"));
             try {
                 copyEntityBindings();
             } catch (ReflectiveOperationException e) {
+                //? if <26.1 {
+                /*assign.invoke(iris, CinematicPipelines.FADING_ITEM, program(program, "ENTITIES_TRANSLUCENT"));
+                *///?}
                 assign.invoke(iris, CinematicPipelines.GLOW, program(program, "EMISSIVE_ENTITIES"));
+                //? if >=26.1 {
                 assign.invoke(iris, CinematicPipelines.ENCHANT_CIRCLE, program(program, "ENTITIES_TRANSLUCENT"));
+                //?}
                 Cinematic.LOGGER.warn("This Iris version lacks vanilla pipeline binding copies; using its public program selection", e);
             }
         } catch (ReflectiveOperationException | RuntimeException e) {
@@ -35,15 +50,32 @@ final class IrisCompatibility {
         Class<?> pipelines = Class.forName("net.irisshaders.iris.pipeline.IrisPipelines");
         Method copy = pipelines.getMethod("copyPipeline", RenderPipeline.class, RenderPipeline.class);
         copy.invoke(null, RenderPipelines.EYES, CinematicPipelines.GLOW);
+        //? if >=26.1 {
         copy.invoke(null, RenderPipelines.ENTITY_TRANSLUCENT, CinematicPipelines.ENCHANT_CIRCLE);
+        //?} else if <26.1 {
+        /*copy.invoke(null, RenderPipelines.ENTITY_TRANSLUCENT, CinematicPipelines.FADING_ITEM);
+        *///?}
     }
 
+    //? if >=26.1 {
     static void copyBinding(RenderPipeline original, RenderPipeline fading) {
+    //?} else if <26.1 {
+    /*static boolean inShadowPass() {
+        if (shadowPass == null) return false;
+    *///?}
         try {
+            //? if >=26.1 {
             Class.forName("net.irisshaders.iris.pipeline.IrisPipelines")
                     .getMethod("copyPipeline", RenderPipeline.class, RenderPipeline.class).invoke(null, original, fading);
+            //?} else if <26.1 {
+            /*return (boolean) shadowPass.invoke(iris);
+            *///?}
         } catch (ReflectiveOperationException e) {
+            //? if >=26.1 {
             throw new IllegalStateException("Could not preserve Iris's item shader while fading", e);
+            //?} else if <26.1 {
+            /*throw new IllegalStateException("Could not identify the Iris world rendering pass", e);
+            *///?}
         }
     }
 

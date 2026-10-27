@@ -251,7 +251,11 @@ public final class TableActions {
         double y = pos.getY() + 1.05;
         double z = pos.getZ() + 0.5;
         for (int i = 0; i < consumed.size() && i < 9; i++) {
+            //? if >=26.1 {
             level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, net.minecraft.world.item.ItemStackTemplate.fromNonEmptyStack(consumed.get(i))), x, y, z, 3, 0.12, 0.02, 0.12, 0.04);
+            //?} else if <26.1 {
+            /*level.sendParticles(new ItemParticleOption(ParticleTypes.ITEM, consumed.get(i)), x, y, z, 3, 0.12, 0.02, 0.12, 0.04);
+            *///?}
         }
         level.playSound(null, pos, SoundEvents.WOOD_PLACE, SoundSource.PLAYERS, 0.55f, 1.15f + level.getRandom().nextFloat() * 0.15f);
         level.playSound(null, pos, SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.3f, 0.75f);

@@ -657,8 +657,10 @@ public final class BeaconStation extends MenuStation<BeaconMenu> implements Spat
         String label = !open || power.upgrade() ? power.upgrade() ? "II" : "I".repeat(power.tier() + 1).replace("IIII", "IV") : "";
         //? if >=26.2 {
         icons.add(new Icon(Minecraft.getInstance().getAtlasManager().get(new net.minecraft.client.resources.model.sprite.SpriteId(net.minecraft.client.renderer.Sheets.GUI_SHEET, net.minecraft.client.gui.Hud.getMobEffectSprite(power.effect()))), at, size * 0.7, open ? 1f : 0.35f, appear, label,
-        //?} else if <26.2 {
+        //?} else if >=26.1 <26.2 {
         /*icons.add(new Icon(Minecraft.getInstance().getAtlasManager().get(new net.minecraft.client.resources.model.sprite.SpriteId(net.minecraft.client.renderer.Sheets.GUI_SHEET, net.minecraft.client.gui.Gui.getMobEffectSprite(power.effect()))), at, size * 0.7, open ? 1f : 0.35f, appear, label,
+        *///?} else if <26.1 {
+        /*icons.add(new Icon(Minecraft.getInstance().getAtlasManager().get(new net.minecraft.client.resources.model.Material(net.minecraft.client.renderer.Sheets.GUI_SHEET, net.minecraft.client.gui.Gui.getMobEffectSprite(power.effect()))), at, size * 0.7, open ? 1f : 0.35f, appear, label,
         *///?}
                 !open ? 0x9A9AA6 : 0xFFF2C0, at.add(0, -size * 1.62, 0), (float) geometry().rotation(layoutSlot)));
         if (chosen && Fx.RANDOM.nextDouble() < Scene.frameDt * 6) {

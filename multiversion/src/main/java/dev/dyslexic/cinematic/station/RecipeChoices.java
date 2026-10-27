@@ -85,7 +85,11 @@ public final class RecipeChoices {
             @SuppressWarnings("unchecked") RecipeHolder<T> typed = (RecipeHolder<T>) holder;
             if (typed.value().matches(input, level)) found.add(typed);
         }
+        //? if >=26.1 {
         found.removeIf(holder -> holder.value().assemble(input).isEmpty());
+        //?} else if <26.1 {
+        /*found.removeIf(holder -> holder.value().assemble(input, level.registryAccess()).isEmpty());
+        *///?}
         found.sort(Comparator.comparing(holder -> holder.id().toString()));
         return found;
     }
@@ -131,7 +135,11 @@ public final class RecipeChoices {
                     if (!input.isEmpty()) {
                         var recipes = matching(level, RecipeType.CRAFTING, input);
                         holders = recipes;
+                        //? if >=26.1 {
                         for (var holder : recipes) outputs.add(holder.value().assemble(input));
+                        //?} else if <26.1 {
+                        /*for (var holder : recipes) outputs.add(holder.value().assemble(input, player.registryAccess()));
+                        *///?}
                         selected = chosen(player);
                     }
                 }
@@ -141,7 +149,11 @@ public final class RecipeChoices {
                     SmithingRecipeInput input = new SmithingRecipeInput(menu.getSlot(0).getItem(), menu.getSlot(1).getItem(), menu.getSlot(2).getItem());
                     var recipes = matching(level, RecipeType.SMITHING, input);
                     holders = recipes;
+                    //? if >=26.1 {
                     for (var holder : recipes) outputs.add(holder.value().assemble(input));
+                    //?} else if <26.1 {
+                    /*for (var holder : recipes) outputs.add(holder.value().assemble(input, player.registryAccess()));
+                    *///?}
                     selected = chosen(player);
                 }
             }
@@ -150,7 +162,11 @@ public final class RecipeChoices {
                     SingleRecipeInput input = new SingleRecipeInput(furnace.getItem(0));
                     var recipes = matching(level, cookingType(session.kind()), input);
                     holders = recipes;
+                    //? if >=26.1 {
                     for (var holder : recipes) outputs.add(holder.value().assemble(input));
+                    //?} else if <26.1 {
+                    /*for (var holder : recipes) outputs.add(holder.value().assemble(input, player.registryAccess()));
+                    *///?}
                     selected = Polymorph.chosen(furnace);
                 }
             }

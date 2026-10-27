@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "dev.dyslexic.cinematic.mixin",
-  "compatibilityLevel": "JAVA_25",
+  "compatibilityLevel": "JAVA_${java}",
   "mixins": [
     "AbstractFurnaceBlockEntityMixin",
     "BrewingStandBlockEntityMixin",
@@ -33,6 +33,8 @@
     "ClientLevelMixin",
     "LevelRendererMixin",
     "FeatureRenderDispatcherAccessor",
+    "FeatureRenderDispatcherMixin",
+    "GameRendererMixin",
     "SceneFrameMixin",
     "SceneExtractionMixin",
     "GuiScreenMixin",

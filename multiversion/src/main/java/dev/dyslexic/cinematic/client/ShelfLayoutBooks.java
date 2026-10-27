@@ -4,7 +4,11 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import java.util.HashSet;
 import java.util.Set;
 import net.minecraft.client.Minecraft;
+//? if >=26.1 {
 import dev.dyslexic.cinematic.client.SceneBuffers;
+//?} else if <26.1 {
+/*import net.minecraft.client.renderer.MultiBufferSource;
+*///?}
 import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
 import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
 import net.minecraft.world.item.ItemStack;
@@ -36,7 +40,11 @@ final class ShelfLayoutBooks implements BlockEntityRenderer<ChiseledBookShelfBlo
         /*for (SectionPos section : sections) mc.levelRenderer.setSectionDirty(section.x(), section.y(), section.z());
         *///?}
     }
+    //? if >=26.1 {
     static void unloadChunk(ChunkPos chunk) { VISIBLE_SHELVES.removeIf(pos -> pos.getX() >> 4 == chunk.x() && pos.getZ() >> 4 == chunk.z()); }
+    //?} else if <26.1 {
+    /*static void unloadChunk(ChunkPos chunk) { VISIBLE_SHELVES.removeIf(pos -> pos.getX() >> 4 == chunk.x && pos.getZ() >> 4 == chunk.z); }
+    *///?}
     static void clear() { VISIBLE_SHELVES.clear(); restoringUntil = -1; }
     ShelfLayoutBooks(BlockEntityRendererProvider.Context context) {}
     @Override public net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState createRenderState() {
@@ -51,7 +59,11 @@ final class ShelfLayoutBooks implements BlockEntityRenderer<ChiseledBookShelfBlo
     @Override public void submit(net.minecraft.client.renderer.blockentity.state.BlockEntityRenderState state, PoseStack pose,
             net.minecraft.client.renderer.SubmitNodeCollector collector, net.minecraft.client.renderer.state.level.CameraRenderState camera) {}
 
+    //? if >=26.1 {
     static void renderAll(PoseStack pose, SceneBuffers buffers, net.minecraft.client.Camera camera,
+    //?} else if <26.1 {
+    /*static void renderAll(PoseStack pose, MultiBufferSource buffers, net.minecraft.client.Camera camera,
+    *///?}
             net.minecraft.client.renderer.culling.Frustum frustum, net.minecraft.client.multiplayer.ClientLevel level) {
         if (!drawsRestingBooks()) return;
         for (BlockPos pos : VISIBLE_SHELVES) {
@@ -60,7 +72,11 @@ final class ShelfLayoutBooks implements BlockEntityRenderer<ChiseledBookShelfBlo
             render(shelf, pose, buffers, camera.position(), net.minecraft.util.LightCoordsUtil.getLightCoords(level, pos));
         }
     }
+    //? if >=26.1 {
     private static void render(ChiseledBookShelfBlockEntity shelf, PoseStack pose, SceneBuffers buffers, Vec3 origin, int light) {
+    //?} else if <26.1 {
+    /*private static void render(ChiseledBookShelfBlockEntity shelf, PoseStack pose, MultiBufferSource buffers, Vec3 origin, int light) {
+    *///?}
         var pos = shelf.getBlockPos();
         VISIBLE_SHELVES.add(pos);
         if (!drawsRestingBooks()) return;
@@ -71,7 +87,11 @@ final class ShelfLayoutBooks implements BlockEntityRenderer<ChiseledBookShelfBlo
         for (int i = 0; i < 6; i++) {
             if (!state.getValue(ChiseledBookShelfBlock.SLOT_OCCUPIED_PROPERTIES.get(i)) || ShelfBooks.flight(pos, i) != null) continue;
             // Vanilla syncs occupancy, but not book contents. The slot's spine is enough to draw its resting book.
+            //? if >=26.1 {
             ShelfBooks.draw(pose, buffers, origin, i, new ItemStack(Items.BOOK), ShelfBooks.inSlot(pos, facing, i, 0), book, light);
+            //?} else if <26.1 {
+            /*ShelfBooks.draw(pose, SceneBuffers.of(buffers), origin, i, new ItemStack(Items.BOOK), ShelfBooks.inSlot(pos, facing, i, 0), book, light);
+            *///?}
         }
     }
 }
