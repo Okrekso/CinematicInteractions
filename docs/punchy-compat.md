@@ -131,4 +131,4 @@ Punchy находятся внутри пропускаемого `original`. В
 
 Проверка выполнена с [Punchy 2.8f для 26.2](https://modrinth.com/mod/punchy-fpa/version/O6KuUYUk),
 Iris 1.11.4 / Sodium 0.9.2 и Complementary Reimagined r5.9.3.
-Подробные результаты и ограничения — в [отчёте Fabric 26.2](../fabric/26.2/TESTING.md).
+Подробные результаты и ограничения — в [отчёте Fabric 26.2](../multiversion/docs/26.2/TESTING.md).

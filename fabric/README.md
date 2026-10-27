@@ -1,9 +1,9 @@
 # Cinematic Interactions — Fabric
 
-**Current beta:** 0.18.28 for Minecraft 1.21.11 and 26.1.1, 26.1.2, 26.2 and 26.3. Download the matching JAR from [GitHub Releases](https://github.com/dcvke/CinematicInteractions/releases). The Fabric 1.21.1 project is in [`1.21.1/`](1.21.1/). Natural Reach arms may render incorrectly; use Stretched or Floating Hands if affected. The information below describes earlier builds and is retained for historical reference.
+**Current beta:** 0.18.28 for Minecraft 1.21.11 and 26.1.1, 26.1.2, 26.2 and 26.3. Download the matching JAR from [GitHub Releases](https://github.com/dcvke/CinematicInteractions/releases). The Fabric 1.21.1 project is in [`1.21.1/`](1.21.1/); Minecraft 26.1.1 to 26.3 are built together by [`multiversion/`](../multiversion/README.md). Natural Reach arms may render incorrectly; use Stretched or Floating Hands if affected. The information below describes earlier builds and is retained for historical reference.
 
 Актуальная сборка 0.18.2 со всеми редакторами, исправлением Punchy и эффектами инвентаря доступна в отдельных проектах
-для [Minecraft 26.2](26.2/README.md) и [Minecraft 26.3](26.3/README.md).
+для [Minecraft 26.2](../multiversion/docs/26.2/README.md) и [Minecraft 26.3](../multiversion/docs/26.3/README.md).
 Для Fabric **1.21.11** версия **0.18.3** добавляет совместимость с Inventory Particles и Inventory Interactions
 поверх редакторов всех станций, режима разработчика и профилей из 0.18.2.
 Включите «Режим разработчика» в настройках и нажмите G или шестерёнку справа во время сцены.
