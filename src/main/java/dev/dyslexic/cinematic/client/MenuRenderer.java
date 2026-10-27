@@ -83,7 +83,9 @@ public final class MenuRenderer {
                 }
                 case LOOM -> LoomStation.drawContents(pose, buffers, cam, pos, entry.side, entry.items, light);
                 case CARTOGRAPHY -> CartographyStation.drawContents(pose, buffers, cam, pos, entry.side, entry.items, light);
+                //? if >=1.21 {
                 case CRAFTER -> CrafterStation.drawContents(pose, buffers, cam, pos, state, entry.side, entry.items, light);
+                //?}
                 case BEACON -> BeaconStation.drawContents(pose, buffers, camera, pos, entry.side, entry.items);
                 default -> {}
             }

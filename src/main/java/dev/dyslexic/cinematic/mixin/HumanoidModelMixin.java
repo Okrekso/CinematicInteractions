@@ -4,12 +4,16 @@ import dev.dyslexic.cinematic.client.AnvilStation;
 import dev.dyslexic.cinematic.client.ClientMenus;
 import dev.dyslexic.cinematic.client.ClientPayloads;
 import dev.dyslexic.cinematic.client.GrindstoneStation;
+//? if neoforge {
 import dev.dyslexic.cinematic.client.KneeLayer;
+//?}
 import dev.dyslexic.cinematic.client.StonecutterStation;
 import dev.dyslexic.cinematic.client.ShelfBooks;
 import dev.dyslexic.cinematic.station.StationKind;
 import net.minecraft.client.model.HumanoidModel;
+//? if neoforge {
 import net.minecraft.client.model.PlayerModel;
+//?}
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.LivingEntity;
@@ -92,15 +96,27 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
                 rightArm.zRot = 0.08f;
             }
             case CAMPFIRE -> {
+                //? if !forge {
                 // sitting on the ground by the fire, right knee drawn up with the hand on it, leaning on the left hand; the
                 // raised leg is drawn bent at the knee by KneeLayer (one straight piece would point at the sky)
                 boolean bent = dev.dyslexic.cinematic.client.KneeLayer.bends;
                 rightLeg.xRot = bent ? dev.dyslexic.cinematic.client.KneeLayer.THIGH : -2.0f;
+                //?} else if forge {
+                /*// sitting on the ground by the fire, right knee drawn up with the hand on it, leaning on the left hand
+                rightLeg.xRot = dev.dyslexic.cinematic.client.KneeLayer.THIGH;
+                *///?}
                 rightLeg.yRot = 0.12f;
                 rightLeg.zRot = 0.05f;
+                //? if forge {
+                /*rightLeg.visible = false;
+                if ((Object) this instanceof net.minecraft.client.model.PlayerModel<?> playerModel) {
+                    playerModel.rightPants.visible = false;
+                }
+                *///?}
                 leftLeg.xRot = -1.45f;
                 leftLeg.yRot = -0.22f;
                 leftLeg.zRot = 0f;
+                //? if neoforge {
                 if (KneeLayer.sitting(entity.getId())) {
                     // KneeLayer draws this leg bent at the knee instead (the renderer shows every part again next frame)
                     rightLeg.xRot = KneeLayer.THIGH;
@@ -124,6 +140,38 @@ public abstract class HumanoidModelMixin<T extends LivingEntity> {
                     leftArm.yRot = 0f;
                     leftArm.zRot = -0.32f;
                 }
+                //?} else if fabric {
+                /*if (bent) {
+                    rightLeg.visible = false;
+                    if ((Object) this instanceof net.minecraft.client.model.PlayerModel<?> player) {
+                        player.rightPants.visible = false;
+                    }
+                    cinematic$leanBack();
+                    // leaning back, the right forearm lies over the raised knee and the left hand is on the ground behind
+                    rightArm.xRot = -1.5f + Mth.sin(t * 0.6f) * 0.03f;
+                    rightArm.yRot = -0.3f;
+                    rightArm.zRot = 0.05f;
+                    leftArm.xRot = 0.4f;
+                    leftArm.yRot = 0f;
+                    leftArm.zRot = -0.25f;
+                } else {
+                    rightArm.xRot = -1.05f + Mth.sin(t * 0.6f) * 0.03f;
+                    rightArm.yRot = -0.1f;
+                    rightArm.zRot = 0.05f;
+                    leftArm.xRot = 0.35f;
+                    leftArm.yRot = 0f;
+                    leftArm.zRot = -0.32f;
+                }
+                *///?} else if forge {
+                /*cinematic$leanBack();
+                // leaning back, the right forearm lies over the raised knee and the left hand is on the ground behind
+                rightArm.xRot = -1.5f + Mth.sin(t * 0.6f) * 0.03f;
+                rightArm.yRot = -0.3f;
+                rightArm.zRot = 0.05f;
+                leftArm.xRot = 0.4f;
+                leftArm.yRot = 0f;
+                leftArm.zRot = -0.25f;
+                *///?}
             }
             case LOOM -> {
                 // throwing the shuttle across the warp from hand to hand

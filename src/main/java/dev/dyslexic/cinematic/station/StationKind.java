@@ -17,7 +17,9 @@ import net.minecraft.world.level.block.LecternBlock;
 import net.minecraft.world.level.block.LoomBlock;
 import net.minecraft.world.level.block.StonecutterBlock;
 import net.minecraft.world.level.block.state.BlockState;
+//? if >=1.21 {
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+//?}
 
 /** The blocks the player can step up to. Each one is a scene of its own. */
 public enum StationKind {
@@ -45,8 +47,10 @@ public enum StationKind {
     CARTOGRAPHY,
     /** Bottles stand on the stand's feet, the ingredient sits in the bowl on top, blaze powder by the foot. */
     BREWING,
+    //? if >=1.21 {
     /** Items are laid into the window of the crafter's grid; it crafts on a redstone signal, as in vanilla. */
     CRAFTER,
+    //?}
     /** Not opened by using it: a key sits the player down by the fire, where food is put on and taken off. */
     CAMPFIRE,
     /** The book lying open on it is read page by page; a leaf is turned by its corner. Only with a book on it. */
@@ -103,9 +107,11 @@ public enum StationKind {
         if (state.is(Blocks.BREWING_STAND)) {
             return BREWING;
         }
+        //? if >=1.21 {
         if (state.is(Blocks.CRAFTER)) {
             return CRAFTER;
         }
+        //?}
         if (state.is(BlockTags.CAMPFIRES)) {
             return CAMPFIRE;
         }
@@ -136,7 +142,11 @@ public enum StationKind {
     /** Worked through the block's own vanilla menu, which the server opens without its window. */
     public boolean usesMenu() {
         return switch (this) {
+            //? if >=1.21 {
             case ENCHANTING, ANVIL, GRINDSTONE, SMITHING, STONECUTTER, LOOM, CARTOGRAPHY, BREWING, CRAFTER, LECTERN, BEACON, ADDON -> true;
+            //?} else if <1.21 {
+            /*case ENCHANTING, ANVIL, GRINDSTONE, SMITHING, STONECUTTER, LOOM, CARTOGRAPHY, BREWING, LECTERN, BEACON, ADDON -> true;
+            *///?}
             default -> false;
         };
     }
@@ -179,10 +189,12 @@ public enum StationKind {
             case CHISELED_BOOKSHELF -> List.of(state.getValue(HorizontalDirectionalBlock.FACING));
             // the slot on top runs north to south: a record in it shows its face to the east and the west
             case JUKEBOX -> List.of(Direction.EAST, Direction.WEST);
+            //? if >=1.21 {
             case CRAFTER -> {
                 Direction grid = state.getValue(BlockStateProperties.ORIENTATION).top();
                 yield grid == Direction.UP ? ANY_SIDE : grid == Direction.DOWN ? List.of() : List.of(grid);
             }
+            //?}
             default -> ANY_SIDE;
         };
     }

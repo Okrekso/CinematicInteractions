@@ -19,7 +19,9 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /** What the hands do on a crafting table top: lay items into cells, pick them up, craft. */
 public final class TableActions {
@@ -304,32 +306,56 @@ public final class TableActions {
      */
     public static void intoWindow(ServerPlayer player, CraftingMenu menu) {
         ServerLevel level = player.serverLevel();
+        //? if !forge {
         BlockPos pos = menu.access.evaluate((at, where) -> at == level ? where : null).orElse(null);
         if (pos == null || !TableGrid.isTable(level.getBlockState(pos))) {
             return;
         }
+        //?} else if forge {
+        /*BlockPos pos = ((dev.dyslexic.cinematic.mixin.CraftingMenuAccess) menu).cinematic$access()
+                .evaluate((at, where) -> at == level ? where : null).orElse(null);
+        if (pos == null || !TableGrid.isTable(level.getBlockState(pos))) return;
+        *///?}
         TableStore store = TableStore.get(level);
         TableStore.Table table = store.get(pos);
+        //? if !forge {
         if (table == null || table.isEmpty()) {
             return;
         }
+        //?} else if forge {
+        /*if (table == null || table.isEmpty()) return;
+        *///?}
         for (ServerPlayer other : level.players()) {
+            //? if !forge {
             Session session = Sessions.get(other);
             if (session != null && session.pos().equals(pos)) {
                 return;
             }
+            //?} else if forge {
+            /*Sessions.Session session = Sessions.get(other);
+            if (session != null && session.pos().equals(pos)) return;
+            *///?}
         }
+        //? if !forge {
         for (int i = 0; i < TableGrid.CELLS; i++) {
             if (!menu.craftSlots.getItem(i).isEmpty()) {
                 return;
             }
+        //?} else if forge {
+        /*for (int i = 1; i <= TableGrid.CELLS; i++) {
+            if (!menu.slots.get(i).getItem().isEmpty()) return;
+        *///?}
         }
         List<ItemStack> grid = TableGrid.oriented(table.items, TableGrid.sideFacing(pos, player.getX(), player.getZ()));
         store.remove(pos);
+        //? if !forge {
         store.setDirty();
         for (int i = 0; i < TableGrid.CELLS; i++) {
             menu.craftSlots.setItem(i, grid.get(i));
         }
+        //?} else if forge {
+        /*for (int i = 0; i < TableGrid.CELLS; i++) menu.slots.get(i + 1).set(grid.get(i));
+        *///?}
         sync(level, pos);
         menu.broadcastChanges();
     }

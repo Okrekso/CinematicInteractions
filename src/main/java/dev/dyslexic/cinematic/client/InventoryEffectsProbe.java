@@ -6,7 +6,13 @@ import net.lopymine.ipi.config.InventoryInteractionsConfig;
 import net.lopymine.ipi.renderer.CursorItemRenderer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
+//? if neoforge {
 import net.neoforged.fml.ModList;
+//?} else if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?} else if forge {
+/*import net.minecraftforge.fml.ModList;
+*///?}
 
 /** Native mod state inspected only by the explicitly selected inventory-compatibility Showcase act. */
 final class InventoryEffectsProbe {
@@ -39,15 +45,45 @@ final class InventoryEffectsProbe {
     }
 
     static Item cursor() { return InventoryParticlesRenderer.getInstance().getCursor().getCurrentStack().getItem(); }
+    //? if neoforge {
     static boolean hasInteractions() { return ModList.get().isLoaded("inventory_interactions"); }
+    //?} else if fabric {
+    /*static boolean hasInteractions() { return FabricLoader.getInstance().isModLoaded("inventory_interactions"); }
+    *///?} else if forge {
+    /*static boolean hasInteractions() { return ModList.get().isLoaded("inventory_interactions"); }
+    *///?}
     static Item physicsItem() { return hasInteractions() ? CursorItemRenderer.getInstance().getCursorItem().getItem() : Items.AIR; }
     static float angle() { return hasInteractions() ? CursorItemRenderer.getInstance().getCursorItem().getRenderAngle(1) : 0; }
     static double x() { return InventoryParticlesRenderer.getInstance().getCursor().getX(); }
     static double y() { return InventoryParticlesRenderer.getInstance().getCursor().getY(); }
 
+    //? if >=1.21 {
     static boolean near(double x, double y) {
         return InventoryParticlesRenderer.getInstance().getScreenElements().stream()
                 .anyMatch(p -> Math.abs(p.getX() - x) < 40 && Math.abs(p.getY() - y) < 40);
+    //?} else if fabric && <1.21 {
+    /*static String positions() {
+        StringBuilder out = new StringBuilder();
+        for (var p : InventoryParticlesRenderer.getInstance().getScreenElements())
+            out.append(String.format(java.util.Locale.ROOT, " (%.0f, %.0f)", p.getX(), p.getY()));
+        return out.toString();
+    }
+
+    static boolean near(double x, double y) {
+        return InventoryParticlesRenderer.getInstance().getScreenElements().stream()
+                .anyMatch(p -> Math.abs(p.getX() - x) < 40 && Math.abs(p.getY() - y) < 40);
+    *///?} else if forge {
+    /*static boolean near(double x, double y) {
+        return InventoryParticlesRenderer.getInstance().getScreenElements().stream()
+                .anyMatch(p -> Math.abs(p.getX() - x) < 40 && Math.abs(p.getY() - y) < 40);
+    }
+
+    static String positions() {
+        StringBuilder out = new StringBuilder();
+        for (var p : InventoryParticlesRenderer.getInstance().getScreenElements())
+            out.append(String.format(java.util.Locale.ROOT, " (%.0f, %.0f)", p.getX(), p.getY()));
+        return out.toString();
+    *///?}
     }
 
     static void actionOnly() {

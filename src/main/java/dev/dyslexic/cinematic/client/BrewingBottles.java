@@ -25,10 +25,17 @@ import net.minecraft.world.level.block.entity.BrewingStandBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.client.ChunkRenderTypeSet;
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.model.BakedModelWrapper;
 import net.neoforged.neoforge.client.model.data.ModelData;
+//?} else if forge {
+/*import net.minecraftforge.client.ChunkRenderTypeSet;
+import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.model.BakedModelWrapper;
+import net.minecraftforge.client.model.data.ModelData;
+*///?}
 
 /**
  * The bottles in a brewing stand are the real potions: the stand's own bottle pictures (one generic red potion for
@@ -42,6 +49,8 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
 
     public BrewingBottles(BlockEntityRendererProvider.Context context) {}
 
+    /** The state as the stand's model should see it ({@link StationModels}): no bottle on any foot. */
+    //? if neoforge {
     /**
      * The stand's model is one multipart model for all its states, which picks its bottle parts by the state it is asked
      * to draw. It is wrapped so that it is always asked for the state with no bottles.
@@ -59,6 +68,25 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
     }
 
     /** The state as the stand's model should see it: no bottle on any foot. */
+    //?} else if forge {
+    /*/^*
+     * The stand's model is one multipart model for all its states, which picks its bottle parts by the state it is asked
+     * to draw. It is wrapped so that it is always asked for the state with no bottles.
+     ^/
+    public static void hideVanillaBottles(ModelEvent.ModifyBakingResult event) {
+        Map<net.minecraft.resources.ResourceLocation, BakedModel> models = event.getModels();
+        Map<BakedModel, BakedModel> wrapped = new IdentityHashMap<>();
+        for (BlockState state : Blocks.BREWING_STAND.getStateDefinition().getPossibleStates()) {
+            ModelResourceLocation key = BlockModelShaper.stateToModelLocation(state);
+            BakedModel model = models.get(key);
+            if (model != null) {
+                models.put(key, wrapped.computeIfAbsent(model, NoBottles::new));
+            }
+        }
+    }
+
+    /^* The state as the stand's model should see it: no bottle on any foot. ^/
+    *///?}
     static BlockState withoutBottles(@Nullable BlockState state) {
         if (state == null || !state.is(Blocks.BREWING_STAND)) {
             return state;
@@ -67,6 +95,7 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
             state = state.setValue(bottle, false);
         }
         return state;
+    //? if neoforge {
     }
 
     private static final class NoBottles extends BakedModelWrapper<BakedModel> {
@@ -94,6 +123,35 @@ public final class BrewingBottles implements BlockEntityRenderer<BrewingStandBlo
         public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
             return originalModel.getModelData(level, pos, ClientOnly.serverHasMod() ? withoutBottles(state) : state, data);
         }
+    //?} else if forge {
+    /*}
+
+    private static final class NoBottles extends BakedModelWrapper<BakedModel> {
+        NoBottles(BakedModel model) {
+            super(model);
+        }
+
+        @Override
+        public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand) {
+            return originalModel.getQuads(ClientOnly.serverHasMod() ? withoutBottles(state) : state, side, rand);
+        }
+
+        @Override
+        public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, ModelData data,
+                @Nullable RenderType renderType) {
+            return originalModel.getQuads(ClientOnly.serverHasMod() ? withoutBottles(state) : state, side, rand, data, renderType);
+        }
+
+        @Override
+        public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
+            return originalModel.getRenderTypes(ClientOnly.serverHasMod() ? withoutBottles(state) : state, rand, data);
+        }
+
+        @Override
+        public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
+            return originalModel.getModelData(level, pos, ClientOnly.serverHasMod() ? withoutBottles(state) : state, data);
+        }
+    *///?}
     }
 
     @Override

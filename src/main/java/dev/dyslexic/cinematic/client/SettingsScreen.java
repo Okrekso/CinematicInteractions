@@ -8,8 +8,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
+//? if forge {
+/*import java.util.function.IntSupplier;
+*///?}
 import java.util.function.Function;
+//? if neoforge {
 import java.util.function.IntSupplier;
+//?}
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
@@ -32,7 +37,11 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.ItemLike;
+//? if neoforge {
 import net.neoforged.neoforge.common.ModConfigSpec;
+//?} else if forge {
+/*import net.minecraftforge.common.ForgeConfigSpec;
+*///?}
 
 /**
  * The mod's settings: a search box over four tabs (general, stations, camera, advanced), every option a row that names
@@ -46,7 +55,11 @@ public final class SettingsScreen extends Screen {
 
     /** The stations as they are grouped on their tab, with the item that stands for each. */
     private static final Object[][] GROUPS = {
+            //? if >=1.21 {
             {"crafting", StationKind.TABLE, StationKind.CRAFTER, StationKind.STONECUTTER, StationKind.LOOM, StationKind.CARTOGRAPHY},
+            //?} else if <1.21 {
+            /*{"crafting", StationKind.TABLE, StationKind.STONECUTTER, StationKind.LOOM, StationKind.CARTOGRAPHY},
+            *///?}
             {"cooking", StationKind.FURNACE, StationKind.SMOKER, StationKind.BLAST_FURNACE, StationKind.CAMPFIRE},
             {"smithing", StationKind.ANVIL, StationKind.GRINDSTONE, StationKind.SMITHING},
             {"magic", StationKind.ENCHANTING, StationKind.BREWING, StationKind.BEACON},
@@ -81,7 +94,13 @@ public final class SettingsScreen extends Screen {
 
     private final Screen parent;
     /** Changed values not yet written to the settings file. */
+    //? if neoforge {
     private final Map<ModConfigSpec.ConfigValue<?>, Object> draft = new HashMap<>();
+    //?} else if fabric {
+    /*private final Map<ClientConfig.Value<?>, Object> draft = new HashMap<>();
+    *///?} else if forge {
+    /*private final Map<ForgeConfigSpec.ConfigValue<?>, Object> draft = new HashMap<>();
+    *///?}
     private final Map<StationKind, Integer> profiles = new EnumMap<>(StationKind.class);
     private final boolean inWorld;
     private Tab tab = Tab.GENERAL;
@@ -103,15 +122,33 @@ public final class SettingsScreen extends Screen {
 
     // ---- the draft ---------------------------------------------------------------------------------
 
+    //? if neoforge {
     private boolean bool(ModConfigSpec.BooleanValue value) {
+    //?} else if fabric {
+    /*private boolean bool(ClientConfig.BooleanValue value) {
+    *///?} else if forge {
+    /*private boolean bool(ForgeConfigSpec.BooleanValue value) {
+    *///?}
         return (Boolean) draft.getOrDefault(value, value.get());
     }
 
+    //? if neoforge {
     private int number(ModConfigSpec.IntValue value) {
+    //?} else if fabric {
+    /*private int number(ClientConfig.IntValue value) {
+    *///?} else if forge {
+    /*private int number(ForgeConfigSpec.IntValue value) {
+    *///?}
         return (Integer) draft.getOrDefault(value, value.get());
     }
 
+    //? if neoforge {
     private void put(ModConfigSpec.ConfigValue<?> value, Object to) {
+    //?} else if fabric {
+    /*private void put(ClientConfig.Value<?> value, Object to) {
+    *///?} else if forge {
+    /*private void put(ForgeConfigSpec.ConfigValue<?> value, Object to) {
+    *///?}
         draft.put(value, to);
     }
 
@@ -121,13 +158,28 @@ public final class SettingsScreen extends Screen {
 
     @SuppressWarnings("unchecked")
     private void apply() {
+        //? if neoforge {
         for (Map.Entry<ModConfigSpec.ConfigValue<?>, Object> change : draft.entrySet()) {
             ModConfigSpec.ConfigValue<Object> value = (ModConfigSpec.ConfigValue<Object>) change.getKey();
+        //?} else if fabric {
+        /*for (Map.Entry<ClientConfig.Value<?>, Object> change : draft.entrySet()) {
+            ClientConfig.Value<Object> value = (ClientConfig.Value<Object>) change.getKey();
+        *///?} else if forge {
+        /*for (Map.Entry<ForgeConfigSpec.ConfigValue<?>, Object> change : draft.entrySet()) {
+            ForgeConfigSpec.ConfigValue<Object> value = (ForgeConfigSpec.ConfigValue<Object>) change.getKey();
+        *///?}
             if (!value.get().equals(change.getValue())) {
+                //? if !forge {
                 value.set(change.getValue());
+                //?} else if forge {
+                /*// (through Settings.set: Forge's reload of the file must not put an older value back)
+                Settings.set(value, change.getValue());
+                *///?}
             }
         }
+        //? if !forge {
         Settings.SPEC.save();
+        //?}
         profiles.forEach(LayoutProfiles::select);
     }
 
@@ -182,12 +234,24 @@ public final class SettingsScreen extends Screen {
         }
     }
 
+    //? if neoforge {
     private Option toggle(Tab on, String key, ModConfigSpec.BooleanValue value, Function<Boolean, Component> text) {
+    //?} else if fabric {
+    /*private Option toggle(Tab on, String key, ClientConfig.BooleanValue value, Function<Boolean, Component> text) {
+    *///?} else if forge {
+    /*private Option toggle(Tab on, String key, ForgeConfigSpec.BooleanValue value, Function<Boolean, Component> text) {
+    *///?}
         return toggle(on, Component.translatable("cinematic.configuration." + key), Component.translatable("cinematic.configuration." + key + ".tooltip"),
                 value, text);
     }
 
+    //? if neoforge {
     private Option toggle(Tab on, Component label, Component description, ModConfigSpec.BooleanValue value, Function<Boolean, Component> text) {
+    //?} else if fabric {
+    /*private Option toggle(Tab on, Component label, Component description, ClientConfig.BooleanValue value, Function<Boolean, Component> text) {
+    *///?} else if forge {
+    /*private Option toggle(Tab on, Component label, Component description, ForgeConfigSpec.BooleanValue value, Function<Boolean, Component> text) {
+    *///?}
         return new Option(on, label, description) {
             @Override
             AbstractWidget control() {
@@ -211,7 +275,13 @@ public final class SettingsScreen extends Screen {
         };
     }
 
+    //? if neoforge {
     private Option slider(Tab on, String key, ModConfigSpec.IntValue value, int min, int max, Function<Integer, Component> text) {
+    //?} else if fabric {
+    /*private Option slider(Tab on, String key, ClientConfig.IntValue value, int min, int max, Function<Integer, Component> text) {
+    *///?} else if forge {
+    /*private Option slider(Tab on, String key, ForgeConfigSpec.IntValue value, int min, int max, Function<Integer, Component> text) {
+    *///?}
         return new Option(on, Component.translatable("cinematic.configuration." + key), Component.translatable("cinematic.configuration." + key + ".tooltip")) {
             @Override
             AbstractWidget control() {
@@ -230,6 +300,7 @@ public final class SettingsScreen extends Screen {
         };
     }
 
+    //? if neoforge {
     /** The way in as it plays: the three-way setting, or (still -1 from an older file) the old quick return switch. */
     private int quickMode() {
         int mode = number(Settings.QUICK_MODE);
@@ -241,13 +312,35 @@ public final class SettingsScreen extends Screen {
      * is {@code made}.
      */
     private Option choice(Tab on, String key, ModConfigSpec.IntValue value, int count, IntSupplier current, int made) {
+    //?} else if fabric {
+    /*/^* One of a few numbered choices (the way in, the arms), each named by its translation key and number. ^/
+    private Option choice(Tab on, String key, ClientConfig.IntValue value, int count) {
+    *///?} else if forge {
+    /*/^* The way in as it plays: the three-way setting, or (still -1 from an older file) the old quick return switch. ^/
+    private int quickMode() {
+        int mode = number(Settings.QUICK_MODE);
+        return mode < 0 ? (bool(Settings.QUICK_RETURN) ? 1 : 0) : mode;
+    }
+
+    /^*
+     * One of a few numbered choices (the way in, the arms), each named by its translation key and number; as made it
+     * is {@code made}.
+     ^/
+    private Option choice(Tab on, String key, ForgeConfigSpec.IntValue value, int count, IntSupplier current, int made) {
+    *///?}
         return new Option(on, Component.translatable("cinematic.configuration." + key), Component.translatable("cinematic.configuration." + key + ".tooltip")) {
             @Override
             AbstractWidget control() {
                 Integer[] values = new Integer[count];
                 for (int i = 0; i < count; i++) values[i] = i;
                 return CycleButton.<Integer>builder(v -> Component.translatable("cinematic.settings." + key + "." + v).withStyle(ChatFormatting.WHITE))
+                        //? if neoforge {
                         .withValues(values).withInitialValue(current.getAsInt()).displayOnlyValue()
+                        //?} else if fabric {
+                        /*.withValues(values).withInitialValue(number(value)).displayOnlyValue()
+                        *///?} else if forge {
+                        /*.withValues(values).withInitialValue(current.getAsInt()).displayOnlyValue()
+                        *///?}
                         .create(0, 0, CONTROL, 20, label, (button, to) -> {
                             put(value, to);
                             // (the way in switches the approach speed and the quick return window on or off)
@@ -257,12 +350,24 @@ public final class SettingsScreen extends Screen {
 
             @Override
             boolean changed() {
+                //? if neoforge {
                 return current.getAsInt() != made;
+                //?} else if fabric {
+                /*return number(value) != value.getDefault();
+                *///?} else if forge {
+                /*return current.getAsInt() != made;
+                *///?}
             }
 
             @Override
             void reset() {
+                //? if neoforge {
                 put(value, made);
+                //?} else if fabric {
+                /*put(value, value.getDefault());
+                *///?} else if forge {
+                /*put(value, made);
+                *///?}
             }
         };
     }
@@ -334,7 +439,13 @@ public final class SettingsScreen extends Screen {
         all.add(invite);
         all.add(toggle(Tab.GENERAL, "lookToggles", Settings.LOOK_TOGGLES,
                 on -> Component.translatable(on ? "cinematic.settings.look.toggle" : "cinematic.settings.look.hold").withStyle(ChatFormatting.WHITE)));
+        //? if neoforge {
         all.add(choice(Tab.GENERAL, "armStyle", Settings.ARM_STYLE, 3, () -> number(Settings.ARM_STYLE), 0));
+        //?} else if fabric {
+        /*all.add(choice(Tab.GENERAL, "armStyle", Settings.ARM_STYLE, 3));
+        *///?} else if forge {
+        /*all.add(choice(Tab.GENERAL, "armStyle", Settings.ARM_STYLE, 3, () -> number(Settings.ARM_STYLE), 0));
+        *///?}
         // stations
         for (Object[] group : GROUPS) {
             all.add(new Header(Tab.STATIONS, Component.translatable("cinematic.settings.group." + group[0])));
@@ -347,21 +458,45 @@ public final class SettingsScreen extends Screen {
         all.add(presetOption());
         all.add(toggle(Tab.CAMERA, "reduceMotion", Settings.REDUCE_MOTION, onOff));
         all.add(new Header(Tab.CAMERA, Component.translatable("cinematic.settings.pace")));
+        //? if neoforge {
         all.add(choice(Tab.CAMERA, "quickMode", Settings.QUICK_MODE, 3, this::quickMode, 1));
+        //?} else if fabric {
+        /*all.add(choice(Tab.CAMERA, "quickMode", Settings.QUICK_MODE, 3));
+        *///?} else if forge {
+        /*all.add(choice(Tab.CAMERA, "quickMode", Settings.QUICK_MODE, 3, this::quickMode, 1));
+        *///?}
         Option approach = slider(Tab.CAMERA, "approachSpeed", Settings.APPROACH_SPEED, 50, 200, SettingsScreen::percent);
         // every way in quick: the lean in always has the quick pace
+        //? if neoforge {
         approach.enabled = () -> quickMode() != 2;
+        //?} else if fabric {
+        /*approach.enabled = () -> number(Settings.QUICK_MODE) != 2;
+        *///?} else if forge {
+        /*approach.enabled = () -> quickMode() != 2;
+        *///?}
         all.add(approach);
         all.add(slider(Tab.CAMERA, "leaveSpeed", Settings.LEAVE_SPEED, 50, 200, SettingsScreen::percent));
         Option window = slider(Tab.CAMERA, "quickWindow", Settings.QUICK_WINDOW, 5, 30, v -> Component.translatable("cinematic.settings.seconds", v));
+        //? if neoforge {
         window.enabled = () -> quickMode() == 1;
+        //?} else if fabric {
+        /*window.enabled = () -> number(Settings.QUICK_MODE) == 1;
+        *///?} else if forge {
+        /*window.enabled = () -> quickMode() == 1;
+        *///?}
         all.add(window);
         all.add(new Header(Tab.CAMERA, Component.translatable("cinematic.settings.view")));
         all.add(slider(Tab.CAMERA, "leanStrength", Settings.LEAN_STRENGTH, 0, 100, SettingsScreen::percent));
         all.add(slider(Tab.CAMERA, "sceneZoom", Settings.SCENE_ZOOM, 0, 100, SettingsScreen::percent));
         all.add(new Header(Tab.CAMERA, Component.translatable("cinematic.settings.effects")));
         for (String key : new String[]{"letterbox", "livingCamera", "cameraShake", "screenFlash"}) {
+            //? if neoforge {
             ModConfigSpec.BooleanValue value = switch (key) {
+            //?} else if fabric {
+            /*ClientConfig.BooleanValue value = switch (key) {
+            *///?} else if forge {
+            /*ForgeConfigSpec.BooleanValue value = switch (key) {
+            *///?}
                 case "letterbox" -> Settings.LETTERBOX;
                 case "livingCamera" -> Settings.LIVING_CAMERA;
                 case "cameraShake" -> Settings.CAMERA_SHAKE;
@@ -383,7 +518,11 @@ public final class SettingsScreen extends Screen {
         all.add(toggle(Tab.ADVANCED, "developerMode", Settings.DEVELOPER_MODE, onOff));
         all.add(new Header(Tab.ADVANCED, Component.translatable("cinematic.settings.profiles"), true));
         for (StationKind kind : StationKind.values()) {
+            //? if !forge {
             if (kind != StationKind.ADDON) {
+            //?} else if forge {
+            /*if (LayoutProfiles.supports(kind)) {
+            *///?}
                 all.add(profileOption(kind));
             }
         }
@@ -521,7 +660,11 @@ public final class SettingsScreen extends Screen {
             list.add(new Row(Row.Style.NOTE, Component.translatable("cinematic.settings.profiles.hidden"), null, null, null));
         }
         if (searching) {
+            //? if >=1.21 {
             list.addFirst(new Row(Row.Style.NOTE, found == 0 ? Component.translatable("cinematic.settings.no_results", searchText.trim())
+            //?} else if <1.21 {
+            /*list.add(0, new Row(Row.Style.NOTE, found == 0 ? Component.translatable("cinematic.settings.no_results", searchText.trim())
+            *///?}
                     : Component.translatable("cinematic.settings.results", found), null, null, null));
         }
         rows.set(list);
@@ -537,7 +680,14 @@ public final class SettingsScreen extends Screen {
 
     private void stations(boolean on) {
         for (StationKind kind : Settings.SCENES.keySet()) {
+            //? if !forge {
             put(Settings.SCENES.get(kind), on);
+            //?} else if forge {
+            /*// (an addon's station is not on the tab: its setting stays as it is)
+            if (kind != StationKind.ADDON) {
+                put(Settings.SCENES.get(kind), on);
+            }
+            *///?}
         }
         dirty = true;
     }
@@ -563,6 +713,13 @@ public final class SettingsScreen extends Screen {
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         described = null;
+        //? if fabric && <1.21 {
+        /*// (1.20.1's screens draw no background of their own)
+        renderBackground(graphics);
+        *///?} else if forge {
+        /*// (Forge 1.20.1's screens draw no background of their own)
+        renderBackground(graphics);
+        *///?}
         super.render(graphics, mouseX, mouseY, partialTick);
         graphics.drawCenteredString(font, title, width / 2, 7, 0xFFFFFF);
         // what the option under the mouse does
@@ -607,7 +764,9 @@ public final class SettingsScreen extends Screen {
             case LOOM -> Items.LOOM;
             case CARTOGRAPHY -> Items.CARTOGRAPHY_TABLE;
             case BREWING -> Items.BREWING_STAND;
+            //? if >=1.21 {
             case CRAFTER -> Items.CRAFTER;
+            //?}
             case CAMPFIRE -> Items.CAMPFIRE;
             case LECTERN -> Items.LECTERN;
             case BEACON -> Items.BEACON;
@@ -626,7 +785,13 @@ public final class SettingsScreen extends Screen {
 
         StationButton(StationOption option) {
             super(0, 0, 150, 20, Component.empty(), button -> {
+                //? if neoforge {
                 ModConfigSpec.BooleanValue value = Settings.SCENES.get(option.kind);
+                //?} else if fabric {
+                /*ClientConfig.BooleanValue value = Settings.SCENES.get(option.kind);
+                *///?} else if forge {
+                /*ForgeConfigSpec.BooleanValue value = Settings.SCENES.get(option.kind);
+                *///?}
                 put(value, !bool(value));
             }, narration -> narration.get());
             this.option = option;
@@ -648,11 +813,23 @@ public final class SettingsScreen extends Screen {
 
     /** A whole number on a slider, kept in the draft as it moves. */
     private final class IntSlider extends AbstractSliderButton {
+        //? if neoforge {
         private final ModConfigSpec.IntValue setting;
+        //?} else if fabric {
+        /*private final ClientConfig.IntValue setting;
+        *///?} else if forge {
+        /*private final ForgeConfigSpec.IntValue setting;
+        *///?}
         private final int min, max;
         private final Function<Integer, Component> text;
 
+        //? if neoforge {
         IntSlider(ModConfigSpec.IntValue setting, int min, int max, Function<Integer, Component> text) {
+        //?} else if fabric {
+        /*IntSlider(ClientConfig.IntValue setting, int min, int max, Function<Integer, Component> text) {
+        *///?} else if forge {
+        /*IntSlider(ForgeConfigSpec.IntValue setting, int min, int max, Function<Integer, Component> text) {
+        *///?}
             super(0, 0, CONTROL, 20, Component.empty(), (Mth.clamp(number(setting), min, max) - min) / (double) (max - min));
             this.setting = setting;
             this.min = min;
@@ -680,7 +857,13 @@ public final class SettingsScreen extends Screen {
     /** The scrolling list of rows, as wide as the row and with its scroll bar just beside it. */
     private static final class Rows extends ContainerObjectSelectionList<Row> {
         Rows(Minecraft minecraft, int width, int height, int y) {
+            //? if >=1.21 {
             super(minecraft, width, height, y, 24);
+            //?} else if <1.21 {
+            /*super(minecraft, width, height, y, y + height, 24);
+            setRenderBackground(false);
+            setRenderTopAndBottom(false);
+            *///?}
         }
 
         void set(List<Row> list) {

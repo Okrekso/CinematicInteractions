@@ -83,14 +83,22 @@ interface SpatialTarget {
     default void layoutGhost(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int slot, int light) {
         var kind = layoutStation().kind();
         if (RemainingLayouts.supports(kind)) { RemainingLayouts.ghost(this, pose, buffers, camera, slot, light); return; }
+        //? if >=1.21 {
         ItemStack item = new ItemStack(kind == StationKind.CRAFTER ? Items.OAK_PLANKS
                 : slot < 3 ? Items.GLASS_BOTTLE : slot == 3 ? Items.NETHER_WART : Items.BLAZE_POWDER);
+        //?} else if <1.21 {
+        /*ItemStack item = new ItemStack(slot < 3 ? Items.GLASS_BOTTLE : slot == 3 ? Items.NETHER_WART : Items.BLAZE_POWDER);
+        *///?}
         // Use the actual station renderer so a preview has the same size, rotation and contact as a real item.
+        //? if >=1.21 {
         if (kind == StationKind.CRAFTER) {
             List<ItemStack> items = new ArrayList<>(java.util.Collections.nCopies(9, ItemStack.EMPTY));
             items.set(slot, item);
             CrafterStation.drawGrid(pose, buffers, camera, layoutStation().pos, layoutFrame().grid(), layoutStation().sideDirection(), items, -1, light);
         } else if (slot < 3) {
+        //?} else if <1.21 {
+        /*if (slot < 3) {
+        *///?}
             BrewingBottles.draw(pose, buffers, camera, camera, item, layoutPoint(slot), 1f, geometry().scale(slot),
                     BrewingStation.itemRotation(slot), light);
         } else {

@@ -35,11 +35,18 @@ final class MultiplayerSettingsScreen extends Screen {
                 .append(Component.translatable(Settings.CLIENT_ONLY_MODE.get() ? "cinematic.settings.on" : "cinematic.settings.off"));
     }
 
+    //? if !forge {
     @Override public void render(GuiGraphics g, int x, int y, float tick) {
         super.render(g, x, y, tick);
         g.drawCenteredString(font, title, width / 2, 20, 0xFFFFFFFF);
+    //?} else if forge {
+    /*@Override public void render(GuiGraphics graphics, int x, int y, float tick) {
+        super.render(graphics, x, y, tick);
+        graphics.drawCenteredString(font, title, width / 2, 20, 0xFFFFFF);
+    *///?}
         int line = 0;
         for (var text : font.split(Component.translatable("cinematic.settings.multiplayer.note"), Math.min(width - 40, 540))) {
+            //? if !forge {
             g.drawCenteredString(font, text, width / 2, height / 2 - 72 + line++ * 12, 0xFFA8A296);
         }
         if (minecraft.level != null) {
@@ -47,6 +54,9 @@ final class MultiplayerSettingsScreen extends Screen {
             for (var text : font.split(Component.translatable("cinematic.settings.clientOnlyMode.locked"), Math.min(width - 40, 540))) {
                 g.drawCenteredString(font, text, width / 2, height / 2 + 26 + line++ * 12, 0xFFA8A296);
             }
+            //?} else if forge {
+            /*graphics.drawCenteredString(font, text, width / 2, height / 2 - 72 + line++ * 12, 0xA8A296);
+            *///?}
         }
     }
 

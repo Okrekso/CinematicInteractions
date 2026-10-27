@@ -1,6 +1,10 @@
 package dev.dyslexic.cinematic.client;
 
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,7 +109,11 @@ final class RecipeChoiceStrip {
 
     /** Tells the server which of the competing recipes to use at the station. */
     static void send(net.minecraft.core.BlockPos pos, dev.dyslexic.cinematic.station.StationKind kind, int index) {
+        //? if !forge {
         PacketDistributor.sendToServer(new StationActionPayload(pos, kind, StationActionPayload.Action.CHOOSE, index, 0, false, 0));
+        //?} else if forge {
+        /*ClientNet.sendToServer(new StationActionPayload(pos, kind, StationActionPayload.Action.CHOOSE, index, 0, false, 0));
+        *///?}
     }
 
     @Nullable

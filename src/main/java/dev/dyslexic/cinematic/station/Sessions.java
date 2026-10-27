@@ -25,7 +25,9 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /**
  * Server side of "working at a station". The cursor stack of the open menu is the item in the player's hand: the
@@ -75,26 +77,42 @@ public final class Sessions {
             return;
         }
         ServerLevel level = player.serverLevel();
+        //? if <1.21 {
+        /*if (action.action() == StationActionPayload.Action.CHOOSE) {
+            RecipeChoices.choose(player, level, session, action.index());
+            return;
+        }
+        *///?}
         if (action.action() == StationActionPayload.Action.QUICK) {
             quickMove(player, level, session, action.index());
             return;
         }
+        //? if >=1.21 {
         if (action.action() == StationActionPayload.Action.CHOOSE) {
             RecipeChoices.choose(player, level, session, action.index());
             return;
         }
+        //?}
         switch (session.kind()) {
             case TABLE -> TableActions.handle(player, level, session, action);
             case FURNACE, SMOKER, BLAST_FURNACE -> FurnaceActions.handle(player, level, session, action);
             case ENCHANTING -> {
                 // everything at the enchanting table goes through the vanilla menu the session opened
             }
+            //? if >=1.21 {
             case ANVIL, GRINDSTONE, SMITHING, STONECUTTER, LOOM, CARTOGRAPHY, BREWING, CRAFTER, LECTERN, BEACON ->
+            //?} else if <1.21 {
+            /*case ANVIL, GRINDSTONE, SMITHING, STONECUTTER, LOOM, CARTOGRAPHY, BREWING, LECTERN, BEACON ->
+            *///?}
                     MenuActions.handle(player, session, action);
             case CAMPFIRE -> CampfireActions.handle(player, level, session, action);
             case JUKEBOX -> JukeboxActions.handle(player, level, session, action);
             case CHISELED_BOOKSHELF -> ShelfActions.handle(player, level, session, action);
+            //? if >=1.21 {
             case ADDON -> { /* The add-on's real menu handles its own slot and button packets. */ }
+            //?} else if <1.21 {
+            /*case ADDON -> { /^ The add-on's real menu owns its own slot and button packets. ^/ }
+            *///?}
         }
     }
 
@@ -223,7 +241,12 @@ public final class Sessions {
         if (session == null) {
             return;
         }
+        //? if >=1.21 {
         if (player.tickCount % 5 == 0 && !valid(player, session, true)) {
+        //?} else if <1.21 {
+        /*// Furnace block entities can disappear while another player is breaking the block.
+        if ((session.kind().isFurnace() || player.tickCount % 5 == 0) && !valid(player, session, true)) {
+        *///?}
             end(player, true);
             return;
         }
@@ -235,6 +258,14 @@ public final class Sessions {
         }
         if (session.kind() == StationKind.CHISELED_BOOKSHELF && player.tickCount % 4 == 0) {
             ShelfActions.tick(player, session);
+        //? if fabric && <1.21 {
+        /*}
+        if (session.kind() == StationKind.ENCHANTING) {
+        *///?} else if forge {
+        /*}
+        if (session.kind() == StationKind.ENCHANTING) {
+            EnchantActions.watch(player, session);
+        *///?}
         }
         if (session.kind() == StationKind.ENCHANTING && player.tickCount % 2 == 0) {
             EnchantActions.tick(player, session);

@@ -27,7 +27,16 @@ import net.minecraft.client.resources.model.ModelBakery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?} else if <1.21 {
+/*import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.ResourceLocation;
+import com.mojang.datafixers.util.Pair;
+*///?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -39,7 +48,12 @@ import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.item.DyeItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BannerPattern;
+//? if >=1.21 {
 import net.minecraft.world.level.block.entity.BannerPatternLayers;
+//?} else if <1.21 {
+/*import net.minecraft.world.level.block.entity.BannerBlockEntity;
+import net.minecraft.world.level.block.entity.BannerPatterns;
+*///?}
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -95,14 +109,64 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
 
     // the weaving, as it was when it began
     private DyeColor weaveBase = DyeColor.WHITE;
+    //? if >=1.21 {
     private List<BannerPatternLayers.Layer> weaveLayers = List.of();
+    //?} else if <1.21 {
+    /*private List<Layer> weaveLayers = List.of();
+    *///?}
     @Nullable
+    //? if >=1.21 {
     private BannerPatternLayers.Layer weaveNew;
+    //?} else if <1.21 {
+    /*private Layer weaveNew;
+    *///?}
     private ItemStack woven = ItemStack.EMPTY;
     private ItemStack shuttle = ItemStack.EMPTY;
     private boolean toInventory;
     private int passesDone;
 
+    //? if <1.21 {
+    /*/^*
+     * One pattern on a banner in its colour. In 1.20.1 a banner's patterns are its block entity tag ("Patterns": the
+     * pattern's hash name and the dye's id), read here into the shape later versions keep them in.
+     ^/
+    record Layer(Holder<BannerPattern> pattern, DyeColor color) {
+        /^* The pattern's name in its colour, as a banner's tooltip names it. ^/
+        MutableComponent description() {
+            String key = pattern.unwrapKey().map(k -> k.location().toShortLanguageKey()).orElse("base");
+            ResourceLocation file = new ResourceLocation(key);
+            return Component.translatable("block." + file.getNamespace() + ".banner." + file.getPath() + "." + color.getName());
+        }
+    }
+
+    /^* The patterns woven into a banner so far, bottom first. ^/
+    static List<Layer> layersOf(ItemStack banner) {
+        ListTag list = BannerBlockEntity.getItemPatterns(banner);
+        if (list == null || list.isEmpty()) {
+            return List.of();
+        }
+        List<Layer> layers = new ArrayList<>(list.size());
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag entry = list.getCompound(i);
+            Holder<BannerPattern> pattern = BannerPattern.byHash(entry.getString("Pattern"));
+            if (pattern != null) {
+                layers.add(new Layer(pattern, DyeColor.byId(entry.getInt("Color"))));
+            }
+        }
+        return layers;
+    }
+
+    /^* A dye's colour as 0xRRGGBB (1.20.1 keeps it as three floats). ^/
+    static int diffuse(DyeColor color) {
+        float[] c = color.getTextureDiffuseColors();
+        return Math.round(c[0] * 255) << 16 | Math.round(c[1] * 255) << 8 | Math.round(c[2] * 255);
+    }
+
+    private static Material material(Holder<BannerPattern> pattern) {
+        return Sheets.getBannerMaterial(pattern.unwrapKey().orElse(BannerPatterns.BASE));
+    }
+
+    *///?}
     public LoomStation(BlockPos pos, Direction side) {
         super(pos, side, LoomMenu.class, 3);
         top = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
@@ -188,7 +252,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
 
     /** A banner takes six patterns at most. */
     private boolean full() {
+        //? if >=1.21 {
         return slot(0).getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers().size() >= 6;
+        //?} else if <1.21 {
+        /*return BannerBlockEntity.getPatternCount(slot(0)) >= 6;
+        *///?}
     }
 
     private static DyeColor baseOf(ItemStack banner) {
@@ -324,8 +392,13 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         }
         ItemStack banner = slot(0);
         weaveBase = baseOf(banner);
+        //? if >=1.21 {
         weaveLayers = banner.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers();
         weaveNew = new BannerPatternLayers.Layer(patterns.get(k), dye());
+        //?} else if <1.21 {
+        /*weaveLayers = layersOf(banner);
+        weaveNew = new Layer(patterns.get(k), dye());
+        *///?}
         shuttle = slot(1).copyWithCount(1);
         // the window does the same: pick the pattern here and tell the server
         menu.clickMenuButton(mc.player, k);
@@ -417,8 +490,12 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
     }
 
     static float[] rgb(DyeColor color) {
+        //? if >=1.21 {
         int c = color.getTextureDiffuseColor();
         return new float[]{(c >> 16 & 255) / 255f, (c >> 8 & 255) / 255f, (c & 255) / 255f};
+        //?} else if <1.21 {
+        /*return color.getTextureDiffuseColors().clone();
+        *///?}
     }
 
     // ---- drawing in the world ------------------------------------------------------------------------
@@ -437,10 +514,19 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
             drawWeaving(pose, buffers, camera, t, light);
         } else if (!slot(0).isEmpty()) {
             ItemStack banner = slot(0);
+            //? if >=1.21 {
             List<BannerPatternLayers.Layer> layers = banner.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers();
             BannerPatternLayers.Layer preview = null;
+            //?} else if <1.21 {
+            /*List<Layer> layers = layersOf(banner);
+            Layer preview = null;
+            *///?}
             if (hoverPattern >= 0 && hoverPattern < patterns().size()) {
+                //? if >=1.21 {
                 preview = new BannerPatternLayers.Layer(patterns().get(hoverPattern), dye());
+                //?} else if <1.21 {
+                /*preview = new Layer(patterns().get(hoverPattern), dye());
+                *///?}
             }
             drawCloth(pose, buffers, cam, layoutPoint(0).add(0, 0.003, 0).add(right().scale(denyShake())), far, clothAcross(), up, clothWidth(), clothLength(),
                     baseOf(banner), layers, preview, 1, light);
@@ -484,7 +570,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         Vec3 vAxis = Anim.lerp(far, up, stand).normalize();
         Vec3 normal = Anim.lerp(up, clothNear(), stand).normalize();
         double size = 1 - 0.75 * Anim.inCubic(Anim.window(t, BEAT + 0.1, WEAVE_LENGTH));
+        //? if >=1.21 {
         List<BannerPatternLayers.Layer> after = woven.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers();
+        //?} else if <1.21 {
+        /*List<Layer> after = layersOf(woven);
+        *///?}
         drawCloth(pose, buffers, cam, center, vAxis, clothAcross(), normal, clothWidth() * size, clothLength() * size, baseOf(woven), after, null, 1, light);
     }
 
@@ -496,7 +586,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
      * @param right unit vector across it, towards the flag's right
      */
     static void drawCloth(PoseStack pose, MultiBufferSource buffers, Vec3 cam, Vec3 center, Vec3 up, Vec3 right, Vec3 normal, double width,
+            //? if >=1.21 {
             double length, DyeColor base, List<BannerPatternLayers.Layer> layers, @Nullable BannerPatternLayers.Layer extra, double reveal, int light) {
+            //?} else if <1.21 {
+            /*double length, DyeColor base, List<Layer> layers, @Nullable Layer extra, double reveal, int light) {
+            *///?}
         Vec3 topLeft = center.add(up.scale(length / 2)).subtract(right.scale(width / 2));
         boolean partly = extra != null && reveal > 0.001 && reveal < 0.999;
         // translucent layers are sorted by depth and write none: a partial layer only stays on top of quads of the
@@ -505,16 +599,32 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         for (double[] piece : pieces) {
             // Ghost opacity can move solid layers into the shared translucent buffer; fetch only when writing.
             layer(pose, buffers.getBuffer(RenderType.entitySolid(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, ModelBakery.BANNER_BASE, 0xFFFFFFFF, piece, 0, light);
+            //? if >=1.21 {
             layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.BANNER_BASE, base.getTextureDiffuseColor(), piece, 1, light);
+            //?} else if <1.21 {
+            /*layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length,
+                    Sheets.getBannerMaterial(BannerPatterns.BASE), diffuse(base), piece, 1, light);
+            *///?}
             int i = 2;
+            //? if >=1.21 {
             for (BannerPatternLayers.Layer l : layers) {
                 layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.getBannerMaterial(l.pattern()),
                         l.color().getTextureDiffuseColor(), piece, i++, light);
+            //?} else if <1.21 {
+            /*for (Layer l : layers) {
+                layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, material(l.pattern()),
+                        diffuse(l.color()), piece, i++, light);
+            *///?}
             }
         }
         if (extra != null && reveal > 0.001) {
+            //? if >=1.21 {
             layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, Sheets.getBannerMaterial(extra.pattern()),
                     extra.color().getTextureDiffuseColor(), new double[]{0, Math.min(1, reveal)}, 2 + layers.size(), light);
+            //?} else if <1.21 {
+            /*layer(pose, buffers.getBuffer(RenderType.entityNoOutline(Sheets.BANNER_SHEET)), cam, topLeft, up, right, normal, width, length, material(extra.pattern()),
+                    diffuse(extra.color()), new double[]{0, Math.min(1, reveal)}, 2 + layers.size(), light);
+            *///?}
         }
     }
 
@@ -527,14 +637,24 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         Vec3 b = a.add(right.scale(width));
         Vec3 c = b.subtract(up.scale(length * (piece[1] - piece[0])));
         Vec3 d = a.subtract(up.scale(length * (piece[1] - piece[0])));
+        //? if >=1.21 {
         float u0 = sprite.getU(1 / 64f), u1 = sprite.getU(21 / 64f);
         float v0 = sprite.getV((float) ((1 + 40 * piece[0]) / 64)), v1 = sprite.getV((float) ((1 + 40 * piece[1]) / 64));
+        //?} else if <1.21 {
+        /*float u0 = Fx.u(sprite, 1 / 64f), u1 = Fx.u(sprite, 21 / 64f);
+        float v0 = Fx.v(sprite, (float) ((1 + 40 * piece[0]) / 64)), v1 = Fx.v(sprite, (float) ((1 + 40 * piece[1]) / 64));
+        *///?}
         Vec3[] p = {a, d, c, b};
         float[][] uv = {{u0, v0}, {u0, v1}, {u1, v1}, {u1, v0}};
         int r = argb >> 16 & 255, g = argb >> 8 & 255, bl = argb & 255;
         for (int k = 0; k < 4; k++) {
+            //? if >=1.21 {
             vc.addVertex(pose.last(), (float) p[k].x, (float) p[k].y, (float) p[k].z).setColor(r, g, bl, 255).setUv(uv[k][0], uv[k][1])
                     .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose.last(), (float) normal.x, (float) normal.y, (float) normal.z);
+            //?} else if <1.21 {
+            /*vc.addVertex(pose.last().pose(), (float) p[k].x, (float) p[k].y, (float) p[k].z).color(r, g, bl, 255).setUv(uv[k][0], uv[k][1])
+                    .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(pose.last().normal(), (float) normal.x, (float) normal.y, (float) normal.z).endVertex();
+            *///?}
         }
     }
 
@@ -591,7 +711,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         }
         ItemStack banner = slot(0);
         DyeColor base = baseOf(banner);
+        //? if >=1.21 {
         List<BannerPatternLayers.Layer> layers = banner.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers();
+        //?} else if <1.21 {
+        /*List<Layer> layers = layersOf(banner);
+        *///?}
         DyeColor dye = dye();
         LoomMenu menu = menu();
         int selected = menu == null ? -1 : menu.getSelectedBannerPatternIndex();
@@ -612,8 +736,13 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
                     g.fill(x, y, x + CELL_W, y + 1, c);
                     g.fill(x, y + CELL_H - 1, x + CELL_W, y + CELL_H, c);
                 }
+                //? if >=1.21 {
                 List<BannerPatternLayers.Layer> with = new ArrayList<>(layers);
                 with.add(new BannerPatternLayers.Layer(patterns.get(k), dye));
+                //?} else if <1.21 {
+                /*List<Layer> with = new ArrayList<>(layers);
+                with.add(new Layer(patterns.get(k), dye));
+                *///?}
                 drawFlag(g, x + CELL_W / 2f, y + 3 - (hovered ? 1 : 0), hovered ? 15f : 14f, base, with);
             }
         }
@@ -634,7 +763,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
     public int patternIndex(String asset) {
         List<Holder<BannerPattern>> patterns = patterns();
         for (int k = 0; k < patterns.size(); k++) {
+            //? if >=1.21 {
             if (patterns.get(k).value().assetId().toString().equals(asset)) {
+            //?} else if <1.21 {
+            /*if (patterns.get(k).unwrapKey().map(key -> key.location().toString()).orElse("").equals(asset)) {
+            *///?}
                 return k;
             }
         }
@@ -642,7 +775,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
     }
 
     /** A banner's flag on the board, its top centred at (x, y), {@code width} GUI pixels wide. */
+    //? if >=1.21 {
     private void drawFlag(GuiGraphics g, float x, float y, float width, DyeColor base, List<BannerPatternLayers.Layer> layers) {
+    //?} else if <1.21 {
+    /*private void drawFlag(GuiGraphics g, float x, float y, float width, DyeColor base, List<Layer> layers) {
+    *///?}
         if (flag == null) {
             flag = Minecraft.getInstance().getEntityModels().bakeLayer(ModelLayers.BANNER).getChild("flag");
         }
@@ -653,8 +790,17 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         ps.pushPose();
         ps.translate(x, y, 120);
         ps.scale(k, k, -k);
+        //? if >=1.21 {
         BannerRenderer.renderPatterns(ps, g.bufferSource(), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, flag, ModelBakery.BANNER_BASE, true,
                 base, new BannerPatternLayers(layers));
+        //?} else if <1.21 {
+        /*List<Pair<Holder<BannerPattern>, DyeColor>> patterns = new ArrayList<>(layers.size() + 1);
+        patterns.add(Pair.of(BuiltInRegistries.BANNER_PATTERN.getHolderOrThrow(BannerPatterns.BASE), base));
+        for (Layer layer : layers) {
+            patterns.add(Pair.of(layer.pattern(), layer.color()));
+        }
+        BannerRenderer.renderPatterns(ps, g.bufferSource(), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, flag, ModelBakery.BANNER_BASE, true, patterns);
+        *///?}
         ps.popPose();
         g.flush();
     }
@@ -674,7 +820,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
             ItemStack banner = items.get(0);
             drawCloth(pose, buffers, cam, layout.point(frame, 0).add(0, 0.003, 0), far, right, new Vec3(0, 1, 0),
                     CLOTH_WIDTH * size, CLOTH_LENGTH * size, baseOf(banner),
+                    //? if >=1.21 {
                     banner.getOrDefault(DataComponents.BANNER_PATTERNS, BannerPatternLayers.EMPTY).layers(), null, 1, light);
+                    //?} else if <1.21 {
+                    /*layersOf(banner), null, 1, light);
+                    *///?}
         }
         for (int i = 1; i < Math.min(3, items.size()); i++)
             SmithingStation.drawLaid(pose, buffers, cam, items.get(i), layout.point(frame, i), side, 2,
@@ -693,7 +843,11 @@ public final class LoomStation extends MenuStation<LoomMenu> implements SpatialT
         switch (target) {
             case PATTERN -> {
                 List<Component> lines = new ArrayList<>();
+                //? if >=1.21 {
                 lines.add(new BannerPatternLayers.Layer(patterns().get(hoverPattern), dye()).description().withStyle(ChatFormatting.WHITE));
+                //?} else if <1.21 {
+                /*lines.add(new Layer(patterns().get(hoverPattern), dye()).description().withStyle(ChatFormatting.WHITE));
+                *///?}
                 lines.add(Component.translatable("cinematic.loom.weave").withStyle(ChatFormatting.GOLD));
                 return lines;
             }

@@ -1,3 +1,4 @@
+//? if neoforge {
 package dev.dyslexic.cinematic.mixin;
 
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -28,3 +29,4 @@ public abstract class CampfireArmorMixin {
         }
     }
 }
+//?}

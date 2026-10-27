@@ -16,7 +16,11 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.FormattedCharSequence;
 import org.joml.Matrix4f;
+//? if >=1.21 {
 import org.joml.Matrix4fStack;
+//?} else if <1.21 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+*///?}
 
 /**
  * Pages of a book painted into textures, so a book lying on a lectern can be read in the world and its leaves can bend
@@ -37,7 +41,11 @@ public final class BookPages {
     /** Where the book window puts the text on that paper (BookViewScreen: x 36, y 30, 114 wide, 14 lines). */
     static final int TEXT_X = 10, TEXT_Y = 22, TEXT_W = 114, LINES = 14;
     private static final int POOL = 8;
+    //? if >=1.21 {
     private static final ResourceLocation BOOK = ResourceLocation.withDefaultNamespace("textures/gui/book.png");
+    //?} else if <1.21 {
+    /*private static final ResourceLocation BOOK = new ResourceLocation("textures/gui/book.png");
+    *///?}
 
     /** A page painted into a render target, shown as an ordinary texture. */
     private static final class Page extends AbstractTexture {
@@ -130,9 +138,16 @@ public final class BookPages {
         Matrix4f projection = new Matrix4f(RenderSystem.getProjectionMatrix());
         VertexSorting sorting = RenderSystem.getVertexSorting();
         RenderSystem.setProjectionMatrix(new Matrix4f().setOrtho(0, W * SCALE, H * SCALE, 0, 1000, 21000), VertexSorting.ORTHOGRAPHIC_Z);
+        //? if >=1.21 {
         Matrix4fStack view = RenderSystem.getModelViewStack();
         view.pushMatrix();
         view.translation(0, 0, -11000);
+        //?} else if <1.21 {
+        /*PoseStack view = RenderSystem.getModelViewStack();
+        view.pushPose();
+        view.setIdentity();
+        view.translate(0, 0, -11000);
+        *///?}
         RenderSystem.applyModelViewMatrix();
 
         GuiGraphics g = new GuiGraphics(mc, mc.renderBuffers().bufferSource());
@@ -155,7 +170,11 @@ public final class BookPages {
         }
         g.flush();
 
+        //? if >=1.21 {
         view.popMatrix();
+        //?} else if <1.21 {
+        /*view.popPose();
+        *///?}
         RenderSystem.applyModelViewMatrix();
         RenderSystem.setProjectionMatrix(projection, sorting);
         mc.getMainRenderTarget().bindWrite(true);

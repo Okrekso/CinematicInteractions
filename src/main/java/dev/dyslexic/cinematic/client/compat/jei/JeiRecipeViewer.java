@@ -25,7 +25,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.RecipeHolder;
+//?} else if <1.21 {
+/*import net.minecraft.client.Minecraft;
+import net.minecraft.world.item.crafting.Recipe;
+*///?}
 
 /**
  * The field guide's view of JEI, through JEI's public API only. Just Enough Resources and Just Enough Professions are
@@ -35,10 +40,17 @@ import net.minecraft.world.item.crafting.RecipeHolder;
 public final class JeiRecipeViewer implements RecipeViewer {
     /** JER's categories, by the ids JER registers them with (absent without JER). */
     private static final List<ResourceLocation> SOURCE_TYPES = List.of(
+            //? if >=1.21 {
             ResourceLocation.fromNamespaceAndPath("jeresources", "worldgen"), ResourceLocation.fromNamespaceAndPath("jeresources", "mob"),
             ResourceLocation.fromNamespaceAndPath("jeresources", "plant"), ResourceLocation.fromNamespaceAndPath("jeresources", "dungeon"),
             ResourceLocation.fromNamespaceAndPath("jeresources", "villager"), ResourceLocation.fromNamespaceAndPath("jeresources", "enchantment"));
     private static final ResourceLocation PROFESSIONS = ResourceLocation.fromNamespaceAndPath("justenoughprofessions", "professions");
+            //?} else if <1.21 {
+            /*new ResourceLocation("jeresources", "worldgen"), new ResourceLocation("jeresources", "mob"),
+            new ResourceLocation("jeresources", "plant"), new ResourceLocation("jeresources", "dungeon"),
+            new ResourceLocation("jeresources", "villager"), new ResourceLocation("jeresources", "enchantment"));
+    private static final ResourceLocation PROFESSIONS = new ResourceLocation("justenoughprofessions", "professions");
+            *///?}
     /** The mods whose catalyst links are pages of their own, not recipes worked at the block. */
     private static final List<String> NOT_STATION_RECIPES = List.of("jeresources", "justenoughprofessions");
     private static final int MAX_OUTPUTS = 4000;
@@ -105,16 +117,45 @@ public final class JeiRecipeViewer implements RecipeViewer {
         });
     }
 
+    /**
+     * JEI 15 (Minecraft 1.20.1) gives a recipe's ingredients only through its layout: a vanilla recipe names its own
+     * result, any other is laid out once to read its output slots.
+     */
     private <T> void collectOutputs(IRecipeCategory<T> category, List<ItemStack> made) {
+        //? if <1.21 {
+        /*var level = Minecraft.getInstance().level;
+        IFocusGroup none = jei.getJeiHelpers().getFocusFactory().getEmptyFocusGroup();
+        *///?}
         recipes().createRecipeLookup(category.getRecipeType()).get().forEach(recipe -> {
             if (made.size() >= MAX_OUTPUTS) return;
+            //? if >=1.21 {
             for (var output : recipes().getRecipeIngredients(category, recipe).getIngredients(RecipeIngredientRole.OUTPUT)) {
                 output.getItemStack().filter(s -> !s.isEmpty() && made.stream().noneMatch(m -> ItemStack.isSameItemSameComponents(m, s)))
                         .ifPresent(s -> made.add(s.copyWithCount(1)));
+            //?} else if <1.21 {
+            /*if (recipe instanceof Recipe<?> vanilla && level != null) {
+                addOutput(made, vanilla.getResultItem(level.registryAccess()));
+                return;
+            *///?}
             }
+            //? if <1.21 {
+            /*recipes().createRecipeLayoutDrawable(category, recipe, none).ifPresent(layout -> {
+                for (var slot : layout.getRecipeSlotsView().getSlotViews(RecipeIngredientRole.OUTPUT)) {
+                    slot.getItemStacks().forEach(s -> addOutput(made, s));
+                }
+            });
+            *///?}
         });
     }
 
+    //? if <1.21 {
+    /*private static void addOutput(List<ItemStack> made, ItemStack stack) {
+        if (!stack.isEmpty() && made.stream().noneMatch(m -> ItemStack.isSameItemSameComponents(m, stack))) {
+            made.add(stack.copyWithCount(1));
+        }
+    }
+
+    *///?}
     @Override
     public List<StationRecipe> stationRecipes(ItemStack station, ItemStack output) {
         IFocus<ItemStack> made = focus(RecipeIngredientRole.OUTPUT, output);
@@ -227,7 +268,11 @@ public final class JeiRecipeViewer implements RecipeViewer {
         @Nullable
         @Override
         public ResourceLocation recipeId() {
+            //? if >=1.21 {
             return recipe instanceof RecipeHolder<?> holder ? holder.id() : category.getRegistryName(recipe);
+            //?} else if <1.21 {
+            /*return recipe instanceof Recipe<?> vanilla ? vanilla.getId() : category.getRegistryName(recipe);
+            *///?}
         }
 
         @Override

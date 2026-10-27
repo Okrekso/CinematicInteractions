@@ -81,7 +81,12 @@ public final class EnchantRenderer {
         float g = (float) glow;
         Vec3 top = EnchantFx.top(pos);
         EnchantFx.CirclePalette palette = ready ? EnchantFx.CirclePalette.VIOLET : EnchantFx.CirclePalette.RED;
+        //? if !forge {
         EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.OUTER_LIFT, 0), 0.47, clock * 0.25, palette, 0.85f * g);
         EnchantFx.circle(pose, buffers, cam, top.add(0, EnchantFx.INNER_LIFT, 0), 0.25, -clock * 0.42, palette, 0.55f * g);
+        //?} else if forge {
+        /*EnchantFx.circle(pose, buffers, cam, top.add(0, 0.003, 0), 0.47, clock * 0.25, palette, 0.85f * g);
+        EnchantFx.circle(pose, buffers, cam, top.add(0, 0.004, 0), 0.25, -clock * 0.42, palette, 0.55f * g);
+        *///?}
     }
 }

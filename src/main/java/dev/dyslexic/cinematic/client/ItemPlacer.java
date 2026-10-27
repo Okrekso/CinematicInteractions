@@ -1,7 +1,11 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+//? if >=1.21 {
 import com.mojang.blaze3d.vertex.VertexFormatElement;
+//?} else if <1.21 {
+/*import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+*///?}
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
@@ -20,7 +24,11 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.client.model.pipeline.VertexConsumerWrapper;
+//?} else if forge {
+/*import net.minecraftforge.client.model.pipeline.VertexConsumerWrapper;
+*///?}
 import org.joml.Quaternionf;
 
 /**
@@ -107,11 +115,20 @@ public final class ItemPlacer {
         if (opacity >= 0.999f) return buffers;
         float alpha = (float) Anim.clamp01(opacity);
         // Glint must keep its fixed buffer: the item renderer writes to it and the model buffer together.
+        //? if !forge {
         return type -> new VertexConsumerWrapper(buffers.getBuffer(isEntityFormat(type)
+        //?} else if forge {
+        /*return type -> new VertexConsumerWrapper(buffers.getBuffer(type.format() == DefaultVertexFormat.NEW_ENTITY
+        *///?}
                 ? FADING_TYPES.computeIfAbsent(type, ItemPlacer::fadingType) : type)) {
             @Override
+            //? if >=1.21 {
             public VertexConsumer setColor(int r, int g, int b, int a) {
                 parent.setColor(r, g, b, Math.round(a * alpha));
+            //?} else if <1.21 {
+            /*public VertexConsumer color(int r, int g, int b, int a) {
+                parent.color(r, g, b, Math.round(a * alpha));
+            *///?}
                 return this;
             }
         };
@@ -121,7 +138,11 @@ public final class ItemPlacer {
     private static RenderType fadingType(RenderType original) {
         return new RenderType("cinematic_fading_item", original.format(), original.mode(), original.bufferSize(), false, true, () -> {
             original.setupRenderState();
+            //? if !forge {
             if (isEntityFormat(original)) {
+            //?} else if forge {
+            /*if (original.format() == DefaultVertexFormat.NEW_ENTITY) {
+            *///?}
                 RenderSystem.setShader(GameRenderer::getRendertypeEntityTranslucentShader);
             }
             RenderSystem.enableBlend();
@@ -189,11 +210,20 @@ public final class ItemPlacer {
             return 1;
         }
         return count >= 33 ? 4 : count >= 17 ? 3 : count >= 2 ? 2 : 1;
+    //? if >=1.21 {
     }
 
     /** An entity-like format (Iris extends the vanilla one, so it is told by its elements rather than by identity). */
     private static boolean isEntityFormat(RenderType type) {
         return type.format().contains(VertexFormatElement.COLOR) && type.format().contains(VertexFormatElement.NORMAL)
                 && type.format().contains(VertexFormatElement.UV2);
+    //?} else if fabric && <1.21 {
+    /*}
+
+    /^* An entity-like format (Iris extends the vanilla one, so it is told by its elements rather than by identity). ^/
+    private static boolean isEntityFormat(RenderType type) {
+        return type.format().getElements().contains(DefaultVertexFormat.ELEMENT_COLOR) && type.format().getElements().contains(DefaultVertexFormat.ELEMENT_NORMAL)
+                && type.format().getElements().contains(DefaultVertexFormat.ELEMENT_UV2);
+    *///?}
     }
 }

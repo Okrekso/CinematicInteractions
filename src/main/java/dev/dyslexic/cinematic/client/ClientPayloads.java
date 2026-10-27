@@ -66,6 +66,7 @@ public final class ClientPayloads {
         return at == null ? null : at.kind();
     }
 
+    //? if !forge {
     /** How much of the way to the station the body turns each tick (about a third of a second all told). */
     private static final float BODY_TURN = 0.35f;
     /** For the walkthrough's before/after: the body left as vanilla turns it. */
@@ -89,6 +90,7 @@ public final class ClientPayloads {
         }
     }
 
+    //?}
     /** Is anybody working at this block right now? */
     public static boolean someoneAt(BlockPos pos) {
         for (AtStation at : AT_STATION.values()) {

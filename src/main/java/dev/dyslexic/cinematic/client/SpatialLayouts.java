@@ -5,12 +5,22 @@ import com.google.gson.GsonBuilder;
 import dev.dyslexic.cinematic.Cinematic;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.io.IOException;
+//? if neoforge {
 import java.nio.file.AtomicMoveNotSupportedException;
+//?}
 import java.nio.file.Files;
 import java.nio.file.Path;
+//? if neoforge {
 import java.nio.file.StandardCopyOption;
+//?}
 import java.util.Arrays;
+//? if neoforge {
 import net.neoforged.fml.loading.FMLPaths;
+//?} else if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?} else if forge {
+/*import net.minecraftforge.fml.loading.FMLPaths;
+*///?}
 
 /** Three independent profiles for each supported station. Preview is local and never writes to disk. */
 final class SpatialLayouts {
@@ -27,8 +37,16 @@ final class SpatialLayouts {
     static boolean customShelf() { return customShelf; }
     private record Saved(int version, int[] selected, SpatialAppearance[][] profiles) {}
 
+    /**
+     * The row of each station in the file. Row 0 is the crafter's in later versions of the game: 1.20.1 has no crafter,
+     * but the row is kept as it was read, so the same file works in every version of the mod.
+     */
     static int index(StationKind kind) {
+        //? if >=1.21 {
         return switch (kind) { case CRAFTER -> 0; case CHISELED_BOOKSHELF -> 1; case BREWING -> 2; case LOOM -> 3; case ENCHANTING -> 4; case ANVIL -> 5; case GRINDSTONE -> 6; case STONECUTTER -> 7;
+        //?} else if <1.21 {
+        /*return switch (kind) { case CHISELED_BOOKSHELF -> 1; case BREWING -> 2; case LOOM -> 3; case ENCHANTING -> 4; case ANVIL -> 5; case GRINDSTONE -> 6; case STONECUTTER -> 7;
+        *///?}
             case CAMPFIRE -> 8; case LECTERN -> 9; case BEACON -> 10; case JUKEBOX -> 11;
             default -> throw new IllegalArgumentException("Not a spatial layout: " + kind); };
     }
@@ -40,7 +58,13 @@ final class SpatialLayouts {
     private static SpatialAppearance[] vanillaRow() {
         SpatialAppearance[] row = new SpatialAppearance[TYPES]; Arrays.fill(row, SpatialAppearance.VANILLA); return row;
     }
+    //? if neoforge {
     static Path path() { return FMLPaths.CONFIGDIR.get().resolve(FILE); }
+    //?} else if fabric {
+    /*static Path path() { return FabricLoader.getInstance().getConfigDir().resolve(FILE); }
+    *///?} else if forge {
+    /*static Path path() { return FMLPaths.CONFIGDIR.get().resolve(FILE); }
+    *///?}
     private static void load() {
         if (loaded) return;
         loaded = true;
@@ -92,12 +116,18 @@ final class SpatialLayouts {
         SpatialAppearance[][] next = profiles.clone();
         int[] nextSelected = selected.clone();
         next[index(kind)] = drafts.clone(); nextSelected[index(kind)] = active;
+        //? if neoforge {
         Path temp = path().resolveSibling(FILE + ".tmp");
+        //?}
         try {
+            //? if neoforge {
             Files.createDirectories(path().getParent());
             Files.writeString(temp, JSON.toJson(new Saved(3, nextSelected, next)) + "\n");
             try { Files.move(temp, path(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE); }
             catch (AtomicMoveNotSupportedException e) { Files.move(temp, path(), StandardCopyOption.REPLACE_EXISTING); }
+            //?} else if !neoforge {
+            /*LayoutFiles.write(path(), JSON.toJson(new Saved(3, nextSelected, next)) + "\n");
+            *///?}
             profiles = next; selected = nextSelected; cancelPreview(kind);
             return true;
         } catch (IOException | RuntimeException e) {

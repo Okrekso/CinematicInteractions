@@ -16,8 +16,18 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.SingleRecipeInput;
+//?}
 import net.minecraft.world.level.Level;
+//? if fabric && <1.21 {
+/*import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+*///?} else if forge {
+/*import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraftforge.common.ForgeHooks;
+*///?}
 
 /**
  * Without the mod on the server a shift-click can only be the vanilla one, and where a vanilla menu finds no place for
@@ -35,11 +45,26 @@ final class QuickMoves {
         if (menu instanceof net.minecraft.world.inventory.AbstractFurnaceMenu) {
             RecipeType<? extends AbstractCookingRecipe> type = menu instanceof SmokerMenu ? RecipeType.SMOKING
                     : menu instanceof BlastFurnaceMenu ? RecipeType.BLASTING : RecipeType.SMELTING;
+            //? if neoforge {
             if (level.getRecipeManager().getRecipeFor(type, new SingleRecipeInput(stack), level).isPresent()) return fits(menu, 0, stack);
             return stack.getBurnTime(type) > 0 && fits(menu, 1, stack);
+            //?} else if fabric && >=1.21 {
+            /*if (level.getRecipeManager().getRecipeFor(type, new SingleRecipeInput(stack), level).isPresent()) return fits(menu, 0, stack);
+            return net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.isFuel(stack) && fits(menu, 1, stack);
+            *///?} else if fabric && <1.21 {
+            /*if (smelts(menu, stack, level)) return fits(menu, 0, stack);
+            return net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.isFuel(stack) && fits(menu, 1, stack);
+            *///?} else if forge {
+            /*if (smelts(menu, stack, level)) return fits(menu, 0, stack);
+            return ForgeHooks.getBurnTime(stack, type) > 0 && fits(menu, 1, stack);
+            *///?}
         }
         if (menu instanceof StonecutterMenu) {
+            //? if >=1.21 {
             return level.getRecipeManager().getRecipeFor(RecipeType.STONECUTTING, new SingleRecipeInput(stack), level).isPresent()
+            //?} else if <1.21 {
+            /*return level.getRecipeManager().getRecipeFor(RecipeType.STONECUTTING, new SimpleContainer(stack), level).isPresent()
+            *///?}
                     && fits(menu, 0, stack);
         }
         if (menu instanceof LoomMenu) {
@@ -69,6 +94,11 @@ final class QuickMoves {
     /** Sends the vanilla clicks for a shift-click without the mod on the server, or nothing. */
     static void sendVanilla(net.minecraft.client.Minecraft mc, AbstractContainerMenu menu, int index) {
         if (index < 0 || index >= menu.slots.size() || mc.gameMode == null || mc.player == null) return;
+        // (Fabric 1.20.1 knows fuels on the client: they are code, not a data map the server would have to send, so the
+        // furnace's own quick move is predicted like the other menus' and needs no pick-up-and-put-back as on NeoForge)
+        // (Forge 1.20.1 knows fuels on the client: they are code, not a data map the server would have to send, so the
+        // furnace's own quick move is predicted like the other menus' and needs no pick-up-and-put-back as on NeoForge)
+        //? if neoforge {
         ItemStack stack = menu.getSlot(index).getItem();
         if (menu instanceof net.minecraft.world.inventory.AbstractFurnaceMenu && !stack.isEmpty() && !smelts(menu, stack, mc.level)) {
             // NeoForge keeps fuels in a data map a vanilla server never sends, so the client cannot tell fuel from dirt.
@@ -83,6 +113,22 @@ final class QuickMoves {
             }
             return;
         }
+        //?} else if fabric && >=1.21 {
+        /*ItemStack stack = menu.getSlot(index).getItem();
+        if (menu instanceof net.minecraft.world.inventory.AbstractFurnaceMenu && !stack.isEmpty() && !smelts(menu, stack, mc.level)) {
+            // The server decides what burns (its fuel table may hold fuels of mods this client lacks), so it is asked:
+            // picked up, put on the fire box (taken only if it burns), and whatever is left put back.
+            // Only onto an empty fire box or the same fuel, so nothing is swapped.
+            ItemStack fire = menu.getSlot(1).getItem();
+            if (!menu.getCarried().isEmpty() || !fire.isEmpty() && !ItemStack.isSameItemSameComponents(fire, stack)) return;
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, index, 0, net.minecraft.world.inventory.ClickType.PICKUP, mc.player);
+            mc.gameMode.handleInventoryMouseClick(menu.containerId, 1, 0, net.minecraft.world.inventory.ClickType.PICKUP, mc.player);
+            if (!menu.getCarried().isEmpty()) {
+                mc.gameMode.handleInventoryMouseClick(menu.containerId, index, 0, net.minecraft.world.inventory.ClickType.PICKUP, mc.player);
+            }
+            return;
+        }
+        *///?}
         if (entersStation(menu, index, mc.level)) {
             mc.gameMode.handleInventoryMouseClick(menu.containerId, index, 0, net.minecraft.world.inventory.ClickType.QUICK_MOVE, mc.player);
         }
@@ -91,7 +137,13 @@ final class QuickMoves {
     private static boolean smelts(AbstractContainerMenu menu, ItemStack stack, Level level) {
         RecipeType<? extends AbstractCookingRecipe> type = menu instanceof SmokerMenu ? RecipeType.SMOKING
                 : menu instanceof BlastFurnaceMenu ? RecipeType.BLASTING : RecipeType.SMELTING;
+        //? if >=1.21 {
         return level.getRecipeManager().getRecipeFor(type, new SingleRecipeInput(stack), level).isPresent();
+        //?} else if <1.21 {
+        /*@SuppressWarnings("unchecked")
+        RecipeType<AbstractCookingRecipe> cooking = (RecipeType<AbstractCookingRecipe>) type;
+        return level.getRecipeManager().getRecipeFor(cooking, (Container) new SimpleContainer(stack), level).isPresent();
+        *///?}
     }
 
     private static boolean fits(AbstractContainerMenu menu, int index, ItemStack stack) {

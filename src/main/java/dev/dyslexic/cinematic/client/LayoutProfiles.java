@@ -6,6 +6,14 @@ import net.minecraft.network.chat.Component;
 /** The settings screens select the existing JSON profiles instead of keeping a second copy in TOML. */
 final class LayoutProfiles {
     private LayoutProfiles() {}
+    //? if <1.21 {
+    /*static boolean supports(StationKind kind) { return kind != StationKind.ADDON; }
+    static int supportedCount() {
+        int count = 0;
+        for (StationKind kind : StationKind.values()) if (supports(kind)) count++;
+        return count;
+    }
+    *///?}
     static Component name(StationKind kind) { return Component.translatable("cinematic.configuration." + Settings.key(kind)); }
     static Component value(int selected) { return TableGridEditor.text("profile", selected + 1); }
     static int selected(StationKind kind) {

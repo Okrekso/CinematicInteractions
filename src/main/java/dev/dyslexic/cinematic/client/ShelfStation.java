@@ -20,7 +20,9 @@ import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.component.DataComponents;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
@@ -30,7 +32,11 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.ChiseledBookShelfBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import org.lwjgl.glfw.GLFW;
 
 /**
@@ -186,7 +192,12 @@ public final class ShelfStation extends ClientStation implements SpatialTarget {
     }
 
     static boolean readable(ItemStack stack) {
+        //? if >=1.21 {
         return stack.has(DataComponents.WRITABLE_BOOK_CONTENT) || stack.has(DataComponents.WRITTEN_BOOK_CONTENT);
+        //?} else if <1.21 {
+        /*// what the book window can open (in 1.20.1 the pages are the book's tag, not a component)
+        return stack.getItem() instanceof net.minecraft.world.item.WritableBookItem || stack.getItem() instanceof net.minecraft.world.item.WrittenBookItem;
+        *///?}
     }
 
     private static boolean shelfBook(ItemStack stack) {
@@ -437,7 +448,11 @@ public final class ShelfStation extends ClientStation implements SpatialTarget {
     }
 
     private void send(StationActionPayload.Action action, int index, int button, boolean shift) {
+        //? if !forge {
         PacketDistributor.sendToServer(new StationActionPayload(pos, kind(), action, index, button, shift, 0));
+        //?} else if forge {
+        /*ClientNet.sendToServer(new StationActionPayload(pos, kind(), action, index, button, shift, 0));
+        *///?}
     }
 
     @Override
@@ -796,7 +811,11 @@ public final class ShelfStation extends ClientStation implements SpatialTarget {
         VertexConsumer vc = buffers.getBuffer(Fx.HIGHLIGHT);
         int alpha = target == Target.BOOK ? 30 : 44;
         for (Vec3 p : new Vec3[]{a, b, c, d}) {
+            //? if >=1.21 {
             vc.addVertex(pose.last().pose(), (float) (p.x - camera.x), (float) (p.y - camera.y), (float) (p.z - camera.z)).setColor(tint[0], tint[1], tint[2], alpha);
+            //?} else if <1.21 {
+            /*vc.addVertex(pose.last().pose(), (float) (p.x - camera.x), (float) (p.y - camera.y), (float) (p.z - camera.z)).color(tint[0], tint[1], tint[2], alpha).endVertex();
+            *///?}
         }
     }
 

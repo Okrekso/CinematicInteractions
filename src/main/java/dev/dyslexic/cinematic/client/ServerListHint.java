@@ -1,5 +1,8 @@
 package dev.dyslexic.cinematic.client;
 
+//? if fabric {
+/*import net.fabricmc.fabric.api.client.screen.v1.Screens;
+*///?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.PlainTextButton;
 import net.minecraft.client.gui.components.Tooltip;
@@ -7,7 +10,12 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+//? if neoforge {
 import net.neoforged.neoforge.client.event.ScreenEvent;
+//?} else if forge {
+/*import net.minecraft.network.chat.Style;
+import net.minecraftforge.client.event.ScreenEvent;
+*///?}
 
 /**
  * The client-only mode, told where it matters: in the server list. The first time the list opens with the mode off, a
@@ -21,17 +29,51 @@ public final class ServerListHint {
     static final int ACCENT = 0x8CC4EE;
     /** The line's own grey, a shade under the list's white title. */
     private static final int MUTED = 0xA8A8A8;
+    //? if !forge {
     /** Space kept between the line and the screen's title or edge. */
     private static final int GAP = 8;
+    //?}
 
+    //? if neoforge {
     /** ScreenEvent.Init.Post: the server list was laid out (it is again after every resize and every return to it). */
     static void onScreenInit(ScreenEvent.Init.Post event) {
         Minecraft mc = Minecraft.getInstance();
         Screen screen = event.getScreen();
         if (!(screen instanceof JoinMultiplayerScreen list)) {
             return;
+    //?} else if fabric {
+    /*/^* ScreenEvents.AFTER_INIT: the server list was laid out (it is again after every resize and every return to it). ^/
+    static void onScreenInit(Minecraft mc, Screen screen) {
+        if (!(screen instanceof JoinMultiplayerScreen list)) {
+            return;
+    *///?} else if forge {
+    /*static void onScreenInit(ScreenEvent.Init.Post event) {
+        Minecraft mc = Minecraft.getInstance();
+        Screen screen = event.getScreen();
+        if (!(screen instanceof JoinMultiplayerScreen list)) return;
+        MutableComponent text = Component.empty().append(Component.literal("Cinematic").withStyle(Style.EMPTY.withColor(ACCENT)))
+                .append(Component.literal(" · ").withStyle(Style.EMPTY.withColor(MUTED)))
+                .append(Component.translatable("cinematic.serverHint.state",
+                        Component.translatable(Settings.clientOnlyMode() ? "cinematic.settings.on" : "cinematic.settings.off"))
+                        .withStyle(Style.EMPTY.withColor(MUTED)));
+        int width = mc.font.width(text);
+        int x = list.width - width - 8;
+        int y = 20;
+        if (x < list.width / 2 + mc.font.width(list.getTitle()) / 2 + 8) {
+            x = (list.width - width) / 2;
+            y = 6;
+    *///?}
         }
+        //? if neoforge {
         addStateLine(mc, list, event);
+        //?} else if fabric {
+        /*addStateLine(mc, list);
+        *///?} else if forge {
+        /*PlainTextButton line = new PlainTextButton(x, y, width, mc.font.lineHeight, text,
+                button -> mc.setScreen(new MultiplayerSettingsScreen(list)), mc.font);
+        line.setTooltip(Tooltip.create(Component.translatable("cinematic.serverHint.state.tooltip")));
+        event.addListener(line);
+        *///?}
         if (!Settings.clientOnlyMode() && !Settings.SERVER_HINT_SEEN.get()) {
             // after this init is over: a screen opened from inside another's init would be laid out half-way
             mc.tell(() -> {
@@ -44,6 +86,7 @@ public final class ServerListHint {
     static void seen() {
         Settings.SERVER_HINT_SEEN.set(true);
         Settings.SPEC.save();
+    //? if neoforge {
     }
 
     /** "Cinematic · Client-only mode: off" beside the title, a text link to the setting. */
@@ -67,5 +110,54 @@ public final class ServerListHint {
                 button -> mc.setScreen(new MultiplayerSettingsScreen(list)), font);
         line.setTooltip(Tooltip.create(Component.translatable("cinematic.serverHint.state.tooltip")));
         event.addListener(line);
+    //?} else if fabric && >=1.21 {
+    /*}
+
+    /^* "Cinematic · Client-only mode: off" beside the title, a text link to the setting. ^/
+    private static void addStateLine(Minecraft mc, JoinMultiplayerScreen list) {
+        var font = mc.font;
+        MutableComponent text = Component.empty().append(Component.literal("Cinematic").withColor(ACCENT))
+                .append(Component.literal(" · ").withColor(MUTED))
+                .append(Component.translatable("cinematic.serverHint.state",
+                        Component.translatable(Settings.clientOnlyMode() ? "cinematic.settings.on" : "cinematic.settings.off"))
+                        .withColor(MUTED));
+        int width = font.width(text);
+        int titleRight = list.width / 2 + font.width(list.getTitle()) / 2;
+        // beside the title, on its line, when there is room; else above it
+        int x = list.width - width - GAP;
+        int y = 20;
+        if (x < titleRight + GAP) {
+            x = (list.width - width) / 2;
+            y = 6;
+        }
+        PlainTextButton line = new PlainTextButton(x, y, width, font.lineHeight, text,
+                button -> mc.setScreen(new MultiplayerSettingsScreen(list)), font);
+        line.setTooltip(Tooltip.create(Component.translatable("cinematic.serverHint.state.tooltip")));
+        Screens.getButtons(list).add(line);
+    *///?} else if fabric && <1.21 {
+    /*}
+
+    /^* "Cinematic · Client-only mode: off" beside the title, a text link to the setting. ^/
+    private static void addStateLine(Minecraft mc, JoinMultiplayerScreen list) {
+        var font = mc.font;
+        MutableComponent text = Component.empty().append(Component.literal("Cinematic").withStyle(style -> style.withColor(ACCENT)))
+                .append(Component.literal(" · ").withStyle(style -> style.withColor(MUTED)))
+                .append(Component.translatable("cinematic.serverHint.state",
+                        Component.translatable(Settings.clientOnlyMode() ? "cinematic.settings.on" : "cinematic.settings.off"))
+                        .withStyle(style -> style.withColor(MUTED)));
+        int width = font.width(text);
+        int titleRight = list.width / 2 + font.width(list.getTitle()) / 2;
+        // beside the title, on its line, when there is room; else above it
+        int x = list.width - width - GAP;
+        int y = 20;
+        if (x < titleRight + GAP) {
+            x = (list.width - width) / 2;
+            y = 6;
+        }
+        PlainTextButton line = new PlainTextButton(x, y, width, font.lineHeight, text,
+                button -> mc.setScreen(new MultiplayerSettingsScreen(list)), font);
+        line.setTooltip(Tooltip.create(Component.translatable("cinematic.serverHint.state.tooltip")));
+        Screens.getButtons(list).add(line);
+    *///?}
     }
 }

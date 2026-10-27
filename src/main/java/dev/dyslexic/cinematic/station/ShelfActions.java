@@ -24,7 +24,9 @@ import net.minecraft.world.level.block.ChiseledBookShelfBlock;
 import net.minecraft.world.level.block.entity.ChiseledBookShelfBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /**
  * The chiseled bookshelf's scene on the server. A book is taken off into the hand (or with shift into the inventory) and
@@ -187,7 +189,12 @@ public final class ShelfActions {
         } else if (player.getMainHandItem().is(ItemTags.BOOKSHELF_BOOKS)) {
             ItemStack hand = player.getMainHandItem();
             player.awardStat(Stats.ITEM_USED.get(hand.getItem()));
+            //? if >=1.21 {
             ItemStack book = hand.consumeAndReturn(1, player);
+            //?} else if <1.21 {
+            /*// as the shelf's own use: a creative player's stack is not used up
+            ItemStack book = player.getAbilities().instabuild ? hand.copyWithCount(1) : hand.split(1);
+            *///?}
             shelf.setItem(slot, book);
             level.playSound(null, pos, sound(book, true), SoundSource.BLOCKS, 1.0f, 1.0f);
         }

@@ -5,6 +5,9 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.dyslexic.cinematic.furnace.FurnaceLayout;
 import dev.dyslexic.cinematic.furnace.FurnaceZones;
 import dev.dyslexic.cinematic.furnace.FurnaceZones.Face;
+//? if fabric && <1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import dev.dyslexic.cinematic.net.FurnaceStatePayload;
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
@@ -29,11 +32,24 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.AbstractCookingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.SingleRecipeInput;
+//?} else if fabric && <1.21 {
+/*import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+*///?} else if forge {
+/*import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+import net.minecraftforge.common.ForgeHooks;
+*///?}
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.AbstractFurnaceBlock;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric && >=1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import org.joml.Matrix4f;
 
 /**
@@ -99,9 +115,15 @@ public final class FurnaceStation extends ClientStation {
     ItemStack cookingInput(net.minecraft.resources.ResourceLocation id) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return null;
+        //? if >=1.21 {
         var holder = mc.level.getRecipeManager().byKey(id).orElse(null);
         if (holder == null || holder.value().getType() != layout.recipeType || holder.value().getIngredients().isEmpty()) return null;
         var ingredient = holder.value().getIngredients().get(0);
+        //?} else if <1.21 {
+        /*var recipe = mc.level.getRecipeManager().byKey(id).orElse(null);
+        if (recipe == null || recipe.getType() != layout.recipeType || recipe.getIngredients().isEmpty()) return null;
+        var ingredient = recipe.getIngredients().get(0);
+        *///?}
         if (mc.player != null) {
             for (ItemStack stack : mc.player.getInventory().items) if (ingredient.test(stack)) return stack.copyWithCount(1);
         }
@@ -117,7 +139,11 @@ public final class FurnaceStation extends ClientStation {
     }
 
     private void drawHint(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        //? if >=1.21 {
         if (hint.isEmpty() || Minecraft.getInstance().level == null) return;
+        //?} else if <1.21 {
+        /*if (hint.isEmpty() || Minecraft.getInstance().level == null || !stillThere(Minecraft.getInstance().level)) return;
+        *///?}
         ClientFurnaces.Entry entry = ClientFurnaces.get(pos);
         ItemStack inside = entry == null ? ItemStack.EMPTY : entry.items[FurnaceZones.INPUT];
         if (!inside.isEmpty()) {
@@ -379,7 +405,11 @@ public final class FurnaceStation extends ClientStation {
                 mc.gameMode.handleInventoryMouseClick(menu.containerId, hoverZone, button,
                         shift ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
         } else {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, kind, StationActionPayload.Action.CLICK, hoverZone, button, shift, 0));
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, kind, StationActionPayload.Action.CLICK, hoverZone, button, shift, 0));
+            *///?}
         }
     }
 
@@ -389,7 +419,13 @@ public final class FurnaceStation extends ClientStation {
             return true;
         }
         return switch (zone) {
+            //? if neoforge {
             case FurnaceZones.FUEL -> carried.getBurnTime(layout.recipeType) > 0;
+            //?} else if fabric {
+            /*case FurnaceZones.FUEL -> net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity.isFuel(carried);
+            *///?} else if forge {
+            /*case FurnaceZones.FUEL -> ForgeHooks.getBurnTime(carried, layout.recipeType) > 0;
+            *///?}
             case FurnaceZones.RESULT -> ItemStack.isSameItemSameComponents(carried, ClientFurnaces.item(pos, FurnaceZones.RESULT));
             default -> true;
         };
@@ -399,17 +435,26 @@ public final class FurnaceStation extends ClientStation {
     private boolean cookable(ItemStack stack) {
         Minecraft mc = Minecraft.getInstance();
         RecipeType<AbstractCookingRecipe> type = (RecipeType<AbstractCookingRecipe>) layout.recipeType;
+        //? if >=1.21 {
         return mc.level != null && mc.level.getRecipeManager().getRecipeFor(type, new SingleRecipeInput(stack), mc.level).isPresent();
+        //?} else if <1.21 {
+        /*return mc.level != null && mc.level.getRecipeManager().getRecipeFor(type, (Container) new SimpleContainer(stack), mc.level).isPresent();
+        *///?}
     }
 
     // ---- state ---------------------------------------------------------------------------------------
 
     public void applyState(FurnaceStatePayload state) {
+        //? if >=1.21 {
         furnaceChoice = state.choice();
+        //?}
         litTime = state.litTime();
         litDuration = state.litDuration();
         cookingProgress = state.cookingProgress();
         cookingTotalTime = state.cookingTotalTime();
+        //? if <1.21 {
+        /*furnaceChoice = state.choice();
+        *///?}
     }
 
     // ---- competing recipes (Polymorph): which one this furnace was told to use comes from the server -------------
@@ -417,21 +462,36 @@ public final class FurnaceStation extends ClientStation {
     private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
     private String furnaceChoice = "";
 
+    //? if >=1.21 {
     @Override
     RecipeChoiceStrip choices() {
         return choiceStrip;
     }
+    //?} else if <1.21 {
+    /*@Override RecipeChoiceStrip choices() { return choiceStrip; }
+    *///?}
 
     @SuppressWarnings("unchecked")
     private void updateChoices() {
         Minecraft mc = Minecraft.getInstance();
         ItemStack input = ClientFurnaces.item(pos, FurnaceZones.INPUT);
+        //? if >=1.21 {
         if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly() || input.isEmpty() || mc.level == null) {
+        //?} else if <1.21 {
+        /*if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly()
+                || input.isEmpty() || mc.level == null) {
+        *///?}
             choiceStrip.clear();
             return;
         }
+        //? if >=1.21 {
         var single = new SingleRecipeInput(input);
         var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level, (RecipeType<AbstractCookingRecipe>) layout.recipeType, single);
+        //?} else if <1.21 {
+        /*var single = new SimpleContainer(input);
+        var competing = dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level,
+                (RecipeType<AbstractCookingRecipe>) layout.recipeType, single);
+        *///?}
         if (competing.size() < 2) {
             choiceStrip.clear();
             return;
@@ -439,8 +499,13 @@ public final class FurnaceStation extends ClientStation {
         List<ItemStack> outputs = new java.util.ArrayList<>();
         int inUse = -1;
         for (int i = 0; i < competing.size(); i++) {
+            //? if >=1.21 {
             outputs.add(competing.get(i).value().assemble(single, mc.level.registryAccess()));
             if (competing.get(i).id().toString().equals(furnaceChoice)) inUse = i;
+            //?} else if <1.21 {
+            /*outputs.add(competing.get(i).assemble(single, mc.level.registryAccess()));
+            if (competing.get(i).getId().toString().equals(furnaceChoice)) inUse = i;
+            *///?}
         }
         choiceStrip.set(outputs, inUse);
     }
@@ -548,7 +613,11 @@ public final class FurnaceStation extends ClientStation {
                 Vec3 c = corners[i];
                 int[] rgb = i < 2 ? near : far;
                 buffer.addVertex(m, (float) (c.x - camera.x), (float) (c.y - camera.y), (float) (c.z - camera.z))
+                        //? if >=1.21 {
                         .setColor(rgb[0], rgb[1], rgb[2], alpha);
+                        //?} else if <1.21 {
+                        /*.color(rgb[0], rgb[1], rgb[2], alpha).endVertex();
+                        *///?}
             }
         }
     }

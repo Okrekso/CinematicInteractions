@@ -71,7 +71,11 @@ public final class SceneScreen extends Screen {
     }
 
     @Override
+    //? if >=1.21 {
     public void renderBackground(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    //?} else if <1.21 {
+    /*public void renderBackground(GuiGraphics graphics) {
+    *///?}
         // the scene itself is the background
     }
 
@@ -129,7 +133,11 @@ public final class SceneScreen extends Screen {
         box.setTextColor(0xFFF2EAD8);
         box.setValue(initial);
         box.setFocused(true);
+        //? if >=1.21 {
         box.moveCursorToEnd(false);
+        //?} else if <1.21 {
+        /*box.moveCursorToEnd();
+        *///?}
         box.setHighlightPos(0);
         field = box;
         commit = onCommit;
@@ -229,7 +237,11 @@ public final class SceneScreen extends Screen {
         boolean over = working() && drawer && !FreeLook.looking() && overPanel(mouseX, mouseY);
         Scene.overPanel = over || (station instanceof TableStation table && table.recipeBook.over(mouseX, mouseY))
                 || (editor() != null && editor().over(mouseX, mouseY)) || guideShown() && guide.over(mouseX, mouseY)
+                //? if !forge {
                 || station.choices() != null && station.choices().over(mouseX, mouseY);
+                //?} else if forge {
+                /*|| (station.choices() != null && station.choices().over(mouseX, mouseY));
+                *///?}
         expand = Anim.approach(expand, over ? 1 : 0, 13, Scene.frameDt);
         layout();
         float alpha = (working() ? (float) Anim.smoother(Scene.time / 0.4) : presence()) * (1 - look);
@@ -239,9 +251,13 @@ public final class SceneScreen extends Screen {
 
         if (alpha > 0.01f) {
             station.renderScreen(graphics, font, alpha);
+            //? if !forge {
             if (station.choices() != null) {
                 station.choices().render(graphics, font, alpha);
             }
+            //?} else if forge {
+            /*if (station.choices() != null) station.choices().render(graphics, font, alpha);
+            *///?}
             if (guideShown()) {
                 guide.render(graphics, font, alpha);
             }
@@ -475,6 +491,14 @@ public final class SceneScreen extends Screen {
             return true;
         }
         inventoryEffects.action(hasShiftDown() ? ClickType.QUICK_MOVE : ClickType.PICKUP);
+        //? if <1.21 {
+        /*RecipeChoiceStrip choices = Scene.station.choices();
+        if (choices != null) {
+            int picked = choices.click(mx, my);
+            if (picked >= 0) Scene.station.chose(picked);
+            if (picked != -2) return true;
+        }
+        *///?}
         if (guideShown() && guide.click(mx, my, button)) {
             return true;
         }
@@ -486,12 +510,14 @@ public final class SceneScreen extends Screen {
             panelClick(slotAt(mx, my), button, hasShiftDown());
             return true;
         }
+        //? if >=1.21 {
         RecipeChoiceStrip choices = Scene.station.choices();
         int picked = choices == null ? -2 : choices.click(mx, my);
         if (picked != -2) {
             if (picked >= 0) Scene.station.chose(picked);
             return true;
         }
+        //?}
         if (button == 1 && Scene.neighbor != null) {
             Scene.moveOver();
             return true;
@@ -501,7 +527,11 @@ public final class SceneScreen extends Screen {
     }
 
     @Override
+    //? if >=1.21 {
     public boolean mouseScrolled(double mx, double my, double scrollX, double scrollY) {
+    //?} else if <1.21 {
+    /*public boolean mouseScrolled(double mx, double my, double scrollY) {
+    *///?}
         if (FreeLook.looking()) {
             FreeLook.scroll(scrollY);
             return true;

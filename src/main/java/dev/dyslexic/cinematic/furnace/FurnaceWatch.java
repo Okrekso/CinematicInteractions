@@ -15,7 +15,9 @@ import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /**
  * Vanilla never tells clients what is inside a furnace. To show coal in the fire box and ore in the upper

@@ -45,7 +45,11 @@ public final class CampfireHint {
 
     /** The campfire under the crosshair that the player could sit by, or null. */
     @Nullable
+    //? if !forge {
     static BlockPos target() {
+    //?} else if forge {
+    /*private static BlockPos target() {
+    *///?}
         Minecraft mc = Minecraft.getInstance();
         BlockPos pos = looked();
         if (pos == null || mc.player == null) {

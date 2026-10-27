@@ -35,10 +35,18 @@ public final class ClientOnlySmoke {
     public static void onScreen(Screen screen) {
         if (!ENABLED || stage != 0 || !(screen instanceof TitleScreen)) return;
         stage = 1;
+        //? if !forge {
         Settings.CLIENT_ONLY_MODE.set(true);
+        //?} else if forge {
+        /*Settings.set(Settings.CLIENT_ONLY_MODE, true);
+        *///?}
         Minecraft mc = Minecraft.getInstance();
         mc.execute(() -> ConnectScreen.startConnecting(screen, mc, ServerAddress.parseString("127.0.0.1:25586"),
+                //? if >=1.21 {
                 new ServerData("Client-only smoke", "127.0.0.1:25586", ServerData.Type.OTHER), false, null));
+                //?} else if <1.21 {
+                /*new ServerData("Client-only smoke", "127.0.0.1:25586", false), false));
+                *///?}
     }
 
     public static void tick() {
@@ -75,6 +83,14 @@ public final class ClientOnlySmoke {
                 ticks = 0;
             }
             case 2 -> {
+                //? if <1.21 {
+                /*// The first synthetic use can race the server's final spawn/chunk packets.
+                // Repeat the normal use-key path once the connection has settled.
+                if (ticks == 40 && mc.player.containerMenu == mc.player.inventoryMenu && !Scene.active()) {
+                    clickAsPlayer(mc, new BlockHitResult(new Vec3(0.5, 65, 1.5), Direction.UP, TABLE, false));
+                    Cinematic.LOGGER.info("[ClientOnlySmoke] retried table use after spawn settled");
+                }
+                *///?}
                 if (ticks == 80) Cinematic.LOGGER.info("[ClientOnlySmoke] waiting: screen={}, menu={}, scene={}, refused={}",
                         mc.screen == null ? "none" : mc.screen.getClass().getSimpleName(),
                         mc.player.containerMenu.getClass().getSimpleName(), Scene.phase, Scene.refused);
@@ -159,6 +175,10 @@ public final class ClientOnlySmoke {
                 // the hands are still pressing the last craft together: laying out waits, as the button does
                 if (table.busy()) return;
                 var guide = table.recipeBook.guide;
+                //? if <1.21 {
+                /*// The normal UI indexes lazily when the recipe book opens; this smoke test selects directly.
+                guide.tick();
+                *///?}
                 var stick = guide.entries.stream().filter(e -> e.holder.id().getPath().equals("stick")).findFirst();
                 if (stick.isEmpty()) return;
                 guide.select(stick.get());
@@ -330,6 +350,7 @@ public final class ClientOnlySmoke {
     /** Exercise Minecraft's actual use-key path, including its predicted hand animation. */
     private static void clickAsPlayer(Minecraft mc, BlockHitResult hit) {
         mc.hitResult = hit;
+        //? if neoforge {
         try {
             var use = Minecraft.class.getDeclaredMethod("startUseItem");
             use.setAccessible(true);
@@ -337,6 +358,17 @@ public final class ClientOnlySmoke {
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("Cannot simulate the use key", e);
         }
+        //?} else if fabric {
+        /*((dev.dyslexic.cinematic.mixin.MinecraftUseInvoker) mc).cinematic$startUseItem();
+        *///?} else if forge {
+        /*try {
+            // by its SRG name: Forge maps it to the name of the running game (development or a real install)
+            var use = net.minecraftforge.fml.util.ObfuscationReflectionHelper.findMethod(Minecraft.class, "m_91277_");
+            use.invoke(mc);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            throw new IllegalStateException("Cannot simulate the use key", e);
+        }
+        *///?}
     }
 
     private static int dirtSlot = -1;

@@ -3,7 +3,13 @@ package dev.dyslexic.cinematic.client;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+//?} else if fabric {
+/*import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
+*///?} else if forge {
+/*import net.minecraftforge.client.event.RenderLevelStageEvent;
+*///?}
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
 
@@ -16,10 +22,28 @@ public final class Picking {
     private static Vec3 camera = Vec3.ZERO;
     private static boolean valid;
 
+    //? if neoforge {
     public static void capture(RenderLevelStageEvent event) {
         VIEW_PROJ.set(event.getProjectionMatrix()).mul(event.getModelViewMatrix());
+    //?} else if fabric && >=1.21 {
+    /*public static void capture(WorldRenderContext event) {
+        VIEW_PROJ.set(event.projectionMatrix()).mul(event.positionMatrix());
+    *///?} else if fabric && <1.21 {
+    /*public static void capture(WorldRenderContext event) {
+        VIEW_PROJ.set(event.projectionMatrix()).mul(event.matrixStack().last().pose());
+    *///?} else if forge {
+    /*public static void capture(RenderLevelStageEvent event) {
+        // in 1.20.1 the camera's rotation (with Forge's roll) is in the level's pose stack; the projection carries the view bobbing
+        VIEW_PROJ.set(event.getProjectionMatrix()).mul(event.getPoseStack().last().pose());
+    *///?}
         VIEW_PROJ.invert(INVERSE);
+        //? if neoforge {
         camera = event.getCamera().getPosition();
+        //?} else if fabric {
+        /*camera = event.camera().getPosition();
+        *///?} else if forge {
+        /*camera = event.getCamera().getPosition();
+        *///?}
         valid = true;
     }
 

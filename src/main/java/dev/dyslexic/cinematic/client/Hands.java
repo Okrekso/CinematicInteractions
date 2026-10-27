@@ -4,13 +4,20 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.ArrayList;
 import java.util.List;
+//? if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?} else if forge {
+/*import net.minecraftforge.fml.ModList;
+*///?}
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
+//? if >=1.21 {
 import net.minecraft.client.resources.PlayerSkin;
+//?}
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.PlayerModelPart;
 import net.minecraft.world.item.ItemStack;
@@ -28,7 +35,13 @@ public final class Hands {
     private Hands() {}
 
     static final float ARM_SCALE = 0.55f;
+    //? if neoforge {
     private static final boolean YSM_PRESENT = net.neoforged.fml.ModList.get().isLoaded("yes_steve_model");
+    //?} else if fabric {
+    /*private static final boolean YSM_PRESENT = FabricLoader.getInstance().isModLoaded("yes_steve_model");
+    *///?} else if forge {
+    /*private static final boolean YSM_PRESENT = ModList.get().isLoaded("yes_steve_model");
+    *///?}
     private static final double NATURAL_SEGMENT = ArmMesh.UPPER / 16.0 * ARM_SCALE;
     private static final double FLOATING_LENGTH = (ArmMesh.HAND + ArmMesh.UPPER * 0.4) / 16.0 * ARM_SCALE;
 
@@ -75,6 +88,20 @@ public final class Hands {
 
     /** Where the arm comes from: beside and below the eyes, just outside the bottom corner of the frame. */
     static Vec3 shoulder(boolean right, Vec3 camera, float cameraYaw) {
+        //? if <1.21 {
+        /*if (Settings.armStyle() == 1) {
+            // Keep the natural arm's shoulder below the view, even when the scene camera
+            // pitches down or another camera mod adds roll. A world-down shoulder can
+            // end up inside the station and leave only a detached forearm visible.
+            var view = Minecraft.getInstance().gameRenderer.getMainCamera();
+            var left = view.getLeftVector();
+            var up = view.getUpVector();
+            var look = view.getLookVector();
+            return camera.add(new Vec3(-left.x(), -left.y(), -left.z()).scale(right ? 0.38 : -0.38))
+                    .subtract(new Vec3(up.x(), up.y(), up.z()).scale(0.46))
+                    .add(new Vec3(look.x(), look.y(), look.z()).scale(0.08));
+        }
+        *///?}
         Vec3 forward = Scene.yawForward(cameraYaw);
         Vec3 rightVec = new Vec3(-forward.z, 0, forward.x);
         return camera.add(rightVec.scale(right ? 0.38 : -0.38)).add(0, -0.46, 0).add(forward.scale(0.08));
@@ -281,14 +308,24 @@ public final class Hands {
             drawModelArm(pose, buffers, camera, hand, shoulder, right, light, forward, player);
             return;
         }
+        //? if >=1.21 {
         PlayerSkin skin = player.getSkin();
+        //?}
         if (style == 1) {
+            //? if >=1.21 {
             drawBentArm(pose, buffers, camera, skin.texture(), skin.model() == PlayerSkin.Model.SLIM,
+            //?} else if <1.21 {
+            /*drawBentArm(pose, buffers, camera, player.getSkinTextureLocation(), "slim".equals(player.getModelName()),
+            *///?}
                     player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE),
                     hand, shoulder, right, light, forward);
             return;
         }
+        //? if >=1.21 {
         drawArm(pose, buffers, camera, skin.texture(), skin.model() == PlayerSkin.Model.SLIM,
+        //?} else if <1.21 {
+        /*drawArm(pose, buffers, camera, player.getSkinTextureLocation(), "slim".equals(player.getModelName()),
+        *///?}
                 player.isModelPartShown(right ? PlayerModelPart.RIGHT_SLEEVE : PlayerModelPart.LEFT_SLEEVE), hand, shoulder, right, light, forward);
     }
 
@@ -357,10 +394,18 @@ public final class Hands {
             this.length = length;
         }
 
+        //? if >=1.21 {
         @Override public VertexConsumer addVertex(float x, float y, float z) {
+        //?} else if <1.21 {
+        /*@Override public VertexConsumer vertex(double x, double y, double z) {
+        *///?}
             if (count == 4) flush();
             Vertex vertex = quad[count];
+            //? if >=1.21 {
             vertex.x = x; vertex.y = y; vertex.z = z;
+            //?} else if <1.21 {
+            /*vertex.x = (float) x; vertex.y = (float) y; vertex.z = (float) z;
+            *///?}
             vertex.color = -1; vertex.u = vertex.v = 0;
             vertex.overlayU = vertex.overlayV = vertex.lightU = vertex.lightV = 0;
             vertex.nx = vertex.ny = vertex.nz = 0;
@@ -368,15 +413,34 @@ public final class Hands {
             return this;
         }
 
+        //? if <1.21 {
+        /*@Override public void endVertex() { if (count == 4) flush(); }
+        @Override public void defaultColor(int red, int green, int blue, int alpha) {
+            out.defaultColor(red, green, blue, alpha);
+        }
+        @Override public void unsetDefaultColor() { out.unsetDefaultColor(); }
+
+        *///?}
         private Vertex current() { return quad[Math.max(0, count - 1)]; }
+        //? if >=1.21 {
         @Override public VertexConsumer setColor(int red, int green, int blue, int alpha) {
+        //?} else if <1.21 {
+        /*@Override public VertexConsumer color(int red, int green, int blue, int alpha) {
+        *///?}
             current().color = (alpha << 24) | (red << 16) | (green << 8) | blue;
             return this;
         }
+        //? if >=1.21 {
         @Override public VertexConsumer setUv(float u, float v) { current().u = u; current().v = v; return this; }
         @Override public VertexConsumer setUv1(int u, int v) { current().overlayU = u; current().overlayV = v; return this; }
         @Override public VertexConsumer setUv2(int u, int v) { current().lightU = u; current().lightV = v; return this; }
         @Override public VertexConsumer setNormal(float x, float y, float z) { current().nx = x; current().ny = y; current().nz = z; return this; }
+        //?} else if <1.21 {
+        /*@Override public VertexConsumer uv(float u, float v) { current().u = u; current().v = v; return this; }
+        @Override public VertexConsumer overlayCoords(int u, int v) { current().overlayU = u; current().overlayV = v; return this; }
+        @Override public VertexConsumer uv2(int u, int v) { current().lightU = u; current().lightV = v; return this; }
+        @Override public VertexConsumer normal(float x, float y, float z) { current().nx = x; current().ny = y; current().nz = z; return this; }
+        *///?}
 
         private void flushPending() { if (count == 4) flush(); }
 
@@ -406,8 +470,13 @@ public final class Hands {
         }
 
         private void emit(Vertex v) {
+            //? if >=1.21 {
             out.addVertex(v.x, v.y, v.z).setColor(v.color).setUv(v.u, v.v)
                     .setUv1(v.overlayU, v.overlayV).setUv2(v.lightU, v.lightV).setNormal(v.nx, v.ny, v.nz);
+            //?} else if <1.21 {
+            /*out.addVertex(v.x, v.y, v.z).color(v.color).setUv(v.u, v.v)
+                    .overlayCoords(v.overlayU, v.overlayV).uv2(v.lightU, v.lightV).normal(v.nx, v.ny, v.nz).endVertex();
+            *///?}
         }
 
         private static final class Vertex {

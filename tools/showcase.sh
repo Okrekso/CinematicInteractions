@@ -22,9 +22,9 @@ cd "$ROOT" || exit 1
 if [ -z "${JAVA_HOME:-}" ] || [ ! -d "$JAVA_HOME" ]; then
     export JAVA_HOME="/c/Users/evgen/AppData/Local/Programs/Eclipse Adoptium/jdk-21.0.12.8-hotspot"
 fi
-if [ "${1:-}" = "iris" ]; then RUN=runShowcaseIris; DIR=run-showcase-iris; else RUN=runShowcase; DIR=run-showcase; fi
+if [ "${1:-}" = "iris" ]; then RUN=:1.21.1-neoforge:runShowcaseIris; DIR=run-showcase-iris; else RUN=:1.21.1-neoforge:runShowcase; DIR=run-showcase; fi
 
-./gradlew build --console=plain -q 2>&1 | grep -E "error|\.java:[0-9]+" | head -40
+./gradlew :1.21.1-neoforge:build --console=plain -q 2>&1 | grep -E "error|\.java:[0-9]+" | head -40
 if [ "${PIPESTATUS[0]}" != "0" ]; then echo "BUILD FAILED"; exit 1; fi
 
 # a fresh world every time: things left on tables would derail the script

@@ -12,16 +12,25 @@ import net.minecraft.stats.Stats;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CampfireCookingRecipe;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.RecipeHolder;
+//?}
 import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraft.world.item.crafting.RecipeType;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.SingleRecipeInput;
+//?} else if <1.21 {
+/*import net.minecraft.world.Container;
+import net.minecraft.world.SimpleContainer;
+*///?}
 import net.minecraft.world.Containers;
 import net.minecraft.world.level.block.entity.CampfireBlockEntity;
 import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?}
 
 /**
  * Sitting by a campfire: food is put on a chosen spot of the fire, or taken off it. Putting on follows the
@@ -38,7 +47,11 @@ public final class CampfireActions {
     private static final class CookingWatch {
         final int[] previous = {-1, -1, -1, -1};
         final int[] stalled = new int[SPOTS];
+        //? if >=1.21 {
         final RecipeManager.CachedCheck<SingleRecipeInput, CampfireCookingRecipe> recipes =
+        //?} else if <1.21 {
+        /*final RecipeManager.CachedCheck<Container, CampfireCookingRecipe> recipes =
+        *///?}
                 RecipeManager.createCheck(RecipeType.CAMPFIRE_COOKING);
         long lastTick = Long.MIN_VALUE;
 
@@ -58,13 +71,26 @@ public final class CampfireActions {
         ItemStack carried = menu.getCarried();
         ItemStack there = fire.getItems().get(spot);
         if (!carried.isEmpty()) {
+            //? if >=1.21 {
             Optional<RecipeHolder<CampfireCookingRecipe>> recipe = fire.getCookableRecipe(carried);
+            //?} else if <1.21 {
+            /*Optional<CampfireCookingRecipe> recipe = fire.getCookableRecipe(carried);
+            *///?}
             if (!there.isEmpty() || recipe.isEmpty()) {
                 return;
             }
+            //? if >=1.21 {
             fire.cookingTime[spot] = recipe.get().value().getCookingTime();
+            //?} else if <1.21 {
+            /*fire.cookingTime[spot] = recipe.get().getCookingTime();
+            *///?}
             fire.cookingProgress[spot] = 0;
+            //? if >=1.21 {
             fire.getItems().set(spot, carried.consumeAndReturn(1, player));
+            //?} else if <1.21 {
+            /*// as the campfire's own use: a creative player's stack is not used up
+            fire.getItems().set(spot, player.getAbilities().instabuild ? carried.copyWithCount(1) : carried.split(1));
+            *///?}
             level.gameEvent(GameEvent.BLOCK_CHANGE, session.pos(), GameEvent.Context.of(player, fire.getBlockState()));
             player.awardStat(Stats.INTERACT_WITH_CAMPFIRE);
         } else {
@@ -93,7 +119,11 @@ public final class CampfireActions {
             return;
         }
         ItemStack source = player.getInventory().getItem(inventorySlot);
+        //? if >=1.21 {
         var recipe = level.getRecipeManager().getRecipeFor(RecipeType.CAMPFIRE_COOKING, new SingleRecipeInput(source), level);
+        //?} else if <1.21 {
+        /*var recipe = level.getRecipeManager().getRecipeFor(RecipeType.CAMPFIRE_COOKING, new SimpleContainer(source), level);
+        *///?}
         if (recipe.isEmpty()) {
             return;
         }
@@ -102,7 +132,11 @@ public final class CampfireActions {
             if (!fire.getItems().get(spot).isEmpty()) {
                 continue;
             }
+            //? if >=1.21 {
             fire.cookingTime[spot] = recipe.get().value().getCookingTime();
+            //?} else if <1.21 {
+            /*fire.cookingTime[spot] = recipe.get().getCookingTime();
+            *///?}
             fire.cookingProgress[spot] = 0;
             fire.getItems().set(spot, source.split(1));
             CookingWatch watch = WATCHES.get(fire);
@@ -145,9 +179,17 @@ public final class CampfireActions {
             }
             if (fire.cookingTime[i] <= 0) {
                 // Not getCookableRecipe: it answers nothing once all four spots are taken.
+                //? if >=1.21 {
                 var recipe = level.getRecipeManager().getRecipeFor(RecipeType.CAMPFIRE_COOKING, new SingleRecipeInput(item), level);
+                //?} else if <1.21 {
+                /*var recipe = level.getRecipeManager().getRecipeFor(RecipeType.CAMPFIRE_COOKING, new SimpleContainer(item), level);
+                *///?}
                 if (recipe.isPresent()) {
+                    //? if >=1.21 {
                     fire.cookingTime[i] = recipe.get().value().getCookingTime();
+                    //?} else if <1.21 {
+                    /*fire.cookingTime[i] = recipe.get().getCookingTime();
+                    *///?}
                     fire.cookingProgress[i] = 0;
                     watch.reset(i);
                     changed = true;
@@ -170,9 +212,17 @@ public final class CampfireActions {
         ItemStack item = fire.getItems().get(spot);
         fire.cookingProgress[spot]++;
         if (fire.cookingProgress[spot] >= fire.cookingTime[spot]) {
+            //? if >=1.21 {
             SingleRecipeInput input = new SingleRecipeInput(item);
+            //?} else if <1.21 {
+            /*Container input = new SimpleContainer(item);
+            *///?}
             ItemStack result = watch.recipes.getRecipeFor(input, level)
+                    //? if >=1.21 {
                     .map(recipe -> recipe.value().assemble(input, level.registryAccess())).orElse(item);
+                    //?} else if <1.21 {
+                    /*.map(recipe -> recipe.assemble(input, level.registryAccess())).orElse(item);
+                    *///?}
             if (result.isItemEnabled(level.enabledFeatures())) {
                 Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), result);
                 fire.getItems().set(spot, ItemStack.EMPTY);

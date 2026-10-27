@@ -5,12 +5,22 @@ import com.google.gson.GsonBuilder;
 import dev.dyslexic.cinematic.Cinematic;
 import dev.dyslexic.cinematic.station.StationKind;
 import java.io.IOException;
+//? if neoforge {
 import java.nio.file.AtomicMoveNotSupportedException;
+//?}
 import java.nio.file.Files;
 import java.nio.file.Path;
+//? if neoforge {
 import java.nio.file.StandardCopyOption;
+//?}
 import java.util.Arrays;
+//? if neoforge {
 import net.neoforged.fml.loading.FMLPaths;
+//?} else if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?} else if forge {
+/*import net.minecraftforge.fml.loading.FMLPaths;
+*///?}
 
 /** Three independent profiles for each furnace type. Preview is local and never writes to disk. */
 final class FurnaceLayouts {
@@ -33,7 +43,13 @@ final class FurnaceLayouts {
         for (FurnaceAppearance[] row : values) Arrays.fill(row, FurnaceAppearance.VANILLA);
         return values;
     }
+    //? if neoforge {
     static Path path() { return FMLPaths.CONFIGDIR.get().resolve(FILE); }
+    //?} else if fabric {
+    /*static Path path() { return FabricLoader.getInstance().getConfigDir().resolve(FILE); }
+    *///?} else if forge {
+    /*static Path path() { return FMLPaths.CONFIGDIR.get().resolve(FILE); }
+    *///?}
     private static void load() {
         if (loaded) return;
         loaded = true;
@@ -77,12 +93,18 @@ final class FurnaceLayouts {
         FurnaceAppearance[][] next = profiles.clone();
         int[] nextSelected = selected.clone();
         next[index(kind)] = drafts.clone(); nextSelected[index(kind)] = active;
+        //? if neoforge {
         Path temp = path().resolveSibling(FILE + ".tmp");
+        //?}
         try {
+            //? if neoforge {
             Files.createDirectories(path().getParent());
             Files.writeString(temp, JSON.toJson(new Saved(1, nextSelected, next)) + "\n");
             try { Files.move(temp, path(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE); }
             catch (AtomicMoveNotSupportedException e) { Files.move(temp, path(), StandardCopyOption.REPLACE_EXISTING); }
+            //?} else if !neoforge {
+            /*LayoutFiles.write(path(), JSON.toJson(new Saved(1, nextSelected, next)) + "\n");
+            *///?}
             profiles = next; selected = nextSelected; cancelPreview(kind);
             return true;
         } catch (IOException | RuntimeException e) {

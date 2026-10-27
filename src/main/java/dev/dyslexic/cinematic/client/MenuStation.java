@@ -16,7 +16,11 @@ import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 
 /**
  * A station worked through the block's own vanilla menu, which the server opens without its window (anvil,
@@ -117,7 +121,11 @@ public abstract class MenuStation<M extends AbstractContainerMenu> extends Clien
     protected void showMove(boolean bag) {
         moveShown = true;
         if (!Scene.clientOnly())
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, kind(), StationActionPayload.Action.CRAFT, 1, bag ? 1 : 0, false, 0));
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, kind(), StationActionPayload.Action.CRAFT, 1, bag ? 1 : 0, false, 0));
+            *///?}
     }
 
     /** Seconds into the move, or -1 when there is none. */
@@ -140,7 +148,11 @@ public abstract class MenuStation<M extends AbstractContainerMenu> extends Clien
         if (Scene.phase == Scene.Phase.ACTIVE && menu() != null) {
             action.run();
             if (!moveShown && !Scene.clientOnly()) {
+                //? if !forge {
                 PacketDistributor.sendToServer(StationActionPayload.of(pos, kind(), StationActionPayload.Action.CRAFT));
+                //?} else if forge {
+                /*ClientNet.sendToServer(StationActionPayload.of(pos, kind(), StationActionPayload.Action.CRAFT));
+                *///?}
             }
         } else {
             moveAt = -10;

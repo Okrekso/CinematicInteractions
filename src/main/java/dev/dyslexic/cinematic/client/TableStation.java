@@ -3,6 +3,9 @@ package dev.dyslexic.cinematic.client;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+//? if fabric && <1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import dev.dyslexic.cinematic.net.StationActionPayload;
 import dev.dyslexic.cinematic.station.StationKind;
 import dev.dyslexic.cinematic.table.TableCrafting;
@@ -29,7 +32,11 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if fabric && >=1.21 {
+/*import dev.dyslexic.cinematic.net.PacketDistributor;
+*///?}
 import org.joml.Matrix4f;
 
 /**
@@ -63,6 +70,11 @@ public final class TableStation extends ClientStation {
     public ItemStack result = ItemStack.EMPTY;
     public double resultChangedAt = -10;
     private int resultVersion = -1;
+    //? if <1.21 {
+    /*private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
+    private List<net.minecraft.world.item.crafting.CraftingRecipe> competing = List.of();
+    @Nullable private net.minecraft.resources.ResourceLocation chosenRecipe;
+    *///?}
 
     /** The ingredients as they lay when crafting was clicked, gathered while the server crafts. */
     public double craftAt = -10;
@@ -224,9 +236,13 @@ public final class TableStation extends ClientStation {
         laying = layQueue.poll();
         layDropped = false;
         layAt = Scene.clock();
+        //? if >=1.21 {
         if (laying == null) {
             takenBack.clear();
         }
+        //?} else if <1.21 {
+        /*if (laying == null) takenBack.clear();
+        *///?}
         if (laying != null && laying[1] == REPLAN) {
             layItem = ItemStack.EMPTY;
             return;
@@ -258,9 +274,13 @@ public final class TableStation extends ClientStation {
         ClientTables.Entry entry = ClientTables.get(pos);
         for (int cell : takenBack) clear &= onCell(entry, cell).isEmpty();
         double waited = Scene.clock() - layAt;
+        //? if >=1.21 {
         if (waited < 0.1 || !clear && waited < REPLAN_WAIT) {
             return;
         }
+        //?} else if <1.21 {
+        /*if (waited < 0.1 || !clear && waited < REPLAN_WAIT) return;
+        *///?}
         boolean all = laying[2] == 1;
         TableRecipeGuide guide = recipeBook.guide;
         guide.tick();
@@ -292,19 +312,31 @@ public final class TableStation extends ClientStation {
                 takenBack.add(laying[0]);
                 // the server's own shift-click: into the inventory as far as it has room, the rest stays on the cell
                 if (Scene.clientOnly()) clickVanilla(laying[0], 0, true);
+                //? if !forge {
                 else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CLICK,
+                //?} else if forge {
+                /*else ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CLICK,
+                *///?}
                         laying[0], 0, true, 0));
             }
+            //? if >=1.21 {
             if (t >= 1) {
                 nextLay();
             }
+            //?} else if <1.21 {
+            /*if (t >= 1) nextLay();
+            *///?}
             return;
         }
         if (!layDropped && t >= LAY_DROP) {
             layDropped = true;
             Hands.tap();
             if (Scene.clientOnly()) placeVanilla(laying[0], laying[1], layItem.getCount());
+            //? if !forge {
             else PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE,
+            //?} else if forge {
+            /*else ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.PLACE,
+            *///?}
                     laying[0], laying[1], false, layItem.getCount()));
         }
         if (t >= 1) {
@@ -351,10 +383,18 @@ public final class TableStation extends ClientStation {
 
     /** The item in the hand while it is carried over (until the table has it). */
     private void drawLayItem(PoseStack pose, MultiBufferSource buffers, Vec3 camera, int light) {
+        //? if >=1.21 {
         if (laying == null || layItem.isEmpty() || laying[1] == REPLAN) {
+        //?} else if <1.21 {
+        /*if (laying == null || layItem.isEmpty()) {
+        *///?}
             return;
         }
+        //? if >=1.21 {
         double t = layPath();
+        //?} else if <1.21 {
+        /*double t = layProgress();
+        *///?}
         if (t < 0.24 || t > LAY_DROP + 0.04) {
             return;
         }
@@ -430,6 +470,7 @@ public final class TableStation extends ClientStation {
     private final boolean[] inTheWay = new boolean[TableGrid.CELLS];
     private int occlusionCell = Integer.MIN_VALUE;
     private int occlusionVersion = Integer.MIN_VALUE;
+    //? if >=1.21 {
     @Nullable
     private Vec3 occlusionCamera;
 
@@ -439,6 +480,19 @@ public final class TableStation extends ClientStation {
      * the cursor: from the point under the cursor it changed with every small move of the mouse and every breath of the
      * camera, and the items at the edge of that line faded in and out.
      */
+    //?} else if fabric && <1.21 {
+    /*@Nullable private Vec3 occlusionCamera;
+
+    boolean[] inTheWayCopy() {
+        return inTheWay.clone();
+    }
+
+    /^* Keep one stable occlusion decision for the hovered cell until the camera or table changes. ^/
+    *///?} else if forge {
+    /*@Nullable private Vec3 occlusionCamera;
+
+    /^* Keep one stable occlusion decision for the hovered cell until the camera or table changes. ^/
+    *///?}
     void updateOcclusion(Vec3 camera) {
         ClientTables.Entry entry = ClientTables.get(pos);
         int cell = Scene.phase == Scene.Phase.ACTIVE && craftProgress() < 0 ? hoverCell : -1;
@@ -454,7 +508,11 @@ public final class TableStation extends ClientStation {
                 inTheWay[i] = false;
                 if (cell < 0 || i == cell || stack.isEmpty()) continue;
                 Vec3 base = cellPoint(i);
+                //? if >=1.21 {
                 net.minecraft.world.phys.AABB bounds = (layout.equals(TableLayout.VANILLA) ? ItemPlacer.restingBounds(stack, base) : layout.bounds(stack, base)).inflate(0.003);
+                //?} else if <1.21 {
+                /*var bounds = (layout.equals(TableLayout.VANILLA) ? ItemPlacer.restingBounds(stack, base) : layout.bounds(stack, base)).inflate(0.003);
+                *///?}
                 Vec3 target = cellPoint(cell);
                 for (double[] at : CELL_SAMPLES) {
                     Vec3 point = new Vec3(target.x + at[0] * TableGrid.CELL, surfaceY(), target.z + at[1] * TableGrid.CELL);
@@ -475,10 +533,12 @@ public final class TableStation extends ClientStation {
         }
     }
 
+    //? if >=1.21 {
     boolean[] inTheWayCopy() {
         return inTheWay.clone();
     }
 
+    //?}
     public float itemOpacity(int cell) {
         return cell >= 0 && cell < itemOpacity.length ? itemOpacity[cell] : 1f;
     }
@@ -620,7 +680,11 @@ public final class TableStation extends ClientStation {
     private void spread(int mask) {
         Hands.tap();
         if (!Scene.clientOnly()) {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.SPREAD,
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.SPREAD,
+            *///?}
                     mask, 0, false, 0));
             return;
         }
@@ -646,7 +710,11 @@ public final class TableStation extends ClientStation {
         if (Scene.clientOnly()) {
             clickVanilla(cell, button, shift);
         } else {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, action, cell, button, shift, 0));
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, action, cell, button, shift, 0));
+            *///?}
         }
     }
 
@@ -710,7 +778,11 @@ public final class TableStation extends ClientStation {
                 mc.gameMode.handleInventoryMouseClick(menu.containerId, CraftingMenu.RESULT_SLOT, 0,
                         all ? ClickType.QUICK_MOVE : ClickType.PICKUP, mc.player);
         } else {
+            //? if !forge {
             PacketDistributor.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CRAFT, 0, 0, all, 0));
+            //?} else if forge {
+            /*ClientNet.sendToServer(new StationActionPayload(pos, StationKind.TABLE, StationActionPayload.Action.CRAFT, 0, 0, all, 0));
+            *///?}
         }
     }
 
@@ -721,7 +793,11 @@ public final class TableStation extends ClientStation {
     }
 
     // ---- competing recipes (Polymorph) -------------------------------------------------------------------
+    //? if <1.21 {
+    /*@Override RecipeChoiceStrip choices() { return choiceStrip; }
+    *///?}
 
+    //? if >=1.21 {
     private final RecipeChoiceStrip choiceStrip = new RecipeChoiceStrip();
     /** The recipe in use when several compete for what lies on the table; the server crafts the same one. */
     @Nullable
@@ -737,6 +813,11 @@ public final class TableStation extends ClientStation {
     void chose(int index) {
         if (index >= competing.size()) return;
         chosenRecipe = competing.get(index).id();
+    //?} else if <1.21 {
+    /*@Override void chose(int index) {
+        if (index < 0 || index >= competing.size()) return;
+        chosenRecipe = competing.get(index).getId();
+    *///?}
         super.chose(index);
         // the preview follows at once
         resultVersion = Integer.MIN_VALUE;
@@ -744,31 +825,59 @@ public final class TableStation extends ClientStation {
 
     private void updateChoices(@Nullable ClientTables.Entry entry) {
         Minecraft mc = Minecraft.getInstance();
+        //? if >=1.21 {
         if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly() || entry == null || mc.level == null || mc.player == null) {
+        //?} else if <1.21 {
+        /*if (!dev.dyslexic.cinematic.station.RecipeChoices.available() || Scene.clientOnly()
+                || entry == null || mc.level == null || mc.player == null) {
+        *///?}
             choiceStrip.clear();
             competing = List.of();
             return;
         }
+        //? if >=1.21 {
         var input = net.minecraft.world.item.crafting.CraftingInput.ofPositioned(3, 3, TableGrid.oriented(entry.list(), side)).input();
         competing = input.isEmpty() ? List.of() : dev.dyslexic.cinematic.station.RecipeChoices.matching(mc.level,
                 net.minecraft.world.item.crafting.RecipeType.CRAFTING, input);
+        //?} else if <1.21 {
+        /*var input = new dev.dyslexic.cinematic.table.TableInput(TableGrid.oriented(entry.list(), side));
+        competing = input.isEmpty() ? List.of() : dev.dyslexic.cinematic.station.RecipeChoices.matching(
+                mc.level, net.minecraft.world.item.crafting.RecipeType.CRAFTING, input);
+        *///?}
         if (competing.size() < 2) {
             choiceStrip.clear();
             return;
         }
         int index = -1;
+        //? if >=1.21 {
         for (int i = 0; i < competing.size(); i++) if (competing.get(i).id().equals(chosenRecipe)) index = i;
+        //?} else if <1.21 {
+        /*for (int i = 0; i < competing.size(); i++) if (competing.get(i).getId().equals(chosenRecipe)) index = i;
+        *///?}
         if (index < 0) {
             // not chosen in this scene yet: Polymorph's own record if the client has it, else the first; the server is
             // told, so both show and make the same thing
             var known = dev.dyslexic.cinematic.station.RecipeChoices.chosen(mc.player);
+            //? if >=1.21 {
             for (int i = 0; i < competing.size(); i++) if (competing.get(i).id().equals(known)) index = i;
+            //?} else if <1.21 {
+            /*for (int i = 0; i < competing.size(); i++) if (competing.get(i).getId().equals(known)) index = i;
+            *///?}
             index = Math.max(0, index);
+            //? if >=1.21 {
             chosenRecipe = competing.get(index).id();
+            //?} else if <1.21 {
+            /*chosenRecipe = competing.get(index).getId();
+            *///?}
             RecipeChoiceStrip.send(pos, kind(), index);
         }
+        //? if >=1.21 {
         List<ItemStack> outputs = new java.util.ArrayList<>();
         for (var holder : competing) outputs.add(holder.value().assemble(input, mc.level.registryAccess()));
+        //?} else if <1.21 {
+        /*List<ItemStack> outputs = new ArrayList<>();
+        for (var recipe : competing) outputs.add(recipe.assemble(input, mc.level.registryAccess()));
+        *///?}
         choiceStrip.set(outputs, index);
     }
 
@@ -850,10 +959,17 @@ public final class TableStation extends ClientStation {
         int alpha = 47;
         Matrix4f m = pose.last().pose();
         VertexConsumer quads = buffers.getBuffer(Fx.HIGHLIGHT);
+        //? if >=1.21 {
         quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz - half)).setColor(255, 244, 214, alpha);
         quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz + half)).setColor(255, 244, 214, alpha);
         quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz + half)).setColor(255, 244, 214, alpha);
         quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz - half)).setColor(255, 244, 214, alpha);
+        //?} else if <1.21 {
+        /*quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz - half)).color(255, 244, 214, alpha).endVertex();
+        quads.addVertex(m, (float) (cx - half), (float) y, (float) (cz + half)).color(255, 244, 214, alpha).endVertex();
+        quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz + half)).color(255, 244, 214, alpha).endVertex();
+        quads.addVertex(m, (float) (cx + half), (float) y, (float) (cz - half)).color(255, 244, 214, alpha).endVertex();
+        *///?}
         double width = 0.004;
         // The rim makes a partly hidden destination readable through the faded ingredient.
         highlightStrip(quads, m, cx - half, cz - half, cx + half, cz - half + width, y, 150);
@@ -864,10 +980,17 @@ public final class TableStation extends ClientStation {
     }
 
     private static void highlightStrip(VertexConsumer quads, Matrix4f m, double x0, double z0, double x1, double z1, double y, int alpha) {
+        //? if >=1.21 {
         quads.addVertex(m, (float) x0, (float) y, (float) z0).setColor(255, 235, 185, alpha);
         quads.addVertex(m, (float) x0, (float) y, (float) z1).setColor(255, 235, 185, alpha);
         quads.addVertex(m, (float) x1, (float) y, (float) z1).setColor(255, 235, 185, alpha);
         quads.addVertex(m, (float) x1, (float) y, (float) z0).setColor(255, 235, 185, alpha);
+        //?} else if <1.21 {
+        /*quads.addVertex(m, (float) x0, (float) y, (float) z0).color(255, 235, 185, alpha).endVertex();
+        quads.addVertex(m, (float) x0, (float) y, (float) z1).color(255, 235, 185, alpha).endVertex();
+        quads.addVertex(m, (float) x1, (float) y, (float) z1).color(255, 235, 185, alpha).endVertex();
+        quads.addVertex(m, (float) x1, (float) y, (float) z0).color(255, 235, 185, alpha).endVertex();
+        *///?}
     }
 
     /** The result floats over the far edge of the table, turning slowly. */

@@ -1,21 +1,30 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+//? if neoforge {
 import com.mojang.math.Axis;
+//?}
 import dev.dyslexic.cinematic.station.StationKind;
+//? if neoforge {
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.client.Minecraft;
+//?}
 import net.minecraft.client.model.PlayerModel;
+//? if neoforge {
 import net.minecraft.client.model.geom.ModelPart;
+//?}
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.client.renderer.MultiBufferSource;
+//? if neoforge {
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.Sheets;
+//?}
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.layers.RenderLayer;
+//? if neoforge {
 import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -31,6 +40,10 @@ import net.minecraft.world.item.armortrim.ArmorTrim;
 import net.neoforged.neoforge.client.ClientHooks;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.extensions.common.IClientItemExtensions;
+//?} else if forge {
+/*import net.minecraft.client.renderer.entity.player.PlayerRenderer;
+import net.minecraftforge.client.event.EntityRenderersEvent;
+*///?}
 
 /**
  * The raised campfire leg, split at its knee, as others see it: the thigh drawn up and the shin back down to the ground.
@@ -43,8 +56,14 @@ public final class KneeLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
      */
     public static final float THIGH = -2.1f;
     public static final float KNEE = 1.5f;
+    //? if neoforge {
     public static boolean bends = true;
+    //?} else if fabric {
+    /*/^* For the walkthrough's before/after: the straight vanilla leg. ^/
+    public static boolean bends = true;
+    *///?}
 
+    //? if neoforge {
     private final ModelPart skinThigh = part(0, 16, 0f, 64f);
     private final ModelPart skinShin = part(0, 22, 0f, 64f);
     private final ModelPart pantsThigh = part(0, 32, 0.25f, 64f);
@@ -53,33 +72,73 @@ public final class KneeLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
     private final ModelPart leggings = armorLeg(0.5f);
     private final ModelPart boots = armorLeg(1f);
 
+    //?}
     public KneeLayer(RenderLayerParent<AbstractClientPlayer, PlayerModel<AbstractClientPlayer>> parent) {
         super(parent);
     }
 
+    //? if neoforge {
     public static boolean sitting(int id) {
         return bends && ClientPayloads.atStation(id) == StationKind.CAMPFIRE;
+    //?} else if fabric {
+    /*public static boolean sitting(AbstractClientPlayer player) {
+        return bends && ClientPayloads.atStation(player.getId()) == StationKind.CAMPFIRE;
+    *///?} else if forge {
+    /*public static void addTo(EntityRenderersEvent.AddLayers event) {
+        for (String skin : event.getSkins()) {
+            PlayerRenderer renderer = event.getSkin(skin);
+            if (renderer != null) renderer.addLayer(new KneeLayer(renderer));
+        }
+    }
+
+    public static boolean sitting(AbstractClientPlayer player) {
+        return ClientPayloads.atStation(player.getId()) == StationKind.CAMPFIRE;
+    *///?}
     }
 
     @Override
+    //? if neoforge {
     public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
             float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
         if (!sitting(player.getId())) {
             return;
         }
         int overlay = LivingEntityRenderer.getOverlayCoords(player, 0f);
+    //?} else if fabric {
+    /*public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing, float limbSwingAmount,
+            float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+        if (!sitting(player)) {
+            return;
+        }
+    *///?} else if forge {
+    /*public void render(PoseStack pose, MultiBufferSource buffers, int light, AbstractClientPlayer player, float limbSwing,
+            float limbSwingAmount, float partialTick, float ageInTicks, float netHeadYaw, float headPitch) {
+        if (!sitting(player)) return;
+    *///?}
         pose.pushPose();
+        // the hidden leg's own pivot and turn, as the model would have drawn it
         getParentModel().rightLeg.translateAndRotate(pose);
         if (!player.isInvisible()) {
+            //? if neoforge {
             var texture = player.getSkin().texture();
             renderParts(pose, buffers.getBuffer(RenderType.entitySolid(texture)), light, overlay, skinThigh, skinShin);
             if (player.isModelPartShown(PlayerModelPart.RIGHT_PANTS_LEG)) {
                 renderParts(pose, buffers.getBuffer(RenderType.entityTranslucent(texture)), light, overlay, pantsThigh, pantsShin);
             }
+            //?} else if !neoforge {
+            /*LegMesh.drawOnModel(pose, buffers, player, true, KNEE, light, LivingEntityRenderer.getOverlayCoords(player, 0));
+            *///?}
         }
+        //? if neoforge {
         renderArmor(pose, buffers, light, player, EquipmentSlot.LEGS, leggings);
         renderArmor(pose, buffers, light, player, EquipmentSlot.FEET, boots);
+        //?} else if fabric && >=1.21 {
+        /*CampfireArmor.drawOnModel(pose, buffers, player, true, KNEE, light);
+        *///?} else if <1.21 {
+        /*CampfireArmor.drawOnModel(pose, buffers, player, KNEE, light);
+        *///?}
         pose.popPose();
+    //? if neoforge {
     }
 
     private static void renderParts(PoseStack pose, com.mojang.blaze3d.vertex.VertexConsumer buffer, int light, int overlay, ModelPart thigh, ModelPart shin) {
@@ -144,5 +203,6 @@ public final class KneeLayer extends RenderLayer<AbstractClientPlayer, PlayerMod
                 renderer.addLayer(new KneeLayer(renderer));
             }
         }
+    //?}
     }
 }

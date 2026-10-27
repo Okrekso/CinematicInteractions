@@ -25,7 +25,9 @@ import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.StonecutterMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+//? if >=1.21 {
 import net.minecraft.world.item.crafting.RecipeHolder;
+//?}
 import net.minecraft.world.item.crafting.StonecutterRecipe;
 import net.minecraft.world.phys.Vec3;
 
@@ -148,15 +150,26 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
 
     // ---- the dial ------------------------------------------------------------------------------------
 
+    //? if >=1.21 {
     List<RecipeHolder<StonecutterRecipe>> shapes() {
+    //?} else if fabric && <1.21 {
+    /*List<StonecutterRecipe> shapes() {
+    *///?} else if forge {
+    /*private List<StonecutterRecipe> shapes() {
+    *///?}
         StonecutterMenu menu = menu();
         return menu == null || !menu.hasInputItem() ? List.of() : menu.getRecipes();
     }
 
     private ItemStack shapeResult(int k) {
         Minecraft mc = Minecraft.getInstance();
+        //? if >=1.21 {
         List<RecipeHolder<StonecutterRecipe>> shapes = shapes();
         return k < 0 || k >= shapes.size() || mc.level == null ? ItemStack.EMPTY : shapes.get(k).value().getResultItem(mc.level.registryAccess());
+        //?} else if <1.21 {
+        /*List<StonecutterRecipe> shapes = shapes();
+        return k < 0 || k >= shapes.size() || mc.level == null ? ItemStack.EMPTY : shapes.get(k).getResultItem(mc.level.registryAccess());
+        *///?}
     }
 
     private int visible() {
@@ -180,7 +193,11 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
     }
 
     public Vec3 shapePoint(int k) {
+        //? if forge {
+        /*double a = Math.toRadians(angle(k));
+        *///?}
         double bob = 0.008 * Math.sin(Scene.clock() * 1.7 + k * 1.3);
+        //? if !forge {
         return dialPoint(angle(k), 0.04 + bob, fit());
     }
 
@@ -239,6 +256,9 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
         double a = Math.toRadians(degrees);
         Vec3 original = top.add(side().scale(-0.06 + fit[2])).add(right().scale(Math.cos(a) * fit[0]))
                 .add(0, up + fit[1] + Math.sin(a) * DIAL_HIGH, 0);
+        //?} else if forge {
+        /*Vec3 original = top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.04 + Math.sin(a) * DIAL_HIGH + bob, 0);
+        *///?}
         return RemainingLayouts.transform(kind(), top, side, 2, original);
     }
 
@@ -261,7 +281,11 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
             return;
         }
         double[] mouse = Picking.mouseGui();
+        //? if >=1.21 {
         List<RecipeHolder<StonecutterRecipe>> shapes = shapes();
+        //?} else if <1.21 {
+        /*List<StonecutterRecipe> shapes = shapes();
+        *///?}
         for (int k = 0; k < shapes.size(); k++) {
             if (onDial(k) > 0.5 && GrindstoneStation.under(mouse, shapePoint(k), 0.075 * geometry().scale(2))) {
                 target = Target.SHAPE;
@@ -604,7 +628,11 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
             float p = (float) (0.16 + 0.06 * Math.sin(clock * 5));
             EnchantFx.disc(pose, buffers, camera, aim.add(0, 0.004, 0), 0.13, 0, EnchantFx.GLOW, p, p * 0.9f, p * 0.75f);
         }
+        //? if >=1.21 {
         List<RecipeHolder<StonecutterRecipe>> shapes = shapes();
+        //?} else if <1.21 {
+        /*List<StonecutterRecipe> shapes = shapes();
+        *///?}
         double appear = Anim.outBack(Anim.window(clock - shapesAt, 0, 0.4), 1.4);
         double dim = moving() ? 0.45 : 1;
         for (int k = 0; k < shapes.size(); k++) {
@@ -643,7 +671,12 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
     }
 
     private Vec3 shapeEnd(boolean left) {
+        //? if !forge {
         return dialPoint(left ? 176 : 4, 0.07, fit());
+        //?} else if forge {
+        /*double a = Math.toRadians(left ? 176 : 4);
+        return RemainingLayouts.transform(kind(), top, side, 2, top.add(side().scale(-0.06)).add(right().scale(Math.cos(a) * DIAL_WIDE)).add(0, 0.07 + Math.sin(a) * DIAL_HIGH, 0));
+        *///?}
     }
 
     private static void drawCount(PoseStack pose, MultiBufferSource buffers, Camera camera, String text, Vec3 at, float alpha) {
@@ -651,9 +684,14 @@ public final class StonecutterStation extends MenuStation<StonecutterMenu> imple
         Vec3 cam = camera.getPosition();
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+        // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
         float s = 0.0065f;
+        //? if >=1.21 {
         pose.scale(s, -s, s);
+        //?} else if <1.21 {
+        /*pose.scale(-s, -s, s);
+        *///?}
         int a = Math.max(8, (int) (alpha * 255));
         font.drawInBatch(text, -font.width(text) / 2f, -4f, a << 24 | 0xF2EAD8, false, pose.last().pose(), buffers, Font.DisplayMode.NORMAL, 0,
                 LightTexture.FULL_BRIGHT);

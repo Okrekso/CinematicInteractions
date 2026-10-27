@@ -49,41 +49,72 @@ public final class ArmMesh {
 
     /** Draws in model units (cubes divide by 16 themselves); {@code stretch} lengthens the upper part away from the hand. */
     public void render(PoseStack pose, VertexConsumer buffer, int light, int overlay, float stretch) {
+        //? if >=1.21 {
         hand.compile(pose.last(), buffer, light, overlay, -1);
         cap.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*hand.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        cap.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
         pose.pushPose();
         float joint = (UPPER - 2f) / 16f;
         pose.translate(0, joint, 0);
         pose.scale(1, stretch, 1);
         pose.translate(0, -joint, 0);
+        //? if >=1.21 {
         upper.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*upper.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
         pose.popPose();
     }
 
     /** Upper arm, with a closed shoulder end; the lower segment is placed separately at the elbow. */
     public void renderUpper(PoseStack pose, VertexConsumer buffer, int light, int overlay) {
+        //? if >=1.21 {
         upper.compile(pose.last(), buffer, light, overlay, -1);
         cap.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*upper.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        cap.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
     }
 
     /** Forearm and hand; the same skin and sleeve layers as the original straight arm. */
     public void renderForearm(PoseStack pose, VertexConsumer buffer, int light, int overlay) {
+        //? if >=1.21 {
         upper.compile(pose.last(), buffer, light, overlay, -1);
         hand.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*upper.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        hand.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
     }
 
     /** A short, closed forearm floating near the work; its hand keeps its normal proportions. */
     public void renderFloating(PoseStack pose, VertexConsumer buffer, int light, int overlay) {
+        //? if >=1.21 {
         hand.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*hand.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
         pose.pushPose();
         pose.translate(0, 6f / 16, 0);
         pose.scale(1, 0.4f, 1);
         pose.translate(0, -6f / 16, 0);
+        //? if >=1.21 {
         upper.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*upper.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
         pose.popPose();
         pose.pushPose();
         pose.translate(0, 8f * 0.6f / 16, 0);
+        //? if >=1.21 {
         cap.compile(pose.last(), buffer, light, overlay, -1);
+        //?} else if <1.21 {
+        /*cap.compile(pose.last(), buffer, light, overlay, 1f, 1f, 1f, 1f);
+        *///?}
         pose.popPose();
     }
 }

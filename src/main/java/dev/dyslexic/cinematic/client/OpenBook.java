@@ -47,7 +47,11 @@ final class OpenBook {
     static final int COLS = 16, ROWS = 6;
     /** The shut book: from its spine to the edge of the boards, from top to bottom, and through both boards. */
     static final double DEEP = GUTTER + PAGE_W + MARGIN, TALL = PAGE_H + 2 * MARGIN, THICK = STACK + 2 * COVER;
+    //? if >=1.21 {
     private static final ResourceLocation BOOK_GUI = ResourceLocation.withDefaultNamespace("textures/gui/book.png");
+    //?} else if <1.21 {
+    /*private static final ResourceLocation BOOK_GUI = new ResourceLocation("textures/gui/book.png");
+    *///?}
     /** The edges of the pages in book.png. */
     private static final float PU0 = 70 / 256f, PU1 = 76 / 256f, PV0 = 60 / 256f, PV1 = 90 / 256f;
 
@@ -110,7 +114,14 @@ final class OpenBook {
         }
         bookId = id;
         BookViewScreen.BookAccess access = BookViewScreen.BookAccess.fromItem(book);
+        //? if >=1.21 {
         text = access == null ? List.of() : new ArrayList<>(access.pages());
+        //?} else if <1.21 {
+        /*text = new ArrayList<>();
+        for (int i = 0; access != null && i < access.getPageCount(); i++) {
+            text.add(access.getPage(i));
+        }
+        *///?}
         spread = spread < 0 ? -1 : Math.min(spread, lastSpread());
         return true;
     }
@@ -396,7 +407,11 @@ final class OpenBook {
     }
 
     private float[] boardUv(TextureAtlasSprite sprite, boolean mirrored) {
+        //? if >=1.21 {
         float u0 = sprite.getU(look.u0()), u1 = sprite.getU(look.u1()), v0 = sprite.getV(look.v0()), v1 = sprite.getV(look.v1());
+        //?} else if <1.21 {
+        /*float u0 = Fx.u(sprite, look.u0()), u1 = Fx.u(sprite, look.u1()), v0 = Fx.v(sprite, look.v0()), v1 = Fx.v(sprite, look.v1());
+        *///?}
         return mirrored ? new float[]{u1, v1, u0, v1, u0, v0, u1, v0} : new float[]{u0, v1, u1, v1, u1, v0, u0, v0};
     }
 
@@ -491,8 +506,13 @@ final class OpenBook {
         double v = TALL / 2;
         slab(pose, board, cam, 0, DEEP, -v, v, -COVER, 0, plain, light);
         slab(pose, board, cam, 0, DEEP, -v, v, STACK, STACK + COVER, plain, light);
+        //? if >=1.21 {
         float[] spine = {sprite.getU(look.su0()), sprite.getV(look.sv1()), sprite.getU(look.su1()), sprite.getV(look.sv1()),
                 sprite.getU(look.su1()), sprite.getV(look.sv0()), sprite.getU(look.su0()), sprite.getV(look.sv0())};
+        //?} else if <1.21 {
+        /*float[] spine = {Fx.u(sprite, look.su0()), Fx.v(sprite, look.sv1()), Fx.u(sprite, look.su1()), Fx.v(sprite, look.sv1()),
+                Fx.u(sprite, look.su1()), Fx.v(sprite, look.sv0()), Fx.u(sprite, look.su0()), Fx.v(sprite, look.sv0())};
+        *///?}
         // the spine across the thickness (its texture's width) and the height of the book
         double x = -0.0006;
         face(pose, board, cam, at(x, -v, -COVER), at(x, -v, STACK + COVER), at(x, v, STACK + COVER), at(x, v, -COVER), spine, a.scale(-1), light, 1f);
@@ -589,8 +609,13 @@ final class OpenBook {
         Vec3 unit = normal.normalize();
         for (int i = 0; i < 4; i++) {
             Vec3 p = corners[i].subtract(cam);
+            //? if >=1.21 {
             vc.addVertex(pose.last(), (float) p.x, (float) p.y, (float) p.z).setColor(c, c, c, 255).setUv(uv[i * 2], uv[i * 2 + 1])
                     .setOverlay(OverlayTexture.NO_OVERLAY).setLight(light).setNormal(pose.last(), (float) unit.x, (float) unit.y, (float) unit.z);
+            //?} else if <1.21 {
+            /*vc.addVertex(pose.last().pose(), (float) p.x, (float) p.y, (float) p.z).color(c, c, c, 255).setUv(uv[i * 2], uv[i * 2 + 1])
+                    .overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light).normal(pose.last().normal(), (float) unit.x, (float) unit.y, (float) unit.z).endVertex();
+            *///?}
         }
     }
 }

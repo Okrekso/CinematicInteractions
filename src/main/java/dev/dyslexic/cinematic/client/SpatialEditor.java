@@ -50,7 +50,9 @@ final class SpatialEditor implements LayoutEditor {
     private Component regionName() {
         if (region < 0) return text("all");
         return switch (station.kind()) {
+            //? if >=1.21 {
             case CRAFTER -> text("cell", region / 3 + 1, region % 3 + 1);
+            //?}
             case CHISELED_BOOKSHELF -> text("book", region + 1);
             case LOOM -> text(region == 0 ? "cloth" : region == 1 ? "dye" : "pattern");
             case ENCHANTING -> region < 2 ? text(region == 0 ? "enchant_item" : "lapis") : text("offer", region - 1);
@@ -280,7 +282,11 @@ final class SpatialEditor implements LayoutEditor {
         var matrix = pose.last().pose();
         for (double[] p : new double[][]{{x0,z0},{x1,z0},{x1,z1},{x0,z1}}) {
             Vec3 v = at.add(across.scale(p[0])).add(out.scale(p[1])).subtract(camera);
+            //? if >=1.21 {
             vertex.addVertex(matrix, (float) v.x, (float) v.y, (float) v.z).setColor(103, 211, 231, alpha);
+            //?} else if <1.21 {
+            /*vertex.addVertex(matrix, (float) v.x, (float) v.y, (float) v.z).color(103, 211, 231, alpha).endVertex();
+            *///?}
         }
     }
     double[] togglePoint() { layout(); return new double[]{toggleX + 15 * scale, toggleY + 14 * scale}; }

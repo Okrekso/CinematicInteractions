@@ -33,6 +33,13 @@ public final class CameraRig {
         return last;
     }
 
+    //? if forge {
+    /*/^* The roll of this frame's pose (degrees), for the view's roll; 0 outside a scene. ^/
+    public static float roll() {
+        return Scene.active() && last != null ? last.roll() : 0;
+    }
+
+    *///?}
     /** Called at the end of {@code Camera.setup}; returns the pose to use instead, or null. */
     @Nullable
     public static Pose override(Vec3 livePos, float liveYaw, float livePitch) {

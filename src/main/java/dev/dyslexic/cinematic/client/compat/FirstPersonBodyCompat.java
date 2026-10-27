@@ -6,7 +6,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.function.Predicate;
+//? if fabric {
+/*import net.fabricmc.loader.api.FabricLoader;
+*///?}
 import net.minecraft.client.Minecraft;
+//? if forge {
+/*import net.minecraftforge.fml.ModList;
+*///?}
 
 /** Let first-person body mods keep their normal view outside a cinematic scene. */
 public final class FirstPersonBodyCompat {
@@ -18,12 +24,24 @@ public final class FirstPersonBodyCompat {
     }
 
     public static void register() {
+        //? if neoforge {
         if (net.neoforged.fml.ModList.get().isLoaded("firstperson")) {
             registerFirstPersonModel();
         }
         if (net.neoforged.fml.ModList.get().isLoaded("realcamera")) {
             registerRealCamera();
         }
+        //?} else if fabric {
+        /*if (FabricLoader.getInstance().isModLoaded("firstperson")) {
+            registerFirstPersonModel();
+        }
+        if (FabricLoader.getInstance().isModLoaded("realcamera")) {
+            registerRealCamera();
+        }
+        *///?} else if forge {
+        /*if (ModList.get().isLoaded("firstperson")) registerFirstPersonModel();
+        if (ModList.get().isLoaded("realcamera")) registerRealCamera();
+        *///?}
     }
 
     private static void registerFirstPersonModel() {
@@ -49,8 +67,13 @@ public final class FirstPersonBodyCompat {
             Class<?> helper = Class.forName("com.xtracr.realcamera.compat.DisableHelper");
             Predicate<Object> whileInScene = player -> hideLocalBody();
             for (String feature : new String[] {"MAIN_FEATURE", "RENDER_MODEL", "RENDER_HANDS"}) {
+                //? if !forge {
                 Field entryField = helper.getField(feature);
                 Object entry = entryField.get(null);
+                //?} else if forge {
+                /*Field field = helper.getField(feature);
+                Object entry = field.get(null);
+                *///?}
                 Method registerOr = entry.getClass().getMethod("registerOr", Predicate.class);
                 registerOr.invoke(entry, whileInScene);
             }

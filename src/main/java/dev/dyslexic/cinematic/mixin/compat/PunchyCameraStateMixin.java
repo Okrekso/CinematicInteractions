@@ -1,3 +1,4 @@
+//? if !forge {
 package dev.dyslexic.cinematic.mixin.compat;
 
 import dev.dyslexic.cinematic.client.Scene;
@@ -16,3 +17,4 @@ public abstract class PunchyCameraStateMixin {
         if (Scene.active()) cir.setReturnValue(false);
     }
 }
+//?}

@@ -58,6 +58,10 @@ final class TableRecipeBook {
     }
 
     void tick() {
+        //? if <1.21 {
+        /*// On large packs the index and inventory matching are expensive; keep them idle while the book is closed.
+        if (!open && guide.selected == null) return;
+        *///?}
         guide.tick();
         if (revision != guide.revision) {
             revision = guide.revision;
@@ -279,8 +283,10 @@ final class TableRecipeBook {
                 List<Component> lines = new ArrayList<>();
                 lines.add(text(station.busy() ? "laying" : layable() > 0 ? "lay_out_tip" : "nothing_to_lay_tip"));
                 if (guide.missingCount > 0) lines.add(text("lay_missing", guide.missingCount).copy().withStyle(ChatFormatting.RED));
+                //? if !forge {
                 if (!station.busy() && !guide.takeBackMoves().isEmpty()) lines.add(text("lay_take_back", guide.takeBackMoves().size()).copy().withStyle(ChatFormatting.GRAY));
                 if (!station.busy() && guide.stuck() > 0) lines.add(text("lay_no_room", guide.stuck()).copy().withStyle(ChatFormatting.RED));
+                //?}
                 if (!station.busy()) {
                     TableRecipeGuide.MaxLayout max = maxLayout();
                     // Shift only promises what the items at hand and the stack limits really allow.
@@ -353,10 +359,17 @@ final class TableRecipeBook {
 
     private static void strip(VertexConsumer out, Matrix4f m, Vec3 at, double x0, double z0, double x1, double z1, int r, int g, int b, float a) {
         int alpha = Math.round(a * 255);
+        //? if >=1.21 {
         out.addVertex(m, (float) (at.x + x0), (float) at.y, (float) (at.z + z0)).setColor(r, g, b, alpha);
         out.addVertex(m, (float) (at.x + x0), (float) at.y, (float) (at.z + z1)).setColor(r, g, b, alpha);
         out.addVertex(m, (float) (at.x + x1), (float) at.y, (float) (at.z + z1)).setColor(r, g, b, alpha);
         out.addVertex(m, (float) (at.x + x1), (float) at.y, (float) (at.z + z0)).setColor(r, g, b, alpha);
+        //?} else if <1.21 {
+        /*out.addVertex(m, (float) (at.x + x0), (float) at.y, (float) (at.z + z0)).color(r, g, b, alpha).endVertex();
+        out.addVertex(m, (float) (at.x + x0), (float) at.y, (float) (at.z + z1)).color(r, g, b, alpha).endVertex();
+        out.addVertex(m, (float) (at.x + x1), (float) at.y, (float) (at.z + z1)).color(r, g, b, alpha).endVertex();
+        out.addVertex(m, (float) (at.x + x1), (float) at.y, (float) (at.z + z0)).color(r, g, b, alpha).endVertex();
+        *///?}
     }
 
     // Coordinates expose actual rendered controls to the scripted in-game walkthrough.

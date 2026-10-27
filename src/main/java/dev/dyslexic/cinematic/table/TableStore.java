@@ -11,7 +11,9 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+//? if >=1.21 {
 import net.minecraft.core.HolderLookup;
+//?}
 import net.minecraft.core.NonNullList;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -45,7 +47,11 @@ public final class TableStore extends SavedData {
     private final Long2ObjectMap<Set<BlockPos>> byChunk = new Long2ObjectOpenHashMap<>();
 
     public static TableStore get(ServerLevel level) {
+        //? if >=1.21 {
         return level.getDataStorage().computeIfAbsent(new SavedData.Factory<>(TableStore::new, TableStore::load, null), NAME);
+        //?} else if <1.21 {
+        /*return level.getDataStorage().computeIfAbsent(TableStore::load, TableStore::new, NAME);
+        *///?}
     }
 
     @Nullable
@@ -95,26 +101,42 @@ public final class TableStore extends SavedData {
     }
 
     @Override
+    //? if >=1.21 {
     public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
+    //?} else if <1.21 {
+    /*public CompoundTag save(CompoundTag tag) {
+    *///?}
         ListTag list = new ListTag();
         tables.forEach((pos, table) -> {
             CompoundTag entry = new CompoundTag();
             entry.putLong("pos", pos.asLong());
             entry.putByteArray("facing", table.facing);
+            //? if >=1.21 {
             ContainerHelper.saveAllItems(entry, table.items, registries);
+            //?} else if <1.21 {
+            /*ContainerHelper.saveAllItems(entry, table.items);
+            *///?}
             list.add(entry);
         });
         tag.put("tables", list);
         return tag;
     }
 
+    //? if >=1.21 {
     private static TableStore load(CompoundTag tag, HolderLookup.Provider registries) {
+    //?} else if <1.21 {
+    /*private static TableStore load(CompoundTag tag) {
+    *///?}
         TableStore store = new TableStore();
         ListTag list = tag.getList("tables", Tag.TAG_COMPOUND);
         for (int i = 0; i < list.size(); i++) {
             CompoundTag entry = list.getCompound(i);
             Table table = store.getOrCreate(BlockPos.of(entry.getLong("pos")));
+            //? if >=1.21 {
             ContainerHelper.loadAllItems(entry, table.items, registries);
+            //?} else if <1.21 {
+            /*ContainerHelper.loadAllItems(entry, table.items);
+            *///?}
             byte[] facing = entry.getByteArray("facing");
             System.arraycopy(facing, 0, table.facing, 0, Math.min(facing.length, TableGrid.CELLS));
         }

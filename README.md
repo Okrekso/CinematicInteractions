@@ -70,7 +70,7 @@ Press **H** while looking at a campfire to sit down. Hold **Left Alt** during a 
 
 ## 🛠️ Build & explore
 
-The root project contains the NeoForge 1.21.1 sources. Fabric ports are under [`fabric/`](fabric/), and Forge 1.20.1 is under [`forge/1.20.1/`](forge/1.20.1/). Each port has its own build instructions. Start with the [developer guide](docs/wiki/Development.md) and the README for the version you want to work on.
+The root project builds NeoForge 1.21.1, Forge 1.20.1 and Fabric 1.20.1 / 1.21.1 from one source tree with [Stonecutter](https://stonecutter.kikugie.dev/): `src/main/java` holds the NeoForge 1.21.1 code, and the other loaders and versions sit next to it in `//? if` comments. `./gradlew build` builds all four (JARs in `versions/<target>/build/libs/`), `./gradlew :1.20.1-forge:runClient` runs one, and `./gradlew "Set active project to 1.20.1-fabric"` shows another target's code as plain Java (run `./gradlew "Reset active project"` before committing). Fabric 1.21.11 and 26.x are built by [`multiversion/`](multiversion/README.md), Fabric 1.21–1.21.10 by [`fabric/`](fabric/). Notes of the former separate ports are in [`docs/ports/`](docs/ports/). Start with the [developer guide](docs/wiki/Development.md) and the README for the version you want to work on.
 
 ## 🗺️ Roadmap
 

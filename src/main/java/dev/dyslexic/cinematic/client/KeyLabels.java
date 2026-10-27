@@ -1,6 +1,9 @@
 package dev.dyslexic.cinematic.client;
 
 import com.mojang.blaze3d.platform.InputConstants;
+//? if fabric {
+/*import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+*///?}
 import net.minecraft.client.KeyMapping;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
@@ -15,7 +18,13 @@ final class KeyLabels {
     private KeyLabels() {}
 
     static Component of(KeyMapping mapping) {
+        //? if neoforge {
         InputConstants.Key key = mapping.getKey();
+        //?} else if fabric {
+        /*InputConstants.Key key = KeyBindingHelper.getBoundKeyOf(mapping);
+        *///?} else if forge {
+        /*InputConstants.Key key = mapping.getKey();
+        *///?}
         int code = key.getValue();
         if (key.getType() == InputConstants.Type.KEYSYM && code >= GLFW.GLFW_KEY_A && code <= GLFW.GLFW_KEY_Z) {
             return Component.literal(String.valueOf((char) code));

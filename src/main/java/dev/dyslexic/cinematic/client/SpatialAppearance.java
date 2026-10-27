@@ -33,7 +33,11 @@ record SpatialAppearance(SurfaceAppearance.Region group, List<SurfaceAppearance.
         return new SpatialAppearance(group.blend(other.group, k), next);
     }
     static int count(StationKind kind) {
+        //? if >=1.21 {
         return switch (kind) { case CRAFTER -> 9; case CHISELED_BOOKSHELF -> 6; case BREWING, ENCHANTING -> 5; case LOOM, ANVIL, GRINDSTONE, STONECUTTER -> 3; case CAMPFIRE -> 4;
+        //?} else if <1.21 {
+        /*return switch (kind) { case CHISELED_BOOKSHELF -> 6; case BREWING, ENCHANTING -> 5; case LOOM, ANVIL, GRINDSTONE, STONECUTTER -> 3; case CAMPFIRE -> 4;
+        *///?}
             case LECTERN, JUKEBOX -> 1; case BEACON -> 8;
             default -> throw new IllegalArgumentException("Not a spatial layout: " + kind); };
     }
@@ -43,11 +47,13 @@ record SpatialAppearance(SurfaceAppearance.Region group, List<SurfaceAppearance.
         static Frame of(StationKind kind, BlockPos pos, Direction side, Direction grid) {
             Vec3 out = Vec3.atLowerCornerOf(side.getNormal()), right = ShelfBooks.right(side);
             return switch (kind) {
+                //? if >=1.21 {
                 case CRAFTER -> {
                     Vec3 normal = Vec3.atLowerCornerOf(grid.getNormal());
                     yield new Frame(kind, pos, side, grid, Vec3.atCenterOf(pos).add(normal.scale(0.5)), right,
                             grid == Direction.UP ? out.scale(-1) : new Vec3(0, 1, 0), normal);
                 }
+                //?}
                 case CHISELED_BOOKSHELF -> new Frame(kind, pos, side, side, Vec3.atCenterOf(pos).add(out.scale(0.5)), right,
                         new Vec3(0, 1, 0), out);
                 case BREWING -> new Frame(kind, pos, side, Direction.UP, Vec3.atBottomCenterOf(pos).add(0, 0.45, 0),
@@ -70,8 +76,10 @@ record SpatialAppearance(SurfaceAppearance.Region group, List<SurfaceAppearance.
                         .add(up.scale(off == 0 ? EnchantStation.OFFER_FAR : EnchantStation.OFFER_NEAR))
                         .add(across.scale(off * EnchantStation.OFFER_SPREAD));
             }
+            //? if >=1.21 {
             if (kind == StationKind.CRAFTER) return origin.add(across.scale((slot % 3 - 1) * CrafterStation.PITCH))
                     .add(up.scale((1 - slot / 3) * CrafterStation.PITCH));
+            //?}
             if (kind == StationKind.CHISELED_BOOKSHELF) {
                 int[] r = ShelfBooks.SPINES[slot];
                 return origin.add(across.scale((r[0] + r[2]) / 32.0 - 0.5))
@@ -101,9 +109,14 @@ record SpatialAppearance(SurfaceAppearance.Region group, List<SurfaceAppearance.
             double v = frame.kind == StationKind.LOOM && slot == 0 ? LoomStation.CLOTH_LENGTH / 2 : u;
             return new double[]{u * group.width() * region(slot).width(), v * group.depth() * region(slot).depth()};
         }
+        //? if >=1.21 {
         double u = frame.kind == StationKind.CRAFTER ? CrafterStation.PITCH / 2 : frame.kind == StationKind.BREWING ? 0.1
                 : (slot % 3 == 0 ? 6 : 5) / 32.0;
         double v = frame.kind == StationKind.CRAFTER ? CrafterStation.PITCH / 2 : frame.kind == StationKind.BREWING ? 0.1 : 0.25;
+        //?} else if <1.21 {
+        /*double u = frame.kind == StationKind.BREWING ? 0.1 : (slot % 3 == 0 ? 6 : 5) / 32.0;
+        double v = frame.kind == StationKind.BREWING ? 0.1 : 0.25;
+        *///?}
         u *= group.width() * region(slot).width(); v *= group.depth() * region(slot).depth();
         double angle = Math.toRadians(rotation(slot)), c = Math.abs(Math.cos(angle)), s = Math.abs(Math.sin(angle));
         double fit = Math.min(1, 0.48 / Math.max(u * c + v * s, u * s + v * c));

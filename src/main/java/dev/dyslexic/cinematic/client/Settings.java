@@ -2,9 +2,17 @@ package dev.dyslexic.cinematic.client;
 
 import dev.dyslexic.cinematic.station.StationKind;
 import java.util.EnumMap;
+//? if forge {
+/*import java.util.LinkedHashMap;
+*///?}
 import java.util.Locale;
 import java.util.Map;
+//? if neoforge {
 import net.neoforged.neoforge.common.ModConfigSpec;
+//?} else if forge {
+/*import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.fml.event.config.ModConfigEvent;
+*///?}
 
 /**
  * The player's own settings (config/cinematic-client.toml), edited on {@link SettingsScreen}. The client-only choice
@@ -13,8 +21,15 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public final class Settings {
     private Settings() {}
 
+    //? if neoforge {
     public static final ModConfigSpec SPEC;
+    //?} else if fabric {
+    /*public static final ClientConfig SPEC;
+    *///?} else if forge {
+    /*public static final ForgeConfigSpec SPEC;
+    *///?}
 
+    //? if neoforge {
     static final ModConfigSpec.BooleanValue HEIGHT_LOGIC;
     static final Map<StationKind, ModConfigSpec.BooleanValue> SCENES = new EnumMap<>(StationKind.class);
     static final ModConfigSpec.BooleanValue CONTROL_HINTS;
@@ -39,16 +54,71 @@ public final class Settings {
     /** Not a setting: remembers that the server list has shown its note about the client-only mode ({@link ServerListHint}). */
     static final ModConfigSpec.BooleanValue SERVER_HINT_SEEN;
     static final ModConfigSpec.BooleanValue DEVELOPER_MODE;
+    //?} else if fabric {
+    /*static final ClientConfig.BooleanValue HEIGHT_LOGIC;
+    static final Map<StationKind, ClientConfig.BooleanValue> SCENES = new EnumMap<>(StationKind.class);
+    static final ClientConfig.BooleanValue CONTROL_HINTS;
+    static final ClientConfig.BooleanValue CAMPFIRE_INVITE;
+    static final ClientConfig.IntValue APPROACH_SPEED;
+    static final ClientConfig.IntValue LEAVE_SPEED;
+    static final ClientConfig.IntValue LEAN_STRENGTH;
+    static final ClientConfig.IntValue SCENE_ZOOM;
+    /^* 0 = cinematic, 1 = quick only on return, 2 = quick on every entry. ^/
+    static final ClientConfig.IntValue QUICK_MODE;
+    static final ClientConfig.IntValue QUICK_WINDOW;
+    /^* 0 = original stretched arms, 1 = natural reach, 2 = floating forearms. ^/
+    static final ClientConfig.IntValue ARM_STYLE;
+    static final ClientConfig.BooleanValue LOOK_TOGGLES;
+    static final ClientConfig.BooleanValue LETTERBOX;
+    static final ClientConfig.BooleanValue LIVING_CAMERA;
+    static final ClientConfig.BooleanValue CAMERA_SHAKE;
+    static final ClientConfig.BooleanValue SCREEN_FLASH;
+    static final ClientConfig.BooleanValue REDUCE_MOTION;
+    static final ClientConfig.BooleanValue CLIENT_ONLY_MODE;
+    /^* Not a setting: remembers that the server list has shown its note about the client-only mode ({@link ServerListHint}). ^/
+    static final ClientConfig.BooleanValue SERVER_HINT_SEEN;
+    static final ClientConfig.BooleanValue DEVELOPER_MODE;
+    *///?} else if forge {
+    /*static final ForgeConfigSpec.BooleanValue HEIGHT_LOGIC;
+    static final Map<StationKind, ForgeConfigSpec.BooleanValue> SCENES = new EnumMap<>(StationKind.class);
+    static final ForgeConfigSpec.BooleanValue CONTROL_HINTS;
+    static final ForgeConfigSpec.BooleanValue CAMPFIRE_INVITE;
+    static final ForgeConfigSpec.IntValue APPROACH_SPEED;
+    static final ForgeConfigSpec.IntValue LEAVE_SPEED;
+    static final ForgeConfigSpec.IntValue LEAN_STRENGTH;
+    static final ForgeConfigSpec.IntValue SCENE_ZOOM;
+    static final ForgeConfigSpec.BooleanValue QUICK_RETURN;
+    static final ForgeConfigSpec.IntValue QUICK_MODE;
+    static final ForgeConfigSpec.IntValue QUICK_WINDOW;
+    static final ForgeConfigSpec.IntValue ARM_STYLE;
+    static final ForgeConfigSpec.BooleanValue LOOK_TOGGLES;
+    static final ForgeConfigSpec.BooleanValue LETTERBOX;
+    static final ForgeConfigSpec.BooleanValue LIVING_CAMERA;
+    static final ForgeConfigSpec.BooleanValue CAMERA_SHAKE;
+    static final ForgeConfigSpec.BooleanValue SCREEN_FLASH;
+    static final ForgeConfigSpec.BooleanValue REDUCE_MOTION;
+    static final ForgeConfigSpec.BooleanValue CLIENT_ONLY_MODE;
+    static final ForgeConfigSpec.BooleanValue SERVER_HINT_SEEN;
+    static final ForgeConfigSpec.BooleanValue DEVELOPER_MODE;
+    *///?}
 
     static {
+        //? if neoforge {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
+        //?} else if fabric {
+        /*ClientConfig.Builder b = new ClientConfig.Builder();
+        *///?} else if forge {
+        /*ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
+        *///?}
         b.translation("cinematic.configuration.scenes").push("scenes");
         HEIGHT_LOGIC = b.comment("When a block's work cannot be reached from where the player stands (too high, too far, covered),",
                         "true opens the block's own window instead of the scene; false only says why, over the crosshair.")
                 .translation("cinematic.configuration.heightLogic").define("heightLogic", false);
         b.translation("cinematic.configuration.blocks").push("blocks");
         for (StationKind kind : StationKind.values()) {
+            //? if !forge {
             if (kind == StationKind.ADDON) continue;
+            //?}
             String key = key(kind);
             SCENES.put(kind, b.comment("Whether " + key + " plays its scene (false: the block keeps its usual window).")
                     .translation("cinematic.configuration." + key).define(key, true));
@@ -70,13 +140,27 @@ public final class Settings {
                 .translation("cinematic.configuration.leanStrength").defineInRange("leanStrength", 100, 0, 100);
         SCENE_ZOOM = b.comment("How much the view narrows on the work in a scene, in percent (0: the field of view stays your own).")
                 .translation("cinematic.configuration.sceneZoom").defineInRange("sceneZoom", 100, 0, 100);
+        //? if neoforge {
         QUICK_RETURN = b.comment("Coming back to the same station soon after stepping away, the way in is short: a quick lean, no bars.")
                 .translation("cinematic.configuration.quickReturn").define("quickReturn", true);
         QUICK_MODE = b.comment("0: cinematic entry; 1: quick on a recent return; 2: quick on every entry. -1 keeps the old quickReturn setting.")
                 .translation("cinematic.configuration.quickMode").defineInRange("quickMode", -1, -1, 2);
+        //?} else if fabric {
+        /*QUICK_MODE = b.comment("0: cinematic entry; 1: quick on a recent return; 2: quick on every entry.")
+                .translation("cinematic.configuration.quickMode").defineInRange("quickMode", 1, 0, 2);
+        *///?} else if forge {
+        /*QUICK_RETURN = b.comment("Coming back to the same station soon after stepping away, the way in is short: a quick lean, no bars.")
+                .translation("cinematic.configuration.quickReturn").define("quickReturn", true);
+        QUICK_MODE = b.comment("0: cinematic entry; 1: quick on a recent return; 2: quick on every entry. -1 keeps the old quickReturn setting.")
+                .translation("cinematic.configuration.quickMode").defineInRange("quickMode", -1, -1, 2);
+        *///?}
         QUICK_WINDOW = b.comment("For how many seconds after stepping away coming back to the same station is quick.")
                 .translation("cinematic.configuration.quickWindow").defineInRange("quickWindow", 12, 5, 30);
+        //? if !forge {
         ARM_STYLE = b.comment("0: original stretching arms; 1: short natural reach with a gentle camera lean; 2: floating forearms.")
+        //?} else if forge {
+        /*ARM_STYLE = b.comment("0: original stretching arms; 1: natural reach; 2: floating forearms.")
+        *///?}
                 .translation("cinematic.configuration.armStyle").defineInRange("armStyle", 0, 0, 2);
         LOOK_TOGGLES = b.comment("Looking round from behind while at work (Left Alt, rebindable): false while the key is held, true pressed on and off.")
                 .translation("cinematic.configuration.lookToggles").define("lookToggles", false);
@@ -95,7 +179,11 @@ public final class Settings {
         CLIENT_ONLY_MODE = b.comment("On a server without Cinematic Interactions, show local scenes over supported vanilla menus. "
                         + "Set this from the main menu; it takes effect on the next connection. Other stations keep their vanilla behavior.")
                 .translation("cinematic.configuration.clientOnlyMode").define("clientOnlyMode", false);
+        //? if !forge {
         SERVER_HINT_SEEN = b.comment("Whether the server list has already shown its note about the client-only mode (it shows once).")
+        //?} else if forge {
+        /*SERVER_HINT_SEEN = b.comment("Whether the one-time server-list note has already been answered.")
+        *///?}
                 .define("serverHintSeen", false);
         b.pop();
         b.translation("cinematic.configuration.developer").push("developer");
@@ -110,12 +198,31 @@ public final class Settings {
         return kind.name().toLowerCase(Locale.ROOT);
     }
 
+    //? if neoforge {
     private static boolean get(ModConfigSpec.BooleanValue value) {
+    //?} else if fabric && >=1.21 {
+    /*private static boolean get(ClientConfig.BooleanValue value) {
+    *///?} else if fabric && <1.21 {
+    /*/^* Changes a setting in memory (the same call as on Forge, where the walkthrough sets them; nothing is saved). ^/
+    public static <T> void set(ClientConfig.Value<T> value, T to) {
+        value.set(to);
+    }
+
+    private static boolean get(ClientConfig.BooleanValue value) {
+    *///?} else if forge {
+    /*private static boolean get(ForgeConfigSpec.BooleanValue value) {
+    *///?}
         // before the file is read (very early in loading) the defaults apply
         return SPEC.isLoaded() ? value.get() : value.getDefault();
     }
 
+    //? if neoforge {
     private static double percent(ModConfigSpec.IntValue value) {
+    //?} else if fabric {
+    /*private static double percent(ClientConfig.IntValue value) {
+    *///?} else if forge {
+    /*private static double percent(ForgeConfigSpec.IntValue value) {
+    *///?}
         return (SPEC.isLoaded() ? value.get() : value.getDefault()) / 100.0;
     }
 
@@ -146,7 +253,9 @@ public final class Settings {
 
     /** Whether this block plays its scene; otherwise it keeps its usual window. */
     public static boolean scene(StationKind kind) {
+        //? if !forge {
         if (kind == StationKind.ADDON) return true;
+        //?}
         return get(SCENES.get(kind));
     }
 
@@ -162,15 +271,31 @@ public final class Settings {
         return get(CAMPFIRE_INVITE);
     }
 
+    /** Cinematic, quick on recent return, or always quick. */
+    //? if neoforge {
     /** Coming back to the same station soon: a quick way in. */
     public static boolean quickReturn() {
         return quickMode() != 0;
     }
 
     /** The way in: 0 cinematic, 1 quick on a recent return, 2 quick every time (an older file's quickReturn until changed). */
+    //?} else if forge {
+    /*/^* Coming back to the same station soon: a quick way in. ^/
+    public static boolean quickReturn() {
+        return quickMode() != 0;
+    }
+
+    *///?}
     public static int quickMode() {
+        //? if neoforge {
         int mode = SPEC.isLoaded() ? QUICK_MODE.get() : QUICK_MODE.getDefault();
         return mode < 0 ? (get(QUICK_RETURN) ? 1 : 0) : mode;
+        //?} else if fabric {
+        /*return SPEC.isLoaded() ? QUICK_MODE.get() : QUICK_MODE.getDefault();
+        *///?} else if forge {
+        /*int mode = SPEC.isLoaded() ? QUICK_MODE.get() : QUICK_MODE.getDefault();
+        return mode < 0 ? (get(QUICK_RETURN) ? 1 : 0) : mode;
+        *///?}
     }
 
     /** 0 original stretched arms, 1 natural reach, 2 floating forearms. */
@@ -203,5 +328,42 @@ public final class Settings {
 
     public static boolean screenFlash() {
         return get(SCREEN_FLASH) && !get(REDUCE_MOTION);
+    //? if forge {
+    /*}
+
+    // Forge 1.20.1 writes the file on every set() and reloads it from a watcher thread. A reload that reads the file
+    // while a later write is under way puts an older value back in memory, or "corrects" the half-read file to the
+    // defaults and saves those over it (Done on the settings screen sets many values at once). Values set in the last few seconds
+    // are therefore set again after any reload, on the game thread.
+    private static final Map<ForgeConfigSpec.ConfigValue<?>, Object> RECENT = new LinkedHashMap<>();
+    private static long recentUntil;
+    private static volatile boolean reloaded;
+
+    public static <T> void set(ForgeConfigSpec.ConfigValue<T> value, T v) {
+        synchronized (RECENT) {
+            RECENT.put(value, v);
+            recentUntil = System.currentTimeMillis() + 3000;
+        }
+        value.set(v);
+    }
+
+    static void onReloading(ModConfigEvent.Reloading event) {
+        if (event.getConfig().getSpec() == SPEC) reloaded = true;
+    }
+
+    @SuppressWarnings("unchecked")
+    static void tick() {
+        if (!reloaded) return;
+        reloaded = false;
+        synchronized (RECENT) {
+            if (System.currentTimeMillis() > recentUntil) {
+                RECENT.clear();
+                return;
+            }
+            RECENT.forEach((value, v) -> {
+                if (!v.equals(value.get())) ((ForgeConfigSpec.ConfigValue<Object>) value).set(v);
+            });
+        }
+    *///?}
     }
 }

@@ -296,7 +296,13 @@ public abstract class ClientStation {
             return;
         }
         if (kind().usesMenu() || kind().isFurnace() || kind() == StationKind.CAMPFIRE) {
+            //? if neoforge {
             net.neoforged.neoforge.network.PacketDistributor.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(pos, kind(),
+            //?} else if fabric {
+            /*dev.dyslexic.cinematic.net.PacketDistributor.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(pos, kind(),
+            *///?} else if forge {
+            /*ClientNet.sendToServer(new dev.dyslexic.cinematic.net.StationActionPayload(pos, kind(),
+            *///?}
                     dev.dyslexic.cinematic.net.StationActionPayload.Action.QUICK, inventorySlot, 0, true, 0));
         }
     }
@@ -331,11 +337,16 @@ public abstract class ClientStation {
     /** Extras over the scene (progress indicators...). */
     public void renderScreen(GuiGraphics graphics, Font font, float alpha) {}
 
+    //? if !forge {
     /** The results competing for the station's input (Polymorph), for the stations that offer a choice. */
     @javax.annotation.Nullable
     RecipeChoiceStrip choices() {
         return null;
     }
+    //?} else if forge {
+    /*@Nullable
+    RecipeChoiceStrip choices() { return null; }
+    *///?}
 
     /** The player picked the {@code index}-th competing result on the strip: the server is told. */
     void chose(int index) {

@@ -38,10 +38,17 @@ import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.client.event.ModelEvent;
 import net.neoforged.neoforge.client.model.BakedModelWrapper;
 import net.neoforged.neoforge.client.model.data.ModelData;
 import net.neoforged.neoforge.client.model.data.ModelProperty;
+//?} else if forge {
+/*import net.minecraftforge.client.event.ModelEvent;
+import net.minecraftforge.client.model.BakedModelWrapper;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelProperty;
+*///?}
 import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -445,6 +452,7 @@ public final class ShelfBooks {
         HIDDEN.clear();
     }
 
+    //? if neoforge {
     // ---- the shelf's model ----------------------------------------------------------------------------
 
     private static final ModelProperty<Integer> EMPTIED = new ModelProperty<>();
@@ -490,5 +498,60 @@ public final class ShelfBooks {
             }
             return originalModel.getQuads(state, side, rand, data, renderType);
         }
+    //?} else if fabric {
+    /*/^*
+     * The slots whose pictures the shelf's model leaves empty, read by its Fabric model wrapper ({@link StationModels});
+     * NeoForge passes the same mask to its wrapper as model data. A shelf drawn to a custom layout shows none.
+     ^/
+    public static int emptyMask(BlockPos pos) {
+        if (!ClientOnly.serverHasMod()) return 0;
+        return SpatialLayouts.customShelf() ? 63 : HIDDEN.getOrDefault(pos, 0);
+    *///?} else if forge {
+    /*// ---- the shelf's model ----------------------------------------------------------------------------
+
+    private static final ModelProperty<Integer> EMPTIED = new ModelProperty<>();
+
+    /^* Wraps the shelf's model: asked for a shelf with slots of it emptied ({@link #HIDDEN}), it draws those slots empty. ^/
+    public static void emptySlots(ModelEvent.ModifyBakingResult event) {
+        Map<net.minecraft.resources.ResourceLocation, BakedModel> models = event.getModels();
+        Map<BakedModel, BakedModel> wrapped = new IdentityHashMap<>();
+        for (BlockState state : Blocks.CHISELED_BOOKSHELF.getStateDefinition().getPossibleStates()) {
+            ModelResourceLocation key = BlockModelShaper.stateToModelLocation(state);
+            BakedModel model = models.get(key);
+            if (model != null) {
+                models.put(key, wrapped.computeIfAbsent(model, Emptied::new));
+            }
+        }
+    }
+
+    private static final class Emptied extends BakedModelWrapper<BakedModel> {
+        Emptied(BakedModel model) {
+            super(model);
+        }
+
+        @Override
+        public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
+            ModelData own = originalModel.getModelData(level, pos, state, data);
+            if (!ClientOnly.serverHasMod()) return own;
+            Integer mask = HIDDEN.get(pos);
+            if (SpatialLayouts.customShelf()) mask = 63;
+            return mask == null ? own : own.derive().with(EMPTIED, mask).build();
+        }
+
+        @Override
+        public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand, ModelData data,
+                @Nullable RenderType renderType) {
+            if (!ClientOnly.serverHasMod()) return originalModel.getQuads(state, side, rand, data, renderType);
+            Integer mask = data.get(EMPTIED);
+            if (mask != null && state != null && state.is(Blocks.CHISELED_BOOKSHELF)) {
+                for (int i = 0; i < SPINES.length; i++) {
+                    if ((mask >> i & 1) != 0) {
+                        state = state.setValue(ChiseledBookShelfBlock.SLOT_OCCUPIED_PROPERTIES.get(i), false);
+                    }
+                }
+            }
+            return originalModel.getQuads(state, side, rand, data, renderType);
+        }
+    *///?}
     }
 }

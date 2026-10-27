@@ -11,8 +11,13 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
+//? if neoforge {
 import net.neoforged.neoforge.event.EventHooks;
 import net.neoforged.neoforge.network.PacketDistributor;
+//?} else if forge {
+/*import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.event.ForgeEventFactory;
+*///?}
 
 /**
  * What the hand does at a furnace front: feeds the fire box, loads the upper opening, takes out what is done.
@@ -76,11 +81,19 @@ public final class FurnaceActions {
         } else if (!furnace.canPlaceItem(slot, carried)) {
             outcome = Outcome.REFUSED;
         } else if (inside.isEmpty()) {
+            //? if >=1.21 {
             int count = button == 0 ? Math.min(carried.getCount(), furnace.getMaxStackSize(carried)) : 1;
+            //?} else if <1.21 {
+            /*int count = button == 0 ? Math.min(carried.getCount(), Math.min(furnace.getMaxStackSize(), carried.getMaxStackSize())) : 1;
+            *///?}
             furnace.setItem(slot, carried.split(count));
             outcome = Outcome.PLACED;
         } else if (ItemStack.isSameItemSameComponents(carried, inside)) {
+            //? if >=1.21 {
             int room = furnace.getMaxStackSize(inside) - inside.getCount();
+            //?} else if <1.21 {
+            /*int room = Math.min(furnace.getMaxStackSize(), inside.getMaxStackSize()) - inside.getCount();
+            *///?}
             int move = Math.min(button == 0 ? carried.getCount() : 1, room);
             if (move > 0) {
                 inside.grow(move);
@@ -108,15 +121,30 @@ public final class FurnaceActions {
         }
         ItemStack source = player.getInventory().getItem(inventorySlot);
         var type = recipeType(session.kind());
+        //? if neoforge {
         int slot = level.getRecipeManager().getRecipeFor(type, new net.minecraft.world.item.crafting.SingleRecipeInput(source), level).isPresent()
                 ? FurnaceZones.INPUT : source.getBurnTime(type) > 0 ? FurnaceZones.FUEL : -1;
+        //?} else if fabric && >=1.21 {
+        /*int slot = level.getRecipeManager().getRecipeFor(type, new net.minecraft.world.item.crafting.SingleRecipeInput(source), level).isPresent()
+                ? FurnaceZones.INPUT : AbstractFurnaceBlockEntity.isFuel(source) ? FurnaceZones.FUEL : -1;
+        *///?} else if fabric && <1.21 {
+        /*int slot = level.getRecipeManager().getRecipeFor(type, (net.minecraft.world.Container) new net.minecraft.world.SimpleContainer(source), level).isPresent()
+                ? FurnaceZones.INPUT : AbstractFurnaceBlockEntity.isFuel(source) ? FurnaceZones.FUEL : -1;
+        *///?} else if forge {
+        /*int slot = level.getRecipeManager().getRecipeFor(type, (net.minecraft.world.Container) new net.minecraft.world.SimpleContainer(source), level).isPresent()
+                ? FurnaceZones.INPUT : ForgeHooks.getBurnTime(source, type) > 0 ? FurnaceZones.FUEL : -1;
+        *///?}
         BlockPos pos = session.pos();
         if (slot < 0 || !furnace.canPlaceItem(slot, source)) {
             level.playSound(null, pos, SoundEvents.STONE_BUTTON_CLICK_OFF, SoundSource.PLAYERS, 0.3f, 0.6f);
             return;
         }
         ItemStack inside = furnace.getItem(slot);
+        //? if >=1.21 {
         int limit = Math.min(furnace.getMaxStackSize(source), source.getMaxStackSize());
+        //?} else if <1.21 {
+        /*int limit = Math.min(furnace.getMaxStackSize(), source.getMaxStackSize());
+        *///?}
         int move;
         if (inside.isEmpty()) {
             move = Math.min(source.getCount(), limit);
@@ -183,14 +211,23 @@ public final class FurnaceActions {
         // what the vanilla result slot does when a player takes from it
         taken.onCraftedBy(level, player, taken.getCount());
         furnace.awardUsedRecipesAndPopExperience(player);
+        //? if neoforge {
         EventHooks.firePlayerSmeltedEvent(player, taken);
+        //?} else if forge {
+        /*ForgeEventFactory.firePlayerSmeltedEvent(player, taken);
+        *///?}
         return Outcome.TAKEN;
     }
 
     public static void sendState(ServerPlayer player, Session session) {
         if (player.level().getBlockEntity(session.pos()) instanceof AbstractFurnaceBlockEntity furnace) {
             dev.dyslexic.cinematic.net.Network.sendToPlayer(player, new FurnaceStatePayload(session.pos(), furnace.litTime, furnace.litDuration,
+                    //? if !forge {
                     furnace.cookingProgress, furnace.cookingTotalTime, dev.dyslexic.cinematic.station.RecipeChoices.furnaceChoice(furnace, session.kind())));
+                    //?} else if forge {
+                    /*furnace.cookingProgress, furnace.cookingTotalTime,
+                    dev.dyslexic.cinematic.station.RecipeChoices.furnaceChoice(furnace, session.kind())));
+                    *///?}
         }
     }
 }

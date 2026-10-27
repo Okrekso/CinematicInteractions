@@ -19,12 +19,16 @@ import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.Holder;
+//?}
 import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+//? if >=1.21 {
 import net.minecraft.tags.EnchantmentTags;
+//?}
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.GrindstoneMenu;
 import net.minecraft.world.item.ItemStack;
@@ -304,8 +308,13 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> impleme
 
     /** Whether grinding takes enchantments off this stack (curses stay). */
     static boolean removesEnchantments(ItemStack stack) {
+        //? if >=1.21 {
         for (Holder<Enchantment> holder : EnchantmentHelper.getEnchantmentsForCrafting(stack).keySet()) {
             if (!holder.is(EnchantmentTags.CURSE)) {
+        //?} else if <1.21 {
+        /*for (Enchantment enchantment : EnchantmentHelper.getEnchantments(stack).keySet()) {
+            if (!enchantment.isCurse()) {
+        *///?}
                 return true;
             }
         }
@@ -622,9 +631,15 @@ public final class GrindstoneStation extends MenuStation<GrindstoneMenu> impleme
         for (int j = 0; j < 4; j++) {
             int i = flip ? 3 - j : j;
             Vec3 q = p[i].subtract(cam);
+            //? if >=1.21 {
             vc.addVertex(pose.last(), (float) q.x, (float) q.y, (float) q.z).setColor(255, 255, 255, 255)
                     .setUv(sprite.getU(uv[i][0] / 16f), sprite.getV(uv[i][1] / 16f)).setOverlay(OverlayTexture.NO_OVERLAY).setLight(light)
                     .setNormal(pose.last(), (float) normal.x, (float) normal.y, (float) normal.z);
+            //?} else if <1.21 {
+            /*vc.addVertex(pose.last().pose(), (float) q.x, (float) q.y, (float) q.z).color(255, 255, 255, 255)
+                    .setUv(Fx.u(sprite, uv[i][0] / 16f), Fx.v(sprite, uv[i][1] / 16f)).overlayCoords(OverlayTexture.NO_OVERLAY).uv2(light)
+                    .normal(pose.last().normal(), (float) normal.x, (float) normal.y, (float) normal.z).endVertex();
+            *///?}
         }
     }
 

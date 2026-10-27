@@ -20,8 +20,10 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+//? if >=1.21 {
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
+//?}
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -36,9 +38,15 @@ import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
+//? if >=1.21 {
 import net.minecraft.world.level.block.entity.EnchantingTableBlockEntity;
+//?} else if <1.21 {
+/*import net.minecraft.world.level.block.entity.EnchantmentTableBlockEntity;
+*///?}
 import net.minecraft.world.phys.Vec3;
+//? if !forge {
 import org.joml.Vector3f;
+//?}
 
 /**
  * The enchanting scene. The item is laid on the table and rises to hover before the book; lapis goes into the
@@ -491,7 +499,11 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
 
         double t = ritualTime();
         boolean stirring = hoverOffer >= 0 || t >= 0;
+        //? if >=1.21 {
         if (stirring && mc.level.getBlockEntity(pos) instanceof EnchantingTableBlockEntity book && mc.player.tickCount % 3 == 0) {
+        //?} else if <1.21 {
+        /*if (stirring && mc.level.getBlockEntity(pos) instanceof EnchantmentTableBlockEntity book && mc.player.tickCount % 3 == 0) {
+        *///?}
             book.flipT += (random.nextBoolean() ? 1 : -1) * (1 + random.nextInt(2));
         }
         ItemStack item = item();
@@ -639,8 +651,13 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
         String label = "×" + count;
         pose.pushPose();
         pose.translate(at.x - cam.x, at.y - cam.y, at.z - cam.z);
+        // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
+        //? if >=1.21 {
         pose.scale(0.0045f, -0.0045f, 0.0045f);
+        //?} else if <1.21 {
+        /*pose.scale(-0.0045f, -0.0045f, 0.0045f);
+        *///?}
         font.drawInBatch(label, -font.width(label) / 2f, -4f, (alpha << 24) | 0x9CC8FF, true, pose.last().pose(), buffers,
                 Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
         pose.popPose();
@@ -665,16 +682,29 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
 
         Font font = Minecraft.getInstance().font;
         Vec3 cam = camera.getPosition();
+        //? if >=1.21 {
         // the cost sits a little in front of its circle: in the same plane the depth test let the turning lines through
         // the digits; the circle faces the camera, so this holds from any angle and the text still hides behind blocks
         Vector3f look = camera.getLookVector();
+        //?} else if <1.21 {
+        /*var look = camera.getLookVector();
+        *///?}
         Vec3 text = at.subtract(look.x() * SIGIL_TEXT_LIFT, look.y() * SIGIL_TEXT_LIFT, look.z() * SIGIL_TEXT_LIFT);
         pose.pushPose();
         pose.translate(text.x - cam.x, text.y - cam.y, text.z - cam.z);
+        // 1.20.1's camera quaternion is turned half round from later versions': text faces the reader as vanilla's name tags do here
         pose.mulPose(camera.rotation());
+        //? if >=1.21 {
         pose.mulPose(Axis.ZP.rotationDegrees((float) geometry().rotation(k + 2)));
+        //?} else if <1.21 {
+        /*pose.mulPose(Axis.ZP.rotationDegrees((float) -geometry().rotation(k + 2)));
+        *///?}
         float s = 0.01f * appear * (hovered ? 1.2f : 1f) * geometry().scale(k + 2);
+        //? if >=1.21 {
         pose.scale(s, -s, s);
+        //?} else if <1.21 {
+        /*pose.scale(-s, -s, s);
+        *///?}
         String number = String.valueOf(cost);
         int numberColor = affordable ? 0xFFF4EEFF : 0xFFFF6B6B;
         // a light vanilla shadow keeps the digits apart from the lines behind them, with no plate under the number
@@ -774,11 +804,21 @@ public final class EnchantStation extends ClientStation implements SpatialTarget
     private List<Component> offerTooltip(EnchantmentMenu menu, int k) {
         Minecraft mc = Minecraft.getInstance();
         List<Component> lines = new ArrayList<>();
+        //? if >=1.21 {
         Optional<Holder.Reference<Enchantment>> clue = mc.level.registryAccess().registryOrThrow(Registries.ENCHANTMENT).getHolder(menu.enchantClue[k]);
         lines.add(Component.translatable("container.enchant.clue", clue.isEmpty() ? "" : Enchantment.getFullname(clue.get(), menu.levelClue[k]))
+        //?} else if <1.21 {
+        /*Enchantment clue = Enchantment.byId(menu.enchantClue[k]);
+        lines.add(Component.translatable("container.enchant.clue", clue == null ? "" : clue.getFullname(menu.levelClue[k]))
+        *///?}
                 .withStyle(ChatFormatting.WHITE));
+        //? if >=1.21 {
         if (clue.isEmpty()) {
             lines.add(Component.translatable("neoforge.container.enchant.limitedEnchantability").withStyle(ChatFormatting.RED));
+        //?} else if <1.21 {
+        /*if (clue == null) {
+            lines.add(Component.translatable("forge.container.enchant.limitedEnchantability").withStyle(ChatFormatting.RED));
+        *///?}
             return lines;
         }
         if (mc.player.getAbilities().instabuild) {

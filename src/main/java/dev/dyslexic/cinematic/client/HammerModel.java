@@ -7,10 +7,18 @@ import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.client.resources.model.BakedModel;
+//? if neoforge {
 import net.minecraft.client.resources.model.ModelResourceLocation;
+//?} else if !neoforge {
+/*import net.minecraft.resources.ResourceLocation;
+*///?}
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.phys.Vec3;
+//? if neoforge {
 import net.neoforged.neoforge.client.model.data.ModelData;
+//?} else if forge {
+/*import net.minecraftforge.client.model.data.ModelData;
+*///?}
 import org.joml.Matrix3f;
 import org.joml.Quaternionf;
 
@@ -18,7 +26,15 @@ import org.joml.Quaternionf;
 public final class HammerModel {
     private HammerModel() {}
 
+    //? if neoforge {
     public static final ModelResourceLocation LOCATION = ModelResourceLocation.standalone(Cinematic.id("prop/hammer"));
+    //?} else if fabric {
+    /*/^* Loaded as an extra model by CinematicClient (Fabric's ModelLoadingPlugin; NeoForge: a standalone model). ^/
+    public static final ResourceLocation LOCATION = Cinematic.id("prop/hammer");
+    *///?} else if forge {
+    /*/^* An additional model (ModelEvent.RegisterAdditional), looked up by its plain location in 1.20.1. ^/
+    public static final ResourceLocation LOCATION = Cinematic.id("prop/hammer");
+    *///?}
     private static final float SCALE = 0.30f;
     private static final Vec3 GRIP = new Vec3(0.5, 0.18, 0.5);
     // The lower striking edge of the imported head, relative to the grip, at the -12 degree impact pose.
@@ -26,7 +42,13 @@ public final class HammerModel {
     static final double STRIKE_ACROSS = 0.375 * SCALE;
 
     static BakedModel model() {
+        //? if neoforge {
         return Minecraft.getInstance().getModelManager().getModel(LOCATION);
+        //?} else if fabric {
+        /*return ((net.fabricmc.fabric.api.client.model.loading.v1.FabricBakedModelManager) Minecraft.getInstance().getModelManager()).getModel(LOCATION);
+        *///?} else if forge {
+        /*return Minecraft.getInstance().getModelManager().getModel(LOCATION);
+        *///?}
     }
 
     /** Seen from outside it is a little larger: the arm of the player model is straight, the hammer makes up the reach. */
@@ -67,7 +89,13 @@ public final class HammerModel {
         pose.translate(-GRIP.x, -GRIP.y, -GRIP.z);
         Minecraft.getInstance().getBlockRenderer().getModelRenderer().renderModel(pose.last(),
                 buffers.getBuffer(RenderType.entityCutoutNoCull(InventoryMenu.BLOCK_ATLAS)), null, model(),
+                //? if neoforge {
                 1, 1, 1, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+                //?} else if fabric {
+                /*1, 1, 1, light, OverlayTexture.NO_OVERLAY);
+                *///?} else if forge {
+                /*1, 1, 1, light, OverlayTexture.NO_OVERLAY, ModelData.EMPTY, null);
+                *///?}
         pose.popPose();
     }
 }
