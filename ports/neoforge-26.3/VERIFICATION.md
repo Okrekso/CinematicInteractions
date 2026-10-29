@@ -19,6 +19,14 @@ The final HUD correction was visually verified with the normal hotbar and health
 
 The installed-mod runs included AmbientSounds, CreativeCore, Distant Horizons, Enchanted Fishing Line, Iris, Lithostitched, Punchy, Smooth Player Animations, Smooth Swapping, Sodium, Sound Physics Remastered and Tectonic. The rendering-focused runs used Iris, Sodium, Punchy, Smooth Player Animations and Smooth Swapping. Shader packs were disabled.
 
-Not verified: shader packs, dedicated servers, a real multiplayer connection, every workstation or game setting, and optional JEI/Polymorph/inventory-effect integrations. This remains an unofficial experimental port. An initial restricted-environment launch and a saved-world experimental-settings prompt were resolved by permitting local test networking and using fresh temporary worlds; neither was an interaction-test failure.
+Not verified: other shader packs, dedicated servers, a real multiplayer connection, every workstation or game setting, and optional JEI/Polymorph/inventory-effect integrations. This remains an unofficial experimental port. An initial restricted-environment launch and a saved-world experimental-settings prompt were resolved by permitting local test networking and using fresh temporary worlds; neither was an interaction-test failure.
 
-Playable JAR SHA-256: `02771e0b5562424610a9da9696ddf8c32a367ccdbddd8ce806146e452bc97b4d`
+## Follow-up: Photon 1.4 hover visibility
+
+The intended tabletop occlusion effect fades ingredients blocking a farther cell to 28% opacity. With Iris 1.11.7 and Photon 1.4, copying the original opaque/cutout shader binding caused the faded item to disappear instead of blending. The scene's numeric opacity checks alone did not catch this visual failure.
+
+The NeoForge adapter now selects a translucent Iris binding while retaining the fading pipeline's own render state and vertex layout. Combined glint and special-glint items select their matching translucent item programs. Inventory contents, picking and the 28% target are unchanged.
+
+All 81 crafting checks passed with Photon 1.4 (0 failed). The crafting walkthrough was rerun with the installed mod set, first without a shader pack and then with Photon 1.4. Screenshots were inspected for ordinary cubes, glint cubes, chest rendering and restoration after moving the pointer away. See [before](docs/photon-before.png) and [after](docs/photon-after.png).
+
+Playable port.2 JAR SHA-256: `975982fed9d5dd159232c4eb6e77f40628d137f1dd85c8fdc208640519036da3`

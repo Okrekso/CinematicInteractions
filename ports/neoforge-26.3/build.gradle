@@ -3,7 +3,7 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148'
 }
 
-version = '0.18.30-neoforge26.3-port.1'
+version = '0.18.30-neoforge26.3-port.2'
 group = 'dev.dyslexic.cinematic'
 base.archivesName = 'Cinematic-Interactions-NeoForge-26.3'
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
